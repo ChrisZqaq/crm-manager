@@ -20,7 +20,6 @@ class CatalogTestCase(TestCase):
         cls.product = Product.objects.create(
             brand=cls.brand,
             type=Product.Type.BOOSTER,
-            contains_cards=True,
             series="第一弹",
             name="潮汐",
             language="简体中文",
@@ -105,13 +104,11 @@ class CatalogTestCase(TestCase):
         partial = Product.objects.create(
             brand=self.brand,
             type=Product.Type.MERCHANDISE,
-            contains_cards=False,
             name="潮汐盒纪念品",
         )
         inactive = Product.objects.create(
             brand=self.brand,
             type=Product.Type.MERCHANDISE,
-            contains_cards=False,
             name="潮汐盒停用商品",
             is_active=False,
         )
@@ -140,79 +137,128 @@ class CatalogTestCase(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json()["error"]["code"], "invalid_pagination")
 
-    def test_product_cards_and_language_rules_are_validated(self):
-        missing_choice = Product(
+    def test_product_types_drive_language_validation(self):
+        merchandise = Product(
             brand=self.brand,
             type=Product.Type.MERCHANDISE,
-            name="未确定卡牌",
+            name="钥匙扣",
         )
-        with self.assertRaises(ValidationError):
-            missing_choice.full_clean()
+        merchandise.full_clean()
 
-        card_product = Product(
-            brand=self.brand,
-            type=Product.Type.GIFT_SET,
-            contains_cards=True,
-            name="语言缺失礼盒",
-        )
-        with self.assertRaises(ValidationError):
-            card_product.full_clean()
-
-        invalid_booster = Product(
-            brand=self.brand,
-            type=Product.Type.BOOSTER,
-            contains_cards=False,
-            name="错误补充包",
-            language="简体中文",
-        )
-        with self.assertRaises(ValidationError):
-            invalid_booster.full_clean()
-
-        for product_type in Product.Type.values:
+        for product_type in (Product.Type.BOOSTER, Product.Type.GIFT_SET):
             with self.subTest(product_type=product_type):
+                product = Product(brand=self.brand, type=product_type, name=f"缺少语言-{product_type}")
+                with self.assertRaises(ValidationError) as raised:
+                    product.full_clean()
+                self.assertIn("language", raised.exception.message_dict)
+
+        merchandise = Product.objects.create(
+            brand=self.brand,
+            type=Product.Type.MERCHANDISE,
+            name="可改类型周边",
+        )
+        changed_data = {
+            "brand": self.brand.pk,
+            "type": Product.Type.GIFT_SET,
+            "series": "",
+            "name": merchandise.name,
+            "language": "",
+            "official_code": "",
+            "aliases": "",
+            "is_active": "on",
+        }
+        form = ProductAdminForm(data=changed_data, instance=merchandise)
+        self.assertFalse(form.is_valid())
+        self.assertIn("language", form.errors)
+
+        for product_type in (Product.Type.BOOSTER, Product.Type.GIFT_SET):
+            with self.subTest(database_product_type=product_type):
                 with transaction.atomic():
                     with self.assertRaises(IntegrityError):
                         Product.objects.create(
                             brand=self.brand,
                             type=product_type,
-                            contains_cards=None,
-                            name=f"数据库缺失选择-{product_type}",
-                            language="简体中文",
+                            name=f"数据库缺少语言-{product_type}",
                         )
 
-        with self.assertRaises(IntegrityError), transaction.atomic():
-            Product.objects.create(
-                brand=self.brand,
-                type=Product.Type.BOOSTER,
-                contains_cards=False,
-                name="数据库错误补充包",
-                language="简体中文",
-            )
-        with self.assertRaises(IntegrityError), transaction.atomic():
-            Product.objects.create(
-                brand=self.brand,
-                type=Product.Type.GIFT_SET,
-                contains_cards=True,
-                name="数据库缺失语言礼盒",
-                language="",
-            )
-        Product.objects.create(
+        valid_merchandise = Product.objects.create(
             brand=self.brand,
-            type=Product.Type.BOOSTER,
-            contains_cards=True,
-            name="数据库有效补充包",
-            language="简体中文",
+            type=Product.Type.MERCHANDISE,
+            name="数据库周边",
         )
+        self.assertEqual(valid_merchandise.language, "")
 
-    def test_product_form_shows_existing_cards_choice(self):
+    def test_product_api_and_catalog_use_current_display_labels(self):
         merchandise = Product.objects.create(
             brand=self.brand,
             type=Product.Type.MERCHANDISE,
-            contains_cards=False,
-            name="钥匙扣",
+            name="星海钥匙扣",
         )
-        form = ProductAdminForm(instance=merchandise)
-        self.assertIn('value="false" selected', form["contains_cards"].as_widget())
+        gift_set = Product.objects.create(
+            brand=self.brand,
+            type=Product.Type.GIFT_SET,
+            name="星海预组",
+            language="日文",
+        )
+        slim_sku = SKU.objects.create(
+            product=self.product,
+            code="SEA0002",
+            unit="盒",
+            pack_type=SKU.PackType.SLIM,
+        )
+        fat_sku = SKU.objects.create(
+            product=self.product,
+            code="SEA0003",
+            unit="盒",
+            pack_type=SKU.PackType.FAT,
+        )
+        empty_sku = SKU.objects.create(
+            product=gift_set,
+            code="SEA0004",
+            unit="盒",
+            pack_type=SKU.PackType.EMPTY,
+        )
+        blank_sku = SKU.objects.create(product=merchandise, code="SEA0005", unit="个")
+
+        self.client.force_login(self.make_user(ROLE_SALES))
+        products_response = self.client.get("/api/v1/products")
+        self.assertEqual(products_response.status_code, 200)
+        products = {item["name"]: item for item in products_response.json()["items"]}
+        expected = {
+            self.product.name: (Product.Type.BOOSTER, "补充包"),
+            merchandise.name: (Product.Type.MERCHANDISE, "周边"),
+            gift_set.name: (Product.Type.GIFT_SET, "礼盒·预组"),
+        }
+        for name, (product_type, label) in expected.items():
+            with self.subTest(api_product=name):
+                item = products[name]
+                self.assertEqual((item["type"], item["type_label"]), (product_type, label))
+                self.assertNotIn("contains_cards", item)
+                for sku in item["skus"]:
+                    self.assertNotIn("contains_cards", sku)
+
+        skus_response = self.client.get("/api/v1/skus")
+        self.assertEqual(skus_response.status_code, 200)
+        skus = {item["code"]: item for item in skus_response.json()["items"]}
+        self.assertEqual(skus[slim_sku.code]["pack_type"], SKU.PackType.SLIM)
+        self.assertEqual(skus[slim_sku.code]["pack_type_label"], "瘦包")
+        self.assertEqual(skus[fat_sku.code]["pack_type_label"], "肥包")
+        self.assertEqual(skus[empty_sku.code]["pack_type_label"], "空")
+        self.assertEqual(skus[blank_sku.code]["pack_type"], "")
+        self.assertEqual(skus[blank_sku.code]["pack_type_label"], "")
+        for sku in skus.values():
+            self.assertNotIn("contains_cards", sku)
+            self.assertNotIn("contains_cards", sku["product"])
+
+        catalog = self.client.get("/catalog/")
+        self.assertEqual(catalog.status_code, 200)
+        self.assertContains(catalog, "礼盒·预组")
+        self.assertContains(catalog, "瘦包")
+        self.assertContains(catalog, "肥包")
+        self.assertContains(catalog, "空")
+        self.assertContains(catalog, "—")
+        self.assertNotContains(catalog, ">slim<")
+        self.assertNotContains(catalog, ">fat<")
 
     def test_product_admin_add_edit_series_choice_and_alias_search(self):
         admin_user = User.objects.create_superuser(
@@ -225,11 +271,11 @@ class CatalogTestCase(TestCase):
         self.assertContains(page, '<datalist id="id_product_series_options">', html=False)
         self.assertContains(page, '<option value="第一弹"></option>', html=False)
         self.assertContains(page, 'name="aliases"')
+        self.assertNotContains(page, 'name="contains_cards"')
 
         create_data = {
             "brand": self.brand.pk,
             "type": Product.Type.BOOSTER,
-            "contains_cards": "",
             "series": "第一弹",
             "name": "网页补充包",
             "language": "简体中文",
@@ -241,17 +287,14 @@ class CatalogTestCase(TestCase):
         response = self.client.post(add_url, create_data)
         self.assertEqual(response.status_code, 302)
         product = Product.objects.get(name="网页补充包")
-        self.assertIs(product.contains_cards, True)
         self.assertEqual(product.aliases, ["17.5", "太晶"])
 
         change_url = f"/admin/crm/product/{product.pk}/change/"
         page = self.client.get(change_url)
         self.assertEqual(page.status_code, 200)
         self.assertEqual(page.context["adminform"].form["aliases"].value(), "17.5\n太晶")
-        self.assertIn(
-            'value="true" selected',
-            page.context["adminform"].form["contains_cards"].as_widget(),
-        )
+        self.assertNotIn("contains_cards", page.context["adminform"].form.fields)
+        self.assertNotContains(page, 'name="contains_cards"')
         create_data["aliases"] = "18.0\n勇者"
         response = self.client.post(change_url, create_data)
         self.assertEqual(response.status_code, 302)

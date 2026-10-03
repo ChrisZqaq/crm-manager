@@ -37,11 +37,10 @@ class Product(models.Model):
     class Type(models.TextChoices):
         BOOSTER = "booster", "补充包"
         MERCHANDISE = "merchandise", "周边"
-        GIFT_SET = "gift_set", "礼盒/套装/预组"
+        GIFT_SET = "gift_set", "礼盒·预组"
 
     brand = models.ForeignKey(Brand, verbose_name="IP", on_delete=models.PROTECT, related_name="products")
     type = models.CharField("商品类型", max_length=16, choices=Type.choices)
-    contains_cards = models.BooleanField("含卡牌", null=True, blank=True, default=None)
     series = models.CharField("系列", max_length=120, blank=True)
     name = models.CharField("产品名", max_length=255)
     language = models.CharField("语言版本", max_length=80, blank=True)
@@ -57,13 +56,8 @@ class Product(models.Model):
                 name="crm_product_type_valid",
             ),
             models.CheckConstraint(
-                condition=Q(contains_cards__isnull=False)
-                & (Q(type="booster", contains_cards=True) | Q(type__in=["merchandise", "gift_set"])),
-                name="crm_product_cards_selected",
-            ),
-            models.CheckConstraint(
-                condition=Q(contains_cards=False) | Q(language__gt=""),
-                name="crm_card_product_language_required",
+                condition=~Q(type__in=["booster", "gift_set"]) | Q(language__gt=""),
+                name="crm_product_language_required",
             ),
         ]
 
@@ -78,14 +72,8 @@ class Product(models.Model):
         errors = {}
         if not self.name:
             errors["name"] = "产品名不能为空。"
-        if self.type == self.Type.BOOSTER:
-            if self.contains_cards is False:
-                errors["contains_cards"] = "补充包固定为含卡牌。"
-            self.contains_cards = True
-        elif self.contains_cards is None:
-            errors["contains_cards"] = "请明确选择是否含卡牌。"
-        if self.contains_cards and not self.language:
-            errors["language"] = "含卡牌产品必须填写语言版本。"
+        if self.type in (self.Type.BOOSTER, self.Type.GIFT_SET) and not self.language:
+            errors["language"] = "补充包及礼盒·预组必须填写语言版本。"
         if errors:
             raise ValidationError(errors)
 

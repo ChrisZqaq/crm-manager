@@ -36,7 +36,7 @@
       <option value="">全部</option>
       <option value="booster" {% if request.GET.type == "booster" %}selected{% endif %}>补充包</option>
       <option value="merchandise" {% if request.GET.type == "merchandise" %}selected{% endif %}>周边</option>
-      <option value="gift_set" {% if request.GET.type == "gift_set" %}selected{% endif %}>礼盒/套装/预组</option>
+      <option value="gift_set" {% if request.GET.type == "gift_set" %}selected{% endif %}>礼盒·预组</option>
     </select>
 
     <label for="language">语言</label>
@@ -61,7 +61,7 @@
           <td>{{ item.code }}</td>
           <td>{{ item.unit }}</td>
           <td>{% if item.box_spec %}箱：{{ item.box_spec }}<br>{% endif %}{% if item.pack_spec %}包：{{ item.pack_spec }}{% endif %}</td>
-          <td>{{ item.pack_type|default:"—" }}</td>
+          <td>{{ item.pack_type_label|default:"—" }}</td>
           <td>{{ item.barcode|default:"—" }}</td>
         </tr>
       {% empty %}

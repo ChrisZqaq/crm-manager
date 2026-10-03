@@ -8,14 +8,6 @@ from .models import Product, SKU, Warehouse
 from .permissions import MANAGEABLE_PERMISSIONS, ROLE_NAMES
 
 
-def parse_optional_bool(value):
-    if value in (True, "true"):
-        return True
-    if value in (False, "false"):
-        return False
-    return None
-
-
 class AliasFormMixin:
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -36,15 +28,6 @@ class SeriesTextInput(forms.TextInput):
         return context
 
 
-class OptionalBooleanChoiceField(forms.TypedChoiceField):
-    def prepare_value(self, value):
-        if value is True:
-            return "true"
-        if value is False:
-            return "false"
-        return value
-
-
 class ProductAdminForm(AliasFormMixin, forms.ModelForm):
     series = forms.CharField(
         label="系列",
@@ -56,13 +39,6 @@ class ProductAdminForm(AliasFormMixin, forms.ModelForm):
         required=False,
         widget=forms.Textarea(attrs={"rows": 3}),
         help_text="每行填写一个别名，可留空。",
-    )
-    contains_cards = OptionalBooleanChoiceField(
-        label="是否含卡牌",
-        choices=(("", "请选择"), ("true", "含卡牌"), ("false", "不含卡牌")),
-        coerce=parse_optional_bool,
-        empty_value=None,
-        required=False,
     )
 
     def __init__(self, *args, **kwargs):
@@ -76,7 +52,6 @@ class ProductAdminForm(AliasFormMixin, forms.ModelForm):
         fields = (
             "brand",
             "type",
-            "contains_cards",
             "series",
             "name",
             "language",
@@ -84,18 +59,6 @@ class ProductAdminForm(AliasFormMixin, forms.ModelForm):
             "aliases",
             "is_active",
         )
-
-    def clean(self):
-        cleaned = super().clean()
-        if cleaned.get("type") == Product.Type.BOOSTER:
-            if cleaned.get("contains_cards") is False:
-                self.add_error("contains_cards", "补充包固定为含卡牌。")
-            else:
-                cleaned["contains_cards"] = True
-                self.instance.contains_cards = True
-        elif cleaned.get("contains_cards") is None:
-            self.add_error("contains_cards", "请明确选择是否含卡牌。")
-        return cleaned
 
 
 class SKUAdminForm(AliasFormMixin, forms.ModelForm):

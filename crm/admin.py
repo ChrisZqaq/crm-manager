@@ -42,7 +42,7 @@ class BrandAdmin(ArchiveAdmin):
 @admin.register(Product)
 class ProductAdmin(ArchiveAdmin):
     form = ProductAdminForm
-    list_display = ("name", "brand", "type", "series", "language", "contains_cards", "is_active")
+    list_display = ("name", "brand", "type", "series", "language", "is_active")
     list_filter = ("brand", "type", "is_active")
     search_fields = ("name", "official_code", "series", "brand__name")
 

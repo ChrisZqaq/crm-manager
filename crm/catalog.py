@@ -116,6 +116,7 @@ def _sku_summary(sku):
         "box_spec": sku.box_spec,
         "pack_spec": sku.pack_spec,
         "pack_type": sku.pack_type,
+        "pack_type_label": sku.get_pack_type_display(),
         "barcode": sku.barcode or None,
         "aliases": sku.aliases,
         "is_active": sku.is_active,
@@ -128,7 +129,6 @@ def product_data(product):
         "brand": {"id": product.brand_id, "name": product.brand.name},
         "type": product.type,
         "type_label": product.get_type_display(),
-        "contains_cards": product.contains_cards,
         "series": product.series,
         "name": product.name,
         "language": product.language,
@@ -150,7 +150,6 @@ def sku_data(sku):
             "language": sku.product.language,
             "official_code": sku.product.official_code,
             "aliases": sku.product.aliases,
-            "contains_cards": sku.product.contains_cards,
         },
         "brand": {"id": sku.product.brand_id, "name": sku.product.brand.name},
     }
