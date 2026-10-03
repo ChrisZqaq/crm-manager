@@ -31,7 +31,7 @@
 | PATCH `me/preferences` | birthday_reminder_enabled；只影响本人页面 | 本人 |
 | PATCH `settings/low-stock`、`skus/{id}/low-stock` | 全局enabled、threshold；SKU enabled、nullable threshold，不提供三种模式 | 已确认设置权限 |
 
-基础资料普通增改停用使用框架后台，API不必重复全部CRUD；禁止后台直接改有效库存、成交成本和已确认业务单据。商品`type`为booster、merchandise、gift_set三个固定值，页面对应补充包、周边、礼盒/套装/预组；`contains_cards`校验语言，补充包固定true，其他由人员明确填写。
+基础资料普通增改停用使用框架后台，API不必重复全部CRUD；禁止后台直接改有效库存、成交成本和已确认业务单据。商品`type`为booster、merchandise、gift_set三个固定值，页面对应补充包、周边、礼盒·预组；不提供`contains_cards`字段或选择项；booster及gift_set语言必填，merchandise可空，由人工选择正确类型。
 
 库存无该仓库SKU余额时查询可返回数量0、成本0、均价空值；不可因此允许无货下单。低库存仅对已有库存管理记录判断，不创建所有SKU×仓库笛卡尔积。
 
@@ -39,7 +39,7 @@
 
 | 路径／POST动作 | 最小输入及生效条件 |
 | --- | --- |
-| `opening/preview`、`opening/confirm` | 上传模板、确认产品映射及是否含卡牌；preview返回错误定位和数据摘要；confirm传校验预览标识、操作标识，整批一次入账，成功关闭入口 |
+| `opening/preview`、`opening/confirm` | 上传模板、确认产品映射及商品类型；preview返回错误定位和数据摘要；confirm传校验预览标识、操作标识，整批一次入账，成功关闭入口 |
 | `receipts/preview`、`receipts/confirm` | warehouse_id、supplier_id、可空图片引用、lines[{sku_id,quantity,purchase_price,inbound_freight,reserved_quantity,damaged_quantity,low_stock_threshold}]；摘要零价提示、预留破损校验后一次入库 |
 | `holds`、`holds/{id}/release` | 创建传warehouse_id、sku_id、type=customer_reservation/hoard、quantity、reason；release传quantity、expected_version、operation_key，释放量不超该记录剩余量，不保护指定销售 |
 | `orders` | customer_id可空、channel_id、delivery_mode、address_snapshot、lines[{sku_id,warehouse_id,quantity,sale_price,outbound_freight}]；销售从登录身份取得，同仓SKU先合计检查并占货 |

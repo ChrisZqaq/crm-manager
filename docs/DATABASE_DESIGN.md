@@ -23,7 +23,7 @@
 | 建议表 | 关键字段与关系 | 约束／说明 |
 | --- | --- | --- |
 | brand | 名称、SKU前缀 | IP名称不能空；PK-、RB-已确认，其他前缀由用户指定；第一版人工编号 |
-| product | brand_id、类型、可空系列、名称、语言、官方编号、别名列表 | 类型为“补充包”“周边”“礼盒/套装/预组”三个选项；含卡牌的产品语言必填且无默认值，纯周边（不含卡牌）可空；系列文本；别名建议JSON字符串数组；官方编号非唯一；不按同名强制合并 |
+| product | brand_id、类型、可空系列、名称、语言、官方编号、别名列表 | 类型为“补充包”“周边”“礼盒·预组”三个选项；补充包及礼盒·预组的语言必填且无默认值，周边可空；系列文本；别名建议JSON字符串数组；官方编号非唯一；不按同名强制合并 |
 | sku | product_id、内部编号、箱规格、包规格、包类型、售卖单位、条码、规格别名列表、启用状态 | 内部编号必填唯一；条码为可空非唯一文本，重复需人工确认；不保存参考售价 |
 | warehouse | 名称、地址、启用状态 | 地址不唯一；同名仓库冲突要求人工核对，不能自动合并 |
 | supplier | 名称、启用状态 | 建议最小名称档案，复用选项；单据保留名称快照 |
@@ -40,7 +40,7 @@ SKU增加可空专用预警阈值及提醒关闭标记；一个全局默认阈�
 
 产品→SKU是身份与规格的分离，不增加用户操作层级。模板一行一个SKU，产品重复信息由导入预览明确映射到产品。已有业务的资料保留关联，停用不删除历史。
 
-含卡牌的礼盒等与纯周边不能仅从产品名可靠判断。已批准设计中产品保存一个“是否含卡牌”布尔值，补充包固定为是，其他类型由人员明确确认，语言按该值校验；导入预览补充确认即可，不增加Excel列或额外分类层级。该字段已随技术设计整体批准，不采用名称猜测。
+2026-10-03用户最新决定Q04：不保存“是否含卡牌”布尔值，由人工负责商品分类；纯周边选择周边，含卡牌的礼盒／套装／预组选择礼盒·预组。补充包及礼盒·预组语言必填，周边可空，直接依据类型校验，不增加额外判断选项或导入确认字段；替代原基线中的contains_cards设计。
 
 2026-10-03已确认产品导入映射：IP、类型、系列、产品名、语言及官方编号一致作为同产品候选，人工确认预览后导入；共有信息冲突须核对，不模糊归并、不静默覆盖。这是导入识别规则，不以名称或上述组合强制全局唯一；SKU数量和成本仍独立，不增加模板产品编号列。
 
@@ -144,7 +144,7 @@ erDiagram
 | --- | --- | --- |
 | 原生User／Group／Permission及account_profile | profile.user一对一；birthday_reminder_enabled=true | 复用原生密码会话；仅管理员改superuser；员工停用后禁止新会话及业务动作 |
 | business_control | 固定主键1，last_sequence=0，low_stock_enabled=true，default_threshold=5，opening_completed=false | 单例，由业务服务锁定，不开放普通后台编辑序号；低库存设置独立授权 |
-| product.type、contains_cards | booster／merchandise／gift_set；contains_cards布尔 | booster必须含卡牌；含卡牌时language非空；其他类型由人员明确判断，不猜名称；无多级分类 |
+| product.type | booster／merchandise／gift_set，显示补充包／周边／礼盒·预组；不存contains_cards | booster及gift_set的language非空且无默认值；merchandise可空；由人工选择商品类型，不猜名称；无多级分类 |
 | sku预警 | threshold可空、reminder_enabled=true | threshold≥0；入库留空更新为继承默认，开关单独明确提交；已有SKU单位及产品身份有业务后不允许静默改写历史 |
 | inventory_balance | on_hand、occupied、reserved、hoarded、damaged默认0，cost_amount=0，version=1，quantity_version=1 | 仓库SKU唯一，均非负，四类受限之和≤on_hand，on_hand=0要求cost_amount=0；只改变成本不增quantity_version，在库变化增该版本 |
 | business_operation | sequence唯一；operation_key UUID唯一；actor_id、action、input_hash、payload JSON、created_at；下列具体target外键一项 | receipt/opening_batch/order/hold/split/gift/count/damage_resolution/cost_correction目标恰一非空；动作与目标匹配由服务校验；序号在业务锁内分配 |
