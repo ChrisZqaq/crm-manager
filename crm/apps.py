@@ -1,0 +1,16 @@
+from django.apps import AppConfig
+from django.db.models.signals import post_migrate
+
+
+class CrmConfig(AppConfig):
+    default_auto_field = 'django.db.models.BigAutoField'
+    name = 'crm'
+
+    def ready(self):
+        from .permissions import create_fixed_role_groups
+
+        post_migrate.connect(
+            create_fixed_role_groups,
+            sender=self,
+            dispatch_uid='crm.create_fixed_role_groups',
+        )

@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>商品查询 · CRM</title>
+</head>
+<body>
+  <header>
+    <h1>商品与SKU查询</h1>
+    <span>{{ request.user.get_username }}</span>
+    <form method="post" action="{% url 'logout' %}">
+      {% csrf_token %}
+      <button type="submit">退出登录</button>
+    </form>
+    <a href="{% url 'admin:index' %}">管理后台</a>
+  </header>
+
+  <form method="get">
+    <label for="q">名称、编号、条码或别名</label>
+    <input id="q" name="q" value="{{ request.GET.q }}">
+
+    <label for="brand_id">IP</label>
+    <select id="brand_id" name="brand_id">
+      <option value="">全部</option>
+      {% for brand in brands %}
+        <option value="{{ brand.id }}" {% if request.GET.brand_id == brand.id|stringformat:"s" %}selected{% endif %}>{{ brand.name }}</option>
+      {% endfor %}
+    </select>
+
+    <label for="series">系列</label>
+    <input id="series" name="series" value="{{ request.GET.series }}">
+
+    <label for="type">类型</label>
+    <select id="type" name="type">
+      <option value="">全部</option>
+      <option value="booster" {% if request.GET.type == "booster" %}selected{% endif %}>补充包</option>
+      <option value="merchandise" {% if request.GET.type == "merchandise" %}selected{% endif %}>周边</option>
+      <option value="gift_set" {% if request.GET.type == "gift_set" %}selected{% endif %}>礼盒/套装/预组</option>
+    </select>
+
+    <label for="language">语言</label>
+    <input id="language" name="language" value="{{ request.GET.language }}">
+    <button type="submit">查询</button>
+  </form>
+
+  {% if error %}<p role="alert">{{ error }}</p>{% endif %}
+  <p>共 {{ total }} 个SKU候选；同一查询可返回多个语言、规格或条码候选，不会自动选择。</p>
+  <table>
+    <thead>
+      <tr><th>IP</th><th>产品</th><th>语言</th><th>类型</th><th>系列</th><th>SKU编号</th><th>单位</th><th>规格</th><th>包类型</th><th>条码</th></tr>
+    </thead>
+    <tbody>
+      {% for item in items %}
+        <tr>
+          <td>{{ item.brand.name }}</td>
+          <td>{{ item.product.name }}</td>
+          <td>{{ item.product.language|default:"—" }}</td>
+          <td>{{ item.product.type_label }}</td>
+          <td>{{ item.product.series|default:"—" }}</td>
+          <td>{{ item.code }}</td>
+          <td>{{ item.unit }}</td>
+          <td>{% if item.box_spec %}箱：{{ item.box_spec }}<br>{% endif %}{% if item.pack_spec %}包：{{ item.pack_spec }}{% endif %}</td>
+          <td>{{ item.pack_type|default:"—" }}</td>
+          <td>{{ item.barcode|default:"—" }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="10">没有匹配的SKU。</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  {% if has_previous %}
+    <a href="?q={{ request.GET.q|urlencode }}&brand_id={{ request.GET.brand_id|urlencode }}&series={{ request.GET.series|urlencode }}&type={{ request.GET.type|urlencode }}&language={{ request.GET.language|urlencode }}&page={{ page|add:"-1" }}">上一页</a>
+  {% endif %}
+  {% if has_next %}
+    <a href="?q={{ request.GET.q|urlencode }}&brand_id={{ request.GET.brand_id|urlencode }}&series={{ request.GET.series|urlencode }}&type={{ request.GET.type|urlencode }}&language={{ request.GET.language|urlencode }}&page={{ page|add:1 }}">下一页</a>
+  {% endif %}
+</body>
+</html>

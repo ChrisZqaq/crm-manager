@@ -2,3 +2,8 @@
 .env
 .env.*
 !.env.example
+.venv/
+.local/
+.codebase-memory/
+__pycache__/
+*.py[cod]
