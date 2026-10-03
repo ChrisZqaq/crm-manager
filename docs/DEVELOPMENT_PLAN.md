@@ -83,3 +83,5 @@ uv run python manage.py runserver 127.0.0.1:8000
 负责人补充审查（2026-10-03）：知识图谱梳理实现后，在本地PostgreSQL事务内检查两类别名表单和补充包NULL约束。多行别名不能保存、NULL补充包含卡牌值可直接入库，分别记录D05/D06；负责人复现数据已回滚。
 
 D05/D06开发修复自测提交`8fb5e94ab8ce7c8a2cbf457a7abfb792b061707a`（2026-10-03）：ProductAdminForm与SKUAdminForm直接声明逐行文本别名字段；Django测试客户端访问真实admin新增/编辑页并POST非空多行别名，检查数据库字符串列表、编辑回显、修改保存及搜索命中。商品系列以原文本字段配合HTML datalist列出已有值；SKU包类型页面显示瘦包/肥包中文标签。数据库迁移`0002_remove_product_crm_product_cards_selected_and_more`已应用于本地PostgreSQL 17.11；15个回归用例通过，覆盖所有三类产品的NULL拒绝、补充包False拒绝/True允许、卡牌语言必填及表单补充包自动True。`manage.py check`、`makemigrations --check --dry-run`、`git diff --check`及`uv sync --locked`通过。尚未做真实浏览器人工操作；独立测试需在环境支持时检查最小新增/编辑流程。D05/D06保持阻断、待独立复测与负责人关闭，不推进阶段2。
+
+阶段1待办（2026-10-03，用户新决定Q04）：移除“是否含卡牌”选项及冗余字段，以补充包／周边／礼盒·预组三种商品类型承接人工分类。用户要求等待当前独立测试反馈后再修改；本次只记录，不改变被测应用代码、迁移或测试。测试反馈后先同步关联规格及模板，再派发最小实现变更与复测，阶段1最终验收须覆盖新规则。
