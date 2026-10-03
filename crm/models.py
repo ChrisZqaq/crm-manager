@@ -57,10 +57,8 @@ class Product(models.Model):
                 name="crm_product_type_valid",
             ),
             models.CheckConstraint(
-                condition=(
-                    Q(type="booster", contains_cards=True)
-                    | Q(type__in=["merchandise", "gift_set"], contains_cards__isnull=False)
-                ),
+                condition=Q(contains_cards__isnull=False)
+                & (Q(type="booster", contains_cards=True) | Q(type__in=["merchandise", "gift_set"])),
                 name="crm_product_cards_selected",
             ),
             models.CheckConstraint(

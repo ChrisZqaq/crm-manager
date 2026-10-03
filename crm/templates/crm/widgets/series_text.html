@@ -1,0 +1,6 @@
+{% include "django/forms/widgets/text.html" %}
+<datalist id="{{ widget.attrs.list }}">
+  {% for series in widget.series_options %}
+  <option value="{{ series }}"></option>
+  {% endfor %}
+</datalist>

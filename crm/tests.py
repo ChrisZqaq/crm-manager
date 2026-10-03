@@ -167,6 +167,19 @@ class CatalogTestCase(TestCase):
         )
         with self.assertRaises(ValidationError):
             invalid_booster.full_clean()
+
+        for product_type in Product.Type.values:
+            with self.subTest(product_type=product_type):
+                with transaction.atomic():
+                    with self.assertRaises(IntegrityError):
+                        Product.objects.create(
+                            brand=self.brand,
+                            type=product_type,
+                            contains_cards=None,
+                            name=f"数据库缺失选择-{product_type}",
+                            language="简体中文",
+                        )
+
         with self.assertRaises(IntegrityError), transaction.atomic():
             Product.objects.create(
                 brand=self.brand,
@@ -175,6 +188,21 @@ class CatalogTestCase(TestCase):
                 name="数据库错误补充包",
                 language="简体中文",
             )
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            Product.objects.create(
+                brand=self.brand,
+                type=Product.Type.GIFT_SET,
+                contains_cards=True,
+                name="数据库缺失语言礼盒",
+                language="",
+            )
+        Product.objects.create(
+            brand=self.brand,
+            type=Product.Type.BOOSTER,
+            contains_cards=True,
+            name="数据库有效补充包",
+            language="简体中文",
+        )
 
     def test_product_form_shows_existing_cards_choice(self):
         merchandise = Product.objects.create(
@@ -185,6 +213,105 @@ class CatalogTestCase(TestCase):
         )
         form = ProductAdminForm(instance=merchandise)
         self.assertIn('value="false" selected', form["contains_cards"].as_widget())
+
+    def test_product_admin_add_edit_series_choice_and_alias_search(self):
+        admin_user = User.objects.create_superuser(
+            username="catalog-admin", email="catalog-admin@example.test", password="admin password"
+        )
+        self.client.force_login(admin_user)
+        add_url = "/admin/crm/product/add/"
+        page = self.client.get(add_url)
+        self.assertEqual(page.status_code, 200)
+        self.assertContains(page, '<datalist id="id_product_series_options">', html=False)
+        self.assertContains(page, '<option value="第一弹"></option>', html=False)
+        self.assertContains(page, 'name="aliases"')
+
+        create_data = {
+            "brand": self.brand.pk,
+            "type": Product.Type.BOOSTER,
+            "contains_cards": "",
+            "series": "第一弹",
+            "name": "网页补充包",
+            "language": "简体中文",
+            "official_code": "WEB01",
+            "aliases": "17.5\n太晶",
+            "is_active": "on",
+            "_save": "保存",
+        }
+        response = self.client.post(add_url, create_data)
+        self.assertEqual(response.status_code, 302)
+        product = Product.objects.get(name="网页补充包")
+        self.assertIs(product.contains_cards, True)
+        self.assertEqual(product.aliases, ["17.5", "太晶"])
+
+        change_url = f"/admin/crm/product/{product.pk}/change/"
+        page = self.client.get(change_url)
+        self.assertEqual(page.status_code, 200)
+        self.assertEqual(page.context["adminform"].form["aliases"].value(), "17.5\n太晶")
+        self.assertIn(
+            'value="true" selected',
+            page.context["adminform"].form["contains_cards"].as_widget(),
+        )
+        create_data["aliases"] = "18.0\n勇者"
+        response = self.client.post(change_url, create_data)
+        self.assertEqual(response.status_code, 302)
+        product.refresh_from_db()
+        self.assertEqual(product.aliases, ["18.0", "勇者"])
+        self.assertEqual(search_products({"q": "勇者"})[0]["id"], product.pk)
+
+    def test_sku_admin_add_edit_aliases_search_and_pack_type_labels(self):
+        admin_user = User.objects.create_superuser(
+            username="sku-admin", email="sku-admin@example.test", password="admin password"
+        )
+        self.client.force_login(admin_user)
+        add_url = "/admin/crm/sku/add/"
+        page = self.client.get(add_url)
+        self.assertEqual(page.status_code, 200)
+        self.assertContains(page, 'name="aliases"')
+        self.assertContains(page, "瘦包")
+        self.assertNotContains(page, ">slim<")
+
+        create_data = {
+            "product": self.product.pk,
+            "code": "SEA0002",
+            "box_spec": "",
+            "pack_spec": "20张/包",
+            "pack_type": SKU.PackType.SLIM,
+            "unit": "盒",
+            "barcode": "0099887766",
+            "aliases": "整盒\n特别版",
+            "is_active": "on",
+            "_save": "保存",
+        }
+        response = self.client.post(add_url, create_data)
+        self.assertEqual(response.status_code, 302)
+        sku = SKU.objects.get(code="SEA0002")
+        self.assertEqual(sku.aliases, ["整盒", "特别版"])
+        SKU.objects.create(
+            product=self.product,
+            code="SEA0003",
+            unit="包",
+            pack_type=SKU.PackType.FAT,
+        )
+        listing = self.client.get("/admin/crm/sku/")
+        self.assertContains(listing, "瘦包")
+        self.assertContains(listing, "肥包")
+        self.assertNotContains(listing, ">slim<")
+        self.assertNotContains(listing, ">fat<")
+
+        change_url = f"/admin/crm/sku/{sku.pk}/change/"
+        page = self.client.get(change_url)
+        self.assertEqual(page.status_code, 200)
+        form = page.context["adminform"].form
+        self.assertEqual(form["aliases"].value(), "整盒\n特别版")
+        self.assertIn("瘦包", form["pack_type"].as_widget())
+        self.assertNotIn(">slim<", form["pack_type"].as_widget())
+        create_data["aliases"] = "整盒\n限定"
+        response = self.client.post(change_url, create_data)
+        self.assertEqual(response.status_code, 302)
+        sku.refresh_from_db()
+        self.assertEqual(sku.aliases, ["整盒", "限定"])
+        self.assertEqual(search_skus({"q": "限定"})[0]["id"], sku.pk)
 
     def test_sku_numbers_are_stable_and_barcode_duplicates_need_confirmation(self):
         changed = SKU.objects.get(pk=self.sku.pk)

@@ -17,13 +17,6 @@ def parse_optional_bool(value):
 
 
 class AliasFormMixin:
-    aliases = forms.CharField(
-        label="别名",
-        required=False,
-        widget=forms.Textarea(attrs={"rows": 3}),
-        help_text="每行填写一个别名，可留空。",
-    )
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if not self.is_bound and self.instance.pk:
@@ -32,6 +25,15 @@ class AliasFormMixin:
     def clean_aliases(self):
         values = [value.strip() for value in (self.cleaned_data["aliases"] or "").splitlines()]
         return list(dict.fromkeys(value for value in values if value))
+
+
+class SeriesTextInput(forms.TextInput):
+    template_name = "crm/widgets/series_text.html"
+
+    def get_context(self, name, value, attrs):
+        context = super().get_context(name, value, attrs)
+        context["widget"]["series_options"] = self.series_options
+        return context
 
 
 class OptionalBooleanChoiceField(forms.TypedChoiceField):
@@ -44,6 +46,17 @@ class OptionalBooleanChoiceField(forms.TypedChoiceField):
 
 
 class ProductAdminForm(AliasFormMixin, forms.ModelForm):
+    series = forms.CharField(
+        label="系列",
+        required=False,
+        widget=SeriesTextInput(attrs={"list": "id_product_series_options"}),
+    )
+    aliases = forms.CharField(
+        label="别名",
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 3}),
+        help_text="每行填写一个别名，可留空。",
+    )
     contains_cards = OptionalBooleanChoiceField(
         label="是否含卡牌",
         choices=(("", "请选择"), ("true", "含卡牌"), ("false", "不含卡牌")),
@@ -51,6 +64,12 @@ class ProductAdminForm(AliasFormMixin, forms.ModelForm):
         empty_value=None,
         required=False,
     )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["series"].widget.series_options = list(
+            Product.objects.exclude(series="").order_by("series").values_list("series", flat=True).distinct()
+        )
 
     class Meta:
         model = Product
@@ -80,6 +99,12 @@ class ProductAdminForm(AliasFormMixin, forms.ModelForm):
 
 
 class SKUAdminForm(AliasFormMixin, forms.ModelForm):
+    aliases = forms.CharField(
+        label="别名",
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 3}),
+        help_text="每行填写一个别名，可留空。",
+    )
     confirm_duplicate_barcode = forms.BooleanField(
         label="我已核对重复条码候选，仍确认保存",
         required=False,
