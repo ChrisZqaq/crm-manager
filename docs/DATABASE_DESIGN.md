@@ -14,7 +14,7 @@
 
 已确认SKU编号规则为IP前缀＋至少4位流水号，按IP人工编号、格式校验及全局唯一；语言规格不编码，使用后不改号、不复用。数据库外键使用独立内部ID。未来新编号规则可用于新SKU，历史编号保持有效；不为此预建编号规则引擎或改号工具。
 
-建议金额使用 `NUMERIC(20,3)`，中间计算使用精度28的 Decimal；这只是容量建议，保存3位和舍入规则已经确认。数量使用非负整数，涉及增减的流水允许有符号整数。字段长度和金额容量必须在实现前核对实际样本，不任意设业务硬上限。
+技术总审建议金额使用 `NUMERIC(20,3)`，中间计算使用精度50的Decimal；保存3位和舍入规则已经确认。数量使用非负BIGINT，涉及增减的流水允许有符号BIGINT；溢出明确拒绝，不截断或转浮点。字段长度与容量是技术建议，见第9节，不任意增加业务异常大值审批。
 
 ## 2. 基础资料
 
@@ -23,7 +23,7 @@
 | 建议表 | 关键字段与关系 | 约束／说明 |
 | --- | --- | --- |
 | brand | 名称、SKU前缀 | IP名称不能空；PK-、RB-已确认，其他前缀由用户指定；第一版人工编号 |
-| product | brand_id、类型、可空系列、名称、语言、官方编号、别名列表 | 卡牌语言必填且无默认值，周边可空；系列文本；别名建议JSON字符串数组；官方编号非唯一；不按同名强制合并 |
+| product | brand_id、类型、可空系列、名称、语言、官方编号、别名列表 | 类型为“补充包”“周边”“礼盒/套装/预组”三个选项；含卡牌的产品语言必填且无默认值，纯周边（不含卡牌）可空；系列文本；别名建议JSON字符串数组；官方编号非唯一；不按同名强制合并 |
 | sku | product_id、内部编号、箱规格、包规格、包类型、售卖单位、条码、规格别名列表、启用状态 | 内部编号必填唯一；条码为可空非唯一文本，重复需人工确认；不保存参考售价 |
 | warehouse | 名称、地址、启用状态 | 地址不唯一；同名仓库冲突要求人工核对，不能自动合并 |
 | supplier | 名称、启用状态 | 建议最小名称档案，复用选项；单据保留名称快照 |
@@ -39,6 +39,8 @@ SKU增加可空专用预警阈值及提醒关闭标记；一个全局默认阈�
 低库存全局及SKU提醒默认开启；全局开关与默认阈值由老板／管理员管理，SKU专用阈值及关闭／恢复由仓管、老板／管理员管理，普通销售只查看，兼任仓管时取得SKU设置权限。
 
 产品→SKU是身份与规格的分离，不增加用户操作层级。模板一行一个SKU，产品重复信息由导入预览明确映射到产品。已有业务的资料保留关联，停用不删除历史。
+
+含卡牌的礼盒等与纯周边不能仅从产品名可靠判断。技术草案建议产品保存一个“是否含卡牌”布尔值，补充包固定为是，其他类型由人员明确确认，语言按该值校验；导入预览补充确认即可，不增加Excel列或额外分类层级。该字段呈现随技术设计总审，不采用名称猜测。
 
 2026-10-03已确认产品导入映射：IP、类型、系列、产品名、语言及官方编号一致作为同产品候选，人工确认预览后导入；共有信息冲突须核对，不模糊归并、不静默覆盖。这是导入识别规则，不以名称或上述组合强制全局唯一；SKU数量和成本仍独立，不增加模板产品编号列。
 
@@ -68,8 +70,8 @@ SKU增加可空专用预警阈值及提醒关闭标记；一个全局默认阈�
 | payment_record | order_id、account_id、销售登记金额、截图、可空收款时间、差额原因、核对状态、问题原因、核对人时间、问题暂停标记 | order_id唯一，一单一笔；核对绑定订单应收金额及收款信息版本，不绑定地址备注等无关版本；有关内容修改后原通过结果失效 |
 | shipment | order_id、承运方、运输编号 | 一单多编号；跨越／顺丰运单号、货拉拉平台订单号 |
 | shipment_warehouse | shipment_id、warehouse_id | 关联多个供货仓库，组合唯一；只能关联本订单实际供货仓库 |
-| commission_review | order_id、复核结果、对应金额版本、复核人时间、计入时间、可空纠错审批关联 | 一单当前复核记录；三条件满足时记录正式计入时间；已计入提成纠错保留原计入时间；普通修改使有关复核失效；纠错审批不使未审核订单自动计入 |
-| commission_adjustment | correction_id、order_id、原值、新值、差额、销售确认完成人时间 | 专门保留采购纠错后的补扣对比，不执行转账；多次纠错分别留记录 |
+| commission_review | order_id、复核结果、对应金额版本、最后批准金额、复核人时间、原计入时间、可空纠错审批关联 | 一单当前复核记录；三条件满足时首次计入；已计入普通修改待重审仍保留原日期与旧批准金额，再次通过更新批准金额，不把新计算值当已批准；纠错不使未审核订单自动计入 |
+| commission_adjustment | order_id、原因类型、可空correction_id、原值、新值、差额、确认人时间、销售确认完成人时间 | 复用一张差额表记录采购／期初纠错和已计入后普通修改重新批准的对比；差额为新值减上次批准值；多次批准分别记录，不转账，不重复加到已修正提成汇总 |
 
 出库运费建议存各订单行人工分摊金额，默认0，整单汇总；不能同时把总运费和逐行分摊重复扣毛利。已确认下单默认0，发货／现场交付填写已知运费、未知可后补不阻止出货；录入更改重算本单毛利提成，不改商品及剩余库存成本，已复核需重新复核。
 
@@ -90,6 +92,8 @@ SKU增加可空专用预警阈值及提醒关闭标记；一个全局默认阈�
 | permission_change | 目标用户／角色、变更前后、修改人时间 | 只覆盖已要求的权限变化记录，不扩展所有操作审计 |
 
 已确认库存调整不足覆盖占用／锁定时，先独立修改有关订单或解锁，再审批调整；复用现有单据和权限，不新建联动调整表。审批重新校验当前数量，历史非负校验仍保留。
+
+盘点记录保留实盘数量及采用移动平均或人工输入成本的依据；纠错回放据当时重建余额重新计算盘点差量，不覆盖实盘观测事实，变化进入老板确认预览。
 
 纠错影响预览是审批依据，不另造一套有效库存账。有效金额仍保存回对应业务记录；历史变化通过纠错及提成差额记录解释。流水如何保存重算前后的成本版本须随成本方案确定，不能先写一个只覆盖当前余额的实现。
 
@@ -126,6 +130,47 @@ erDiagram
 - 历史业务外键禁止级联删除；停用资料仍可查看历史。未提交数据的删除能力不据此默认新增。
 - 导出及API在同一查询授权范围执行，不能靠前端隐藏字段或按钮控制。
 
-## 8. 批准前需要确定
+## 8. 总审状态
 
-本稿尚不是可直接执行的DDL。编号格式、条码规则、卡牌语言、产品导入映射、客户联系方式及地址格式、角色默认权限、报表日期口径和提醒开关均已确认；其他IP前缀由用户指定。业务操作输入快照、确定顺序、有效流水与历史成本版本、纠错并发方案仍须补齐和验证，之后才能冻结字段、约束、状态及迁移；见 [文档审查](DOCUMENT_REVIEW.md)。
+本稿是模型实施规格，不是已执行DDL。业务规则已确认，其他IP前缀随用户商品档案提供；具体新增字段、约束及事务算法须连同 [成本执行规格](COST_ENGINE.md)、[API合同](API_CONTRACT.md)、[验收](ACCEPTANCE.md)总审批准后才编码。未实现及未实测内容见 [问题记录](ISSUE_LOG.md)。
+
+## 9. 字段、约束与历史记录补全（技术总审稿）
+
+通用：内部主键BigAutoField；时间为带时区datetime；有效历史外键PROTECT，普通资料停用不删除；业务单据版本正整数从1开始。姓名／名称、内部编号、条码、物流号建议CharField(255)，规格、地址、原因、联系方式使用TextField；列表别名用JSON字符串数组，去空白去本行重复，但不跨商品合并。数量字段BIGINT，金额NUMERIC(20,3)。这些是技术容量，不要求用户逐个参数确认。
+
+表名仅表达模型，采用Django实际表名前缀。下列字段补充前面逻辑表，不另建同名副本。
+
+| 模型／新增字段 | 类型及默认 | 必要约束 |
+| --- | --- | --- |
+| 原生User／Group／Permission及account_profile | profile.user一对一；birthday_reminder_enabled=true | 复用原生密码会话；仅管理员改superuser；员工停用后禁止新会话及业务动作 |
+| business_control | 固定主键1，last_sequence=0，low_stock_enabled=true，default_threshold=5，opening_completed=false | 单例，由业务服务锁定，不开放普通后台编辑序号；低库存设置独立授权 |
+| product.type、contains_cards | booster／merchandise／gift_set；contains_cards布尔 | booster必须含卡牌；含卡牌时language非空；其他类型由人员明确判断，不猜名称；无多级分类 |
+| sku预警 | threshold可空、reminder_enabled=true | threshold≥0；入库留空更新为继承默认，开关单独明确提交；已有SKU单位及产品身份有业务后不允许静默改写历史 |
+| inventory_balance | on_hand、occupied、reserved、hoarded、damaged默认0，cost_amount=0，version=1，quantity_version=1 | 仓库SKU唯一，均非负，四类受限之和≤on_hand，on_hand=0要求cost_amount=0；只改变成本不增quantity_version，在库变化增该版本 |
+| business_operation | sequence唯一；operation_key UUID唯一；actor_id、action、input_hash、payload JSON、created_at；下列具体target外键一项 | receipt/opening_batch/order/hold/split/gift/count/damage_resolution/cost_correction目标恰一非空；动作与目标匹配由服务校验；序号在业务锁内分配 |
+| inventory_movement补全 | operation_id、balance_id、event_kind、entry_key、on_hand_delta及四类受限delta、cost_delta、cost_revision=1；具体来源外键 | operation＋balance＋event_kind＋entry_key唯一；entry_key为该次输入中稳定行ID／拆箱端，实际来源外键恰一；来源FK含锁定记录，不能用任意表名字符串代替 |
+| inventory_hold补全 | initial_quantity、remaining_quantity、type、reason、creator_id、version | 0≤remaining≤initial；释放按具体记录，余额对应数量等于所有未释放记录合计；预留可写普通原因，囤货必须原因 |
+| opening_line补全 | unit_cost、cost_amount、reserved、hoarded、damaged、hoard_reason | quantity≥0，cost_amount=round3(quantity×unit_cost)；受限不重叠；通过确认创建对应hold和damaged记录，不只写余额 |
+| receipt_line补全 | 稳定行ID；quantity、purchase_price、inbound_freight、cost_amount、reserved、damaged | quantity>0，金额非负；reserved＋damaged≤quantity；确认生成受限明细；同SKU多行累计检查，不重复设置冲突阈值 |
+| damaged_record补全 | balance_id、receipt_line/opening_line二选一、original_quantity、remaining_quantity、version | 来源明确，remaining不超过原数量；余额破损数为当前剩余明细合计；原来源更正不得使已处理数量无依据 |
+| damaged_resolution补全 | record_id、kind、quantity、refund_amount可空、deducted_cost、difference、unreturned_freight、operator_id、confirmed_at | exchange退款字段为空；refund实退必填、quantity≤未处理量；difference=扣减成本－退款；不重复相加运费损失 |
+| sales_order补全 | delivery_mode=shipment/on_site；status；customer_name及收件省市地址快照；payment_version=1、amount_version=1、version=1 | payment_version用于应收及收款相关修改；amount_version用于提成计算改变；地址备注不改变这两版；快递必填完整收件，现场散客可空 |
+| sales_order_line补全 | 稳定行ID、active、quantity、sale_price、sale_amount、unit_cost_snapshot、order_cost_amount、outbound_freight=0、inventory_out_cost可空 | quantity>0；未交付inventory_out_cost空而不是0；调整不物理删除已发生行身份，操作输入保留当时行；同仓SKU按合计申请检查 |
+| payment_record补全 | expected_payment_version、verified_version可空、status=pending/problem/passed、paused=false | 订单一对一；图片至少一张才能进入待出库；problem原因非空；更新凭证不清除已有暂停，核对通过才能解除 |
+| commission_review补全 | order一对一、approved_amount可空、approved_amount_version可空、first_earned_at可空、reviewer_id及reviewed_at | 未批准金额为空不默认0；首次三条件齐备才写first_earned_at；已计入重审旧批准金额保留，不能只按当前条件抹掉旧月份金额 |
+| commission_adjustment补全 | approval_operation_id、order_id、kind、可空correction_id、old_amount、new_amount、delta、confirmed_at、completed_by/time可空 | 批准操作＋订单唯一；delta=new-old；同次成本纠错一个订单汇总一条，不逐行重复记录；销售完成仅影响线下处理标记 |
+| document_image | receipt_id/payment_id二选一，未关联暂存时两者均空；owner_id、storage_key、type、size、created_at | 绑定时只能一项非空，关联后按单据授权，路径非公开；已确认每单最多20张、暂存24小时清理；旧已关联凭证保留 |
+| stock_count_line补全 | balance_id、observed_quantity、captured_quantity_version、basis_cost_version、delta、cost_mode=average/manual、manual_unit_cost可空、supplemental_unit_cost可空、supplement_approval_id可空 | 观测数≥0，manual必填；basis_cost_version取balance.version，该版在任何余额字段变化时增，quantity_version仅实物变时增；成本版变化刷新金额不重盘；补充值只来自已批准纠错并保留原cost_mode |
+| cost_correction补全 | receipt_id/opening_batch_id恰一、state=pending/applied/rejected、reason、proposed_input、supplemental_count_costs JSON、before_after JSON、preview_sequence、request_version、submitter/reviewer/time | 一次目标一张采购或一期初批次；单价数量SKU运费受限数可选行更正，采购仓库仅整单改仓；补录历史盘点成本纳入同次老板批准；未批准不覆盖来源及补充有效值，依赖变化重预览 |
+
+业务operation payload以动作的固定字段结构保存，不做任意动态规则；JSON金额是3位字符串、ID字符串、数量整数。解析时校验schema_version=1及动作必需字段，未知版本明确报错，不做自动猜测迁移。
+
+`sales_order.status`固定为awaiting_payment、ready_to_ship、shipped、completed、cancelled；`payment_record.status`独立。履约状态不因财务重审倒退。页面的待复核、待重审等从明确字段推导，不存一套额外可随意编辑的状态机。
+
+销售改订单时稳定保留行ID；删除行标记不活跃，新行新ID，当前汇总只含活跃行，历史operation引用旧行仍可解释。归属转交前的订单使用原salesperson_id及客户名称快照，普通销售不能因此读取已转出的客户档案，但仍可查本人历史订单。
+
+历史成本纠错只替换有效计算结果，`cost_revision`递增；前后值保存在cost_correction，普通客户端无改流水入口。受限数量重建与hold/damaged/current order一致；历史已结束占货不重新进行可售检查，当前受限及所有实际出入库非负仍校验。
+
+索引采用已有唯一索引及最少的order(salesperson_id,submitted_at)、order(status,shipped_at)、customer(owner_id)、movement(balance_id,operation_id)、operation(sequence)、receipt(warehouse_id,confirmed_at)。复核、统计按实际查询补充有证据的索引，不给所有字段建索引。
+
+图片不级联删除文件；修改收款重新上传旧图仍保留关联记录，当前核对凭证集合在payment输入及版本中明确。备份保护业务输入、有效流水、纠错记录与关联图片；日志轮转不清理这些业务数据。
