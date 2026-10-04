@@ -130,12 +130,18 @@ class SKU(models.Model):
         else:
             errors["product"] = "请选择所属产品。"
         if self.pk:
-            previous = SKU.objects.filter(pk=self.pk).values_list("code", flat=True).first()
-            if previous != self.code:
+            previous = SKU.objects.filter(pk=self.pk).values("code", "product_id", "unit").first()
+            if previous and previous["code"] != self.code:
                 errors["code"] = "SKU编号创建后不可修改；停用后也不复用。"
-            previous_product_id = SKU.objects.filter(pk=self.pk).values_list("product_id", flat=True).first()
-            if previous_product_id != self.product_id:
+            if previous and previous["product_id"] != self.product_id:
                 errors["product"] = "SKU创建后不能改挂到其他产品。"
+            if previous and previous["unit"] != self.unit and (
+                InventoryBalance.objects.filter(sku_id=self.pk).exists()
+                or InventoryMovement.objects.filter(balance__sku_id=self.pk).exists()
+                or ReceiptLine.objects.filter(sku_id=self.pk).exists()
+                or OpeningLine.objects.filter(sku_id=self.pk).exists()
+            ):
+                errors["unit"] = "已有库存业务或余额记录，不能修改售卖单位。"
         if errors:
             raise ValidationError(errors)
 

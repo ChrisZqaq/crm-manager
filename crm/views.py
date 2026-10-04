@@ -17,7 +17,7 @@ from io import BytesIO
 from .catalog import CatalogQueryError, paginate, search_products, search_skus, search_warehouses
 from .models import Brand
 from .permissions import CATALOG_VIEW_PERMISSIONS
-from .models import BusinessControl, ReceiptImage, SKU, Supplier, Warehouse
+from .models import BusinessControl, InventoryBalance, ReceiptImage, SKU, Supplier, Warehouse
 from .operations import (
     OperationError,
     confirm_receipt,
@@ -420,12 +420,3 @@ def holds_page(request):
         warehouse__is_active=True, sku__is_active=True
     ).order_by("id")
     return render(request, "crm/holds.html", {"holds": hold_rows(), "balances": balances})
-    return render(
-        request,
-        "crm/catalog.html",
-        {
-            **result_page,
-            "brands": Brand.objects.filter(is_active=True),
-            "error": "",
-        },
-    )

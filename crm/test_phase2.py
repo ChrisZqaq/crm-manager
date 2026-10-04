@@ -15,6 +15,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import close_old_connections
+from django.db.models.query import QuerySet
 from django.test import Client, TransactionTestCase, override_settings
 from django.utils import timezone
 from PIL import Image
@@ -29,6 +30,7 @@ from .models import (
     InventoryHold,
     InventoryMovement,
     OpeningBatch,
+    OpeningLine,
     Product,
     Receipt,
     ReceiptImage,
@@ -190,6 +192,93 @@ class Phase2Base(TransactionTestCase):
         return preview, result
 
 
+class Phase2PageEntryTests(Phase2Base):
+    def test_phase2_html_pages_have_expected_access_and_render(self):
+        anonymous = Client()
+        response = anonymous.get("/holds/")
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/accounts/login/", response["Location"])
+
+        warehouse = Client()
+        warehouse.force_login(self.user)
+        for path in ("/opening/", "/receiving/", "/inventory/", "/holds/"):
+            with self.subTest(path=path):
+                self.assertEqual(warehouse.get(path).status_code, 200)
+
+        owner = Client()
+        owner.force_login(self.owner)
+        self.assertEqual(owner.get("/holds/").status_code, 200)
+
+        unprivileged = self.User.objects.create_user(username="unprivileged-page-test", password="test-only-password")
+        forbidden = Client()
+        forbidden.force_login(unprivileged)
+        self.assertEqual(forbidden.get("/holds/").status_code, 403)
+
+
+class SKUUnitHistoryPhase2Tests(Phase2Base):
+    def _admin_sku_data(self, sku, *, unit):
+        return {
+            "product": sku.product_id,
+            "code": sku.code,
+            "box_spec": sku.box_spec,
+            "inner_box_spec": sku.inner_box_spec,
+            "pack_spec": sku.pack_spec,
+            "pack_type": sku.pack_type,
+            "unit": unit,
+            "barcode": sku.barcode,
+            "aliases": "\n".join(sku.aliases),
+            "is_active": "on",
+            "_save": "保存",
+        }
+
+    def test_admin_allows_new_unit_but_rejects_unit_changes_after_zero_or_positive_stock(self):
+        admin_user = self.User.objects.create_superuser(
+            username="sku-unit-admin", email="sku-unit-admin@example.test", password="test-only-password"
+        )
+        admin = Client()
+        admin.force_login(admin_user)
+
+        new_sku = self.new_sku(2)
+        response = admin.post(
+            f"/admin/crm/sku/{new_sku.pk}/change/",
+            self._admin_sku_data(new_sku, unit="包"),
+        )
+        self.assertEqual(response.status_code, 302)
+        new_sku.refresh_from_db()
+        self.assertEqual(new_sku.unit, "包")
+        self.assertFalse(InventoryBalance.objects.filter(sku=new_sku).exists())
+
+        opening = opening_workbook([product_row()], [stock_row(quantity=0, cost="0.000")])
+        opening_preview = preview_opening(self.owner, opening, "opening.xlsx")
+        self.assertTrue(opening_preview["ready"])
+        confirm_opening(self.owner, uuid4(), opening_preview["preview_token"])
+        opening_balance = InventoryBalance.objects.get(sku=self.sku)
+        self.assertEqual((opening_balance.on_hand, opening_balance.cost_amount), (0, Decimal("0.000")))
+        self.assertTrue(OpeningLine.objects.filter(sku=self.sku).exists())
+
+        response = admin.post(
+            f"/admin/crm/sku/{self.sku.pk}/change/",
+            self._admin_sku_data(self.sku, unit="包"),
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("unit", response.context["adminform"].form.errors)
+        self.sku.refresh_from_db()
+        opening_balance.refresh_from_db()
+        self.assertEqual((self.sku.unit, opening_balance.on_hand, opening_balance.cost_amount), ("盒", 0, Decimal("0.000")))
+
+        self.preview_and_receive(self.receipt_payload(self.sku, quantity_value=5, price="10.000"))
+        balance = InventoryBalance.objects.get(sku=self.sku)
+        response = admin.post(
+            f"/admin/crm/sku/{self.sku.pk}/change/",
+            self._admin_sku_data(self.sku, unit="包"),
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("unit", response.context["adminform"].form.errors)
+        self.sku.refresh_from_db()
+        balance.refresh_from_db()
+        self.assertEqual((self.sku.unit, balance.on_hand, balance.cost_amount), ("盒", 5, Decimal("50.000")))
+
+
 class OpeningPhase2Tests(Phase2Base):
     def setUp(self):
         super().setUp()
@@ -335,6 +424,63 @@ class ReceiptAndHoldPhase2Tests(Phase2Base):
         self.assertEqual((self.sku.low_stock_enabled, self.sku.low_stock_threshold), (False, 0))
         self.assertFalse(inventory_rows(self.owner, {})[0]["low_stock"])
 
+    def test_hold_changes_only_general_version_and_failed_retry_replay_do_not_repeat_versions(self):
+        self.preview_and_receive(self.receipt_payload(self.sku, quantity_value=10, price="10.000"))
+        balance = InventoryBalance.objects.get(warehouse=self.warehouse, sku=self.sku)
+        self.assertEqual((balance.version, balance.quantity_version), (2, 2))
+        physical_state = (balance.on_hand, balance.cost_amount)
+
+        reservation_payload = {
+            "warehouse_id": self.warehouse.pk,
+            "sku_id": self.sku.pk,
+            "type": InventoryHold.Type.CUSTOMER_RESERVATION,
+            "quantity": 4,
+            "reason": "synthetic reservation",
+        }
+        reservation_key = uuid4()
+        reservation = create_hold(self.user, reservation_payload, reservation_key)
+        replayed_reservation = create_hold(self.user, reservation_payload, reservation_key)
+        self.assertEqual(reservation, replayed_reservation)
+
+        hoard_payload = {
+            "warehouse_id": self.warehouse.pk,
+            "sku_id": self.sku.pk,
+            "type": InventoryHold.Type.HOARD,
+            "quantity": 3,
+            "reason": "synthetic hoard",
+        }
+        hoard = create_hold(self.user, hoard_payload, uuid4())
+        balance.refresh_from_db()
+        self.assertEqual((balance.version, balance.quantity_version), (4, 2))
+
+        release_key = uuid4()
+        with self.assertRaises(OperationError) as raised:
+            release_hold(
+                self.user,
+                reservation["hold_id"],
+                {"quantity": 5, "expected_version": 1, "operation_key": str(release_key)},
+            )
+        self.assertEqual(raised.exception.code, "stock_conflict")
+        balance.refresh_from_db()
+        self.assertEqual((balance.version, balance.quantity_version, balance.on_hand, balance.cost_amount), (4, 2, *physical_state))
+
+        release_payload = {"quantity": 2, "expected_version": 1, "operation_key": str(release_key)}
+        released = release_hold(self.user, reservation["hold_id"], release_payload)
+        replayed_release = release_hold(self.user, reservation["hold_id"], release_payload)
+        self.assertEqual(released, replayed_release)
+        balance.refresh_from_db()
+        self.assertEqual((balance.version, balance.quantity_version, balance.on_hand, balance.cost_amount), (5, 2, *physical_state))
+
+        hoard_hold = InventoryHold.objects.get(pk=hoard["hold_id"])
+        release_hoard = release_hold(
+            self.user,
+            hoard_hold.pk,
+            {"quantity": 1, "expected_version": hoard_hold.version, "operation_key": str(uuid4())},
+        )
+        balance.refresh_from_db()
+        self.assertEqual(release_hoard["remaining_quantity"], 2)
+        self.assertEqual((balance.version, balance.quantity_version, balance.on_hand, balance.cost_amount), (6, 2, *physical_state))
+
 
 class PostgreSQLConcurrencyPhase2Tests(Phase2Base):
     def test_concurrent_first_receipts_create_one_balance_and_stale_preview_is_rejected(self):
@@ -427,12 +573,27 @@ class PostgreSQLConcurrencyPhase2Tests(Phase2Base):
 
 
 class ImageAndLoggingPhase2Tests(Phase2Base):
+    def setUp(self):
+        super().setUp()
+        self.media_directory = tempfile.TemporaryDirectory(prefix="aluola-crm-phase2-test-")
+        self.addCleanup(self.media_directory.cleanup)
+        self.media_settings = override_settings(MEDIA_ROOT=self.media_directory.name)
+        self.media_settings.enable()
+        self.addCleanup(self.media_settings.disable)
+
     def _png(self):
         buffer = io.BytesIO()
         Image.new("RGB", (2, 2), color=(1, 2, 3)).save(buffer, format="PNG")
         return buffer.getvalue()
 
-    @override_settings(MEDIA_ROOT="/tmp/aluola-crm-phase2-media")
+    def _upload_image(self, client):
+        response = client.post(
+            "/api/v1/images",
+            {"file": SimpleUploadedFile("proof.png", self._png(), content_type="image/png")},
+        )
+        self.assertEqual(response.status_code, 200, response.content)
+        return ReceiptImage.objects.get(pk=int(response.json()["image_id"]))
+
     def test_receipt_images_are_decoded_private_and_authorized(self):
         client = Client()
         client.force_login(self.user)
@@ -459,6 +620,81 @@ class ImageAndLoggingPhase2Tests(Phase2Base):
         sales_client = Client()
         sales_client.force_login(sales)
         self.assertEqual(sales_client.get(f"/api/v1/images/{image.pk}").status_code, 403)
+
+    def test_image_upload_limit_and_receipt_allows_20_but_rejects_21(self):
+        client = Client()
+        client.force_login(self.user)
+        oversized = SimpleUploadedFile(
+            "too-large.png", b"\0" * (10 * 1024 * 1024 + 1), content_type="image/png"
+        )
+        response = client.post("/api/v1/images", {"file": oversized})
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(ReceiptImage.objects.count(), 0)
+
+        image_ids = [self._upload_image(client).pk for _ in range(21)]
+        payload = self.receipt_payload(self.sku, quantity_value=1, price="1.000")
+        payload["image_ids"] = image_ids[:20]
+        self.assertEqual(preview_receipt(self.user, payload)["line_count"], 1)
+        payload["image_ids"] = image_ids
+        with self.assertRaises(OperationError) as raised:
+            preview_receipt(self.user, payload)
+        self.assertIn("最多关联20张图片", str(raised.exception))
+
+    def test_unbound_image_is_accessible_only_to_its_uploading_user(self):
+        uploader = Client()
+        uploader.force_login(self.user)
+        image = self._upload_image(uploader)
+        self.assertIsNone(image.receipt_id)
+        self.assertEqual(uploader.get(f"/api/v1/images/{image.pk}").status_code, 200)
+
+        other_user = Client()
+        other_user.force_login(self.owner)
+        self.assertEqual(other_user.get(f"/api/v1/images/{image.pk}").status_code, 404)
+
+    def test_failed_image_binding_rolls_back_receipt_and_preserves_existing_image_links(self):
+        client = Client()
+        client.force_login(self.user)
+        linked_image = self._upload_image(client)
+        first_payload = self.receipt_payload(self.sku, quantity_value=1, price="1.000")
+        first_payload["image_ids"] = [linked_image.pk]
+        first_preview = preview_receipt(self.user, first_payload)
+        first_receipt_result = confirm_receipt(self.user, uuid4(), first_preview["preview_token"])
+        linked_image.refresh_from_db()
+        self.assertEqual(linked_image.receipt_id, first_receipt_result["receipt_id"])
+
+        pending_image = self._upload_image(client)
+        second_payload = self.receipt_payload(self.sku, quantity_value=2, price="2.000")
+        second_payload["image_ids"] = [pending_image.pk]
+        second_preview = preview_receipt(self.user, second_payload)
+        operation_key = uuid4()
+        original_update = QuerySet.update
+
+        def fail_after_image_update(queryset, **kwargs):
+            result = original_update(queryset, **kwargs)
+            if queryset.model is ReceiptImage and "receipt" in kwargs:
+                raise RuntimeError("synthetic image-binding failure")
+            return result
+
+        with self.assertLogs("crm.business", level="ERROR"):
+            with patch.object(QuerySet, "update", new=fail_after_image_update):
+                with self.assertRaisesRegex(RuntimeError, "image-binding"):
+                    confirm_receipt(self.user, operation_key, second_preview["preview_token"])
+
+        linked_image.refresh_from_db()
+        pending_image.refresh_from_db()
+        balance = InventoryBalance.objects.get(warehouse=self.warehouse, sku=self.sku)
+        self.assertEqual((Receipt.objects.count(), ReceiptLine.objects.count(), BusinessOperation.objects.count()), (1, 1, 1))
+        self.assertEqual((balance.on_hand, balance.cost_amount, BusinessControl.objects.get(pk=1).last_sequence), (1, Decimal("1.000"), 1))
+        self.assertEqual(linked_image.receipt_id, first_receipt_result["receipt_id"])
+        self.assertIsNone(pending_image.receipt_id)
+
+        retried = confirm_receipt(self.user, operation_key, second_preview["preview_token"])
+        linked_image.refresh_from_db()
+        pending_image.refresh_from_db()
+        self.assertEqual(Receipt.objects.count(), 2)
+        self.assertEqual(retried["line_count"], 1)
+        self.assertEqual(linked_image.receipt_id, first_receipt_result["receipt_id"])
+        self.assertEqual(pending_image.receipt_id, retried["receipt_id"])
 
     def test_orphan_cleanup_and_log_rotation_retention(self):
         client = Client()

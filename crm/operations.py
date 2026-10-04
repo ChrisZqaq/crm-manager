@@ -621,8 +621,7 @@ def create_hold(actor, data, operation_key, request_id=""):
                 balance.hoarded += hold.remaining_quantity
                 reserved_delta, hoarded_delta = 0, hold.remaining_quantity
             balance.version += 1
-            balance.quantity_version += 1
-            balance.save(update_fields=("reserved", "hoarded", "version", "quantity_version"))
+            balance.save(update_fields=("reserved", "hoarded", "version"))
             InventoryMovement.objects.create(
                 operation=operation,
                 balance=balance,
@@ -699,8 +698,7 @@ def release_hold(actor, hold_id, data, request_id=""):
                 balance.hoarded -= normalized["quantity"]
                 reserved_delta, hoarded_delta = 0, -normalized["quantity"]
             balance.version += 1
-            balance.quantity_version += 1
-            balance.save(update_fields=("reserved", "hoarded", "version", "quantity_version"))
+            balance.save(update_fields=("reserved", "hoarded", "version"))
             InventoryMovement.objects.create(
                 operation=operation,
                 balance=balance,
