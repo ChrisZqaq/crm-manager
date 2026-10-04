@@ -79,6 +79,7 @@ class SKUAdminForm(AliasFormMixin, forms.ModelForm):
             "product",
             "code",
             "box_spec",
+            "inner_box_spec",
             "pack_spec",
             "pack_type",
             "unit",

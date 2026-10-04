@@ -98,6 +98,7 @@ class SKU(models.Model):
     product = models.ForeignKey(Product, verbose_name="产品", on_delete=models.PROTECT, related_name="skus")
     code = models.CharField("内部SKU编号", max_length=255, unique=True)
     box_spec = models.TextField("箱规格说明", blank=True)
+    inner_box_spec = models.TextField("盒规格说明", blank=True, default="")
     pack_spec = models.TextField("包规格说明", blank=True)
     pack_type = models.CharField("包类型", max_length=8, choices=PackType.choices, blank=True, default="")
     unit = models.CharField("售卖单位", max_length=80)

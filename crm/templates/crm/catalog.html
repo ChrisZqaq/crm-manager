@@ -60,7 +60,7 @@
           <td>{{ item.product.series|default:"—" }}</td>
           <td>{{ item.code }}</td>
           <td>{{ item.unit }}</td>
-          <td>{% if item.box_spec %}箱：{{ item.box_spec }}<br>{% endif %}{% if item.pack_spec %}包：{{ item.pack_spec }}{% endif %}</td>
+          <td>{% if item.box_spec %}箱：{{ item.box_spec }}<br>{% endif %}{% if item.inner_box_spec %}盒：{{ item.inner_box_spec }}<br>{% endif %}{% if item.pack_spec %}包：{{ item.pack_spec }}{% endif %}</td>
           <td>{{ item.pack_type_label|default:"—" }}</td>
           <td>{{ item.barcode|default:"—" }}</td>
         </tr>

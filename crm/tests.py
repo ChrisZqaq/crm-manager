@@ -260,6 +260,53 @@ class CatalogTestCase(TestCase):
         self.assertNotContains(catalog, ">slim<")
         self.assertNotContains(catalog, ">fat<")
 
+    def test_sku_inner_box_spec_stays_separate_in_search_catalog_and_api(self):
+        twenty_boxes = SKU.objects.create(
+            product=self.product,
+            code="SEA0006",
+            unit="盒",
+            box_spec="20中盒/箱",
+            inner_box_spec="18包/中盒",
+            pack_spec="4张/包",
+        )
+        forty_boxes = SKU.objects.create(
+            product=self.product,
+            code="SEA0007",
+            unit="盒",
+            box_spec="40中盒/箱",
+            inner_box_spec="18包/中盒",
+            pack_spec="4张/包",
+        )
+
+        self.assertEqual(
+            {item["code"] for item in search_skus({"q": "18包/中盒"})},
+            {twenty_boxes.code, forty_boxes.code},
+        )
+
+        self.client.force_login(self.make_user(ROLE_SALES))
+        products = self.client.get("/api/v1/products").json()["items"]
+        product = next(item for item in products if item["id"] == self.product.pk)
+        embedded_skus = {item["code"]: item for item in product["skus"]}
+        skus = self.client.get("/api/v1/skus").json()["items"]
+        api_skus = {item["code"]: item for item in skus}
+
+        for sku, box_spec in ((twenty_boxes, "20中盒/箱"), (forty_boxes, "40中盒/箱")):
+            with self.subTest(code=sku.code):
+                for item in (embedded_skus[sku.code], api_skus[sku.code]):
+                    self.assertEqual(item["box_spec"], box_spec)
+                    self.assertEqual(item["inner_box_spec"], "18包/中盒")
+                    self.assertEqual(item["pack_spec"], "4张/包")
+
+        catalog = self.client.get("/catalog/")
+        self.assertEqual(catalog.status_code, 200)
+        catalog_items = {item["code"]: item for item in catalog.context["items"]}
+        self.assertEqual(catalog_items[twenty_boxes.code]["box_spec"], "20中盒/箱")
+        self.assertEqual(catalog_items[forty_boxes.code]["box_spec"], "40中盒/箱")
+        self.assertContains(catalog, "箱：20中盒/箱")
+        self.assertContains(catalog, "盒：18包/中盒")
+        self.assertContains(catalog, "包：4张/包")
+        self.assertContains(catalog, "箱：40中盒/箱")
+
     def test_product_admin_add_edit_series_choice_and_alias_search(self):
         admin_user = User.objects.create_superuser(
             username="catalog-admin", email="catalog-admin@example.test", password="admin password"
@@ -311,14 +358,16 @@ class CatalogTestCase(TestCase):
         page = self.client.get(add_url)
         self.assertEqual(page.status_code, 200)
         self.assertContains(page, 'name="aliases"')
+        self.assertContains(page, 'name="inner_box_spec"')
         self.assertContains(page, "瘦包")
         self.assertNotContains(page, ">slim<")
 
         create_data = {
             "product": self.product.pk,
             "code": "SEA0002",
-            "box_spec": "",
-            "pack_spec": "20张/包",
+            "box_spec": "20中盒/箱",
+            "inner_box_spec": "18包/中盒",
+            "pack_spec": "4张/包",
             "pack_type": SKU.PackType.SLIM,
             "unit": "盒",
             "barcode": "0099887766",
@@ -330,6 +379,7 @@ class CatalogTestCase(TestCase):
         self.assertEqual(response.status_code, 302)
         sku = SKU.objects.get(code="SEA0002")
         self.assertEqual(sku.aliases, ["整盒", "特别版"])
+        self.assertEqual(sku.inner_box_spec, "18包/中盒")
         SKU.objects.create(
             product=self.product,
             code="SEA0003",
@@ -347,14 +397,32 @@ class CatalogTestCase(TestCase):
         self.assertEqual(page.status_code, 200)
         form = page.context["adminform"].form
         self.assertEqual(form["aliases"].value(), "整盒\n特别版")
+        self.assertEqual(form["inner_box_spec"].value(), "18包/中盒")
         self.assertIn("瘦包", form["pack_type"].as_widget())
         self.assertNotIn(">slim<", form["pack_type"].as_widget())
         create_data["aliases"] = "整盒\n限定"
+        create_data["inner_box_spec"] = "20包/中盒"
         response = self.client.post(change_url, create_data)
         self.assertEqual(response.status_code, 302)
         sku.refresh_from_db()
         self.assertEqual(sku.aliases, ["整盒", "限定"])
+        self.assertEqual(sku.inner_box_spec, "20包/中盒")
         self.assertEqual(search_skus({"q": "限定"})[0]["id"], sku.pk)
+
+        blank_data = {
+            **create_data,
+            "code": "SEA0008",
+            "box_spec": "",
+            "inner_box_spec": "",
+            "pack_spec": "",
+            "pack_type": "",
+            "unit": "盒",
+            "barcode": "",
+            "aliases": "",
+        }
+        response = self.client.post(add_url, blank_data)
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(SKU.objects.get(code="SEA0008").inner_box_spec, "")
 
     def test_sku_numbers_are_stable_and_barcode_duplicates_need_confirmation(self):
         changed = SKU.objects.get(pk=self.sku.pk)
