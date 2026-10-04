@@ -35,7 +35,7 @@ from .operations import (
     set_operation_document_id,
 )
 from .permissions import ROLE_OWNER, ROLE_WAREHOUSE
-from .sales import _balance_query, sales_order_queryset_for
+from .sales import _balance_query, sales_order_commission_visible_to, sales_order_queryset_for
 
 
 def _version(data):
@@ -163,10 +163,10 @@ def register_payment(actor, order_id, data, request_id=""):
         with transaction.atomic():
             control = _lock_control()
             _require(actor, "register_payment")
+            order = _locked_order(actor, order_id, changing=True)
             replay = _operation_replay(actor, key, action, input_hash)
             if replay is not None:
                 return replay
-            order = _locked_order(actor, order_id)
             _expected_version(order, expected_version)
             if order.status == SalesOrder.Status.CANCELLED:
                 raise OperationError("已取消订单不能登记收款。", status=409, code="state_conflict")
@@ -266,16 +266,16 @@ def verify_payment(actor, order_id, data, request_id=""):
         with transaction.atomic():
             control = _lock_control()
             _require(actor, "verify_payment")
-            replay = _operation_replay(actor, key, action, input_hash)
-            if replay is not None:
-                return replay
             order = _locked_order(actor, order_id)
-            _expected_version(order, expected_version)
             payment = PaymentRecord.objects.select_for_update().filter(order=order).first()
             if payment is None:
                 raise OperationError("订单尚无收款凭证。", status=409, code="state_conflict")
             if not _can_verify(actor, payment.account):
                 raise OperationError("当前账号不负责核对该收款账户。", status=403, code="permission_denied")
+            replay = _operation_replay(actor, key, action, input_hash)
+            if replay is not None:
+                return replay
+            _expected_version(order, expected_version)
             if payment.expected_payment_version != order.payment_version:
                 raise OperationError("收款信息已失效，请先重新登记。", status=409, code="stale_payment")
             payment.status = result_status
@@ -500,10 +500,10 @@ def ship_sales_order(actor, order_id, data, request_id=""):
         with transaction.atomic():
             control = _lock_control()
             _require(actor, "ship_salesorder")
+            order = _locked_order(actor, order_id)
             replay = _operation_replay(actor, key, action, input_hash)
             if replay is not None:
                 return replay
-            order = _locked_order(actor, order_id)
             return _perform_fulfillment(actor, order, key, action, normalized, input_hash, control, onsite=False)
 
     return _run_write(action, actor, request_id, write)
@@ -523,10 +523,10 @@ def deliver_on_site(actor, order_id, data, request_id=""):
         with transaction.atomic():
             control = _lock_control()
             _require(actor, "deliver_on_site")
+            order = _locked_order(actor, order_id)
             replay = _operation_replay(actor, key, action, input_hash)
             if replay is not None:
                 return replay
-            order = _locked_order(actor, order_id)
             return _perform_fulfillment(actor, order, key, action, normalized, input_hash, control, onsite=True)
 
     return _run_write(action, actor, request_id, write)
@@ -547,12 +547,12 @@ def receive_sales_order(actor, order_id, data, request_id=""):
         with transaction.atomic():
             control = _lock_control()
             _require(actor, "confirm_salesorder_receipt")
-            replay = _operation_replay(actor, key, action, input_hash)
-            if replay is not None:
-                return replay
             order = _locked_order(actor, order_id)
             if actor.pk != order.salesperson_id:
                 raise OperationError("只有订单所属销售可以确认收货。", status=403, code="permission_denied")
+            replay = _operation_replay(actor, key, action, input_hash)
+            if replay is not None:
+                return replay
             _expected_version(order, expected_version)
             if order.delivery_mode != SalesOrder.DeliveryMode.SHIPMENT or order.status != SalesOrder.Status.SHIPPED:
                 raise OperationError("只有已发货的快递订单可以确认收货。", status=409, code="state_conflict")
@@ -605,6 +605,13 @@ def update_outbound_freight(actor, order_id, data, request_id=""):
     return _run_write(action, actor, request_id, write)
 
 
+def _commission_review_result_for(actor, order, result):
+    if sales_order_commission_visible_to(actor, order):
+        return result
+    hidden_fields = {"approved_amount", "first_earned_at", "adjustment_id", "delta"}
+    return {key: value for key, value in result.items() if key not in hidden_fields}
+
+
 def review_commission(actor, order_id, data, request_id=""):
     _require(actor, "review_commission")
     order_id = identifier(order_id, "order_id")
@@ -620,10 +627,10 @@ def review_commission(actor, order_id, data, request_id=""):
         with transaction.atomic():
             control = _lock_control()
             _require(actor, "review_commission")
+            order = _locked_order(actor, order_id)
             replay = _operation_replay(actor, key, action, input_hash)
             if replay is not None:
-                return replay
-            order = _locked_order(actor, order_id)
+                return _commission_review_result_for(actor, order, replay)
             _expected_version(order, expected_version)
             if order.status != SalesOrder.Status.COMPLETED:
                 raise OperationError("订单完成后才能复核提成。", status=409, code="state_conflict")
@@ -665,15 +672,19 @@ def review_commission(actor, order_id, data, request_id=""):
                 delta=delta,
                 confirmed_at=now,
             )
+            result_fields = {"amount_version": review.approved_amount_version}
+            if sales_order_commission_visible_to(actor, order):
+                result_fields.update({
+                    "approved_amount": f"{review.approved_amount:.3f}",
+                    "first_earned_at": review.first_earned_at.isoformat(),
+                    "adjustment_id": adjustment.pk,
+                    "delta": f"{delta:.3f}",
+                })
             return _finish_operation(
                 operation,
                 order,
                 order.status,
-                approved_amount=f"{review.approved_amount:.3f}",
-                first_earned_at=review.first_earned_at.isoformat(),
-                adjustment_id=adjustment.pk,
-                delta=f"{delta:.3f}",
-                amount_version=review.approved_amount_version,
+                **result_fields,
             )
 
     return _run_write(action, actor, request_id, write)
@@ -694,9 +705,6 @@ def complete_commission_adjustment(actor, adjustment_id, data, request_id=""):
         with transaction.atomic():
             control = _lock_control()
             _require(actor, "complete_commission_adjustment")
-            replay = _operation_replay(actor, key, action, input_hash)
-            if replay is not None:
-                return replay
             order_id = CommissionAdjustment.objects.filter(pk=adjustment_id).values_list("order_id", flat=True).first()
             if order_id is None:
                 raise OperationError("提成差额记录不存在。", status=404, code="not_found")
@@ -706,6 +714,9 @@ def complete_commission_adjustment(actor, adjustment_id, data, request_id=""):
                 raise OperationError("提成差额记录不存在。", status=404, code="not_found")
             if actor.pk != order.salesperson_id:
                 raise OperationError("只有该订单销售可以登记线下处理完成。", status=403, code="permission_denied")
+            replay = _operation_replay(actor, key, action, input_hash)
+            if replay is not None:
+                return replay
             _expected_version(order, expected_version)
             if adjustment.completed_at is not None:
                 raise OperationError("该差额已登记完成。", status=409, code="state_conflict")

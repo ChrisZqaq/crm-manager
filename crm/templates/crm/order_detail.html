@@ -6,7 +6,7 @@
   <p>状态：{{ order.get_status_display }}；交付方式：{{ order.get_delivery_mode_display }}；销售：{{ order.salesperson.get_username }}；渠道：{{ order.channel.name }}</p>
   <p>客户：{{ order.customer_name_snapshot|default:"现场客户" }}；收件人：{{ order.recipient_snapshot|default:"—" }}；联系方式：{{ order.contact_snapshot|default:"—" }}</p>
   <p>地址：{{ order.province_snapshot }} {{ order.city_snapshot }} {{ order.detail_snapshot }}</p>
-  <p>收入 {{ order.revenue_amount }} · 成本 {{ order.cost_amount }} · 毛利 {{ order.margin_amount }} · 提成预估 {{ order.commission_estimate }}</p>
+  <p>收入 {{ order.revenue_amount }} · 成本 {{ order.cost_amount }} · 毛利 {{ order.margin_amount }}{% if can_view_commission %} · 提成预估 {{ order.commission_estimate }}{% endif %}</p>
   <p>备注：{{ order.remarks|default:"—" }}</p>
   {% if initial.payment %}
     <section>
@@ -21,18 +21,18 @@
       {% for shipment in initial.shipments %}<li>{{ shipment.carrier_label }} · {{ shipment.tracking_number }} · 仓库：{% for warehouse in shipment.warehouses %}{{ warehouse.name }}{% if not forloop.last %}、{% endif %}{% endfor %}</li>{% endfor %}
     </ul></section>
   {% endif %}
-  {% if initial.commission_review %}
+  {% if can_view_commission and initial.commission_review %}
     <p>正式核定提成：{{ initial.commission_review.approved_amount|default:"尚未核定" }}；首次计入：{{ initial.commission_review.first_earned_at|default:"—" }}；{% if initial.commission_review.needs_review %}当前金额待复核{% else %}当前金额已复核{% endif %}</p>
   {% endif %}
   <table><thead><tr><th>SKU</th><th>仓库</th><th>数量</th><th>单价</th><th>收入</th><th>成本单价快照</th><th>成本合计</th><th>出库运费</th></tr></thead><tbody>
     {% for line in initial.lines %}<tr><td>{{ line.sku_code }}</td><td>{{ line.warehouse }}</td><td>{{ line.quantity }}</td><td>{{ line.unit_price }}</td><td>{{ line.revenue_amount }}</td><td>{{ line.unit_cost_snapshot }}</td><td>{{ line.order_cost_amount }}</td><td>{{ line.outbound_freight }}</td></tr>{% empty %}<tr><td colspan="8">暂无明细。</td></tr>{% endfor %}
   </tbody></table>
   {% if order.status == "awaiting_payment" or order.status == "ready_to_ship" %}
-    {% if perms.crm.change_salesorder or request.user.is_superuser %}<p><a href="{% url 'order-edit' order.pk %}">修改订单</a></p>{% endif %}
-    {% if perms.crm.cancel_salesorder or request.user.is_superuser %}<button id="cancel" type="button">取消订单并释放占货</button>{% endif %}
+    {% if can_edit_sales_order %}<p><a href="{% url 'order-edit' order.pk %}">修改订单</a></p>{% endif %}
+    {% if can_cancel_sales_order %}<button id="cancel" type="button">取消订单并释放占货</button>{% endif %}
   {% endif %}
 
-  {% if perms.crm.register_payment or request.user.is_superuser %}
+  {% if can_register_payment %}
     {% if order.status != "cancelled" %}
       <section>
         <h2>登记或更新收款</h2>
@@ -83,7 +83,7 @@
     </section>
   {% endif %}
 
-  {% if order.status == "shipped" and perms.crm.confirm_salesorder_receipt or order.status == "shipped" and request.user.is_superuser %}
+  {% if order.status == "shipped" and can_confirm_salesorder_receipt %}
     <section>
       <h2>确认收货</h2>
       <form id="receive-form">
@@ -105,13 +105,13 @@
     {% endif %}
   {% endif %}
 
-  {% if order.status == "completed" and perms.crm.review_commission or order.status == "completed" and request.user.is_superuser %}
+  {% if order.status == "completed" and can_view_commission and perms.crm.review_commission or order.status == "completed" and can_view_commission and request.user.is_superuser %}
     <section><h2>提成复核</h2><p>当前计算金额：{{ order.commission_estimate }}；金额版本：{{ order.amount_version }}</p>
       {% if not initial.commission_review or initial.commission_review.needs_review %}<button id="review-commission" type="button">复核当前提成</button>{% endif %}
     </section>
   {% endif %}
 
-  {% if perms.crm.complete_commission_adjustment or request.user.is_superuser %}
+  {% if can_complete_commission_adjustment %}
     {% if initial.commission_adjustments %}
       <section><h2>提成差额（线下处理登记）</h2><ul id="commission-adjustments">
         {% for item in initial.commission_adjustments %}<li>{{ item.kind_label }}：{{ item.old_amount }} → {{ item.new_amount }}，差额 {{ item.delta }}；{% if item.completed_at %}已登记完成{% else %}<button class="complete-adjustment" data-id="{{ item.id }}" type="button">标记线下处理完成</button>{% endif %}</li>{% endfor %}

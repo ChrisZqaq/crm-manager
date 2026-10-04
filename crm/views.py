@@ -68,6 +68,7 @@ from .sales import (
     create_customer,
     customer_queryset_for,
     preview_sales_order,
+    sales_order_commission_visible_to,
     sales_order_queryset_for,
     transfer_customer,
     update_birthday_preference,
@@ -503,10 +504,11 @@ def _customer_data(customer, *, birthday_today=False):
     }
 
 
-def _sales_order_data(order):
+def _sales_order_data(order, actor):
     payment = getattr(order, "payment_record", None)
-    commission = getattr(order, "commission_review", None)
-    return {
+    commission_visible = sales_order_commission_visible_to(actor, order)
+    commission = getattr(order, "commission_review", None) if commission_visible else None
+    data = {
         "id": order.pk,
         "sequence": order.last_sequence,
         "salesperson_id": order.salesperson_id,
@@ -526,7 +528,6 @@ def _sales_order_data(order):
         "revenue_amount": f"{order.revenue_amount:.3f}",
         "cost_amount": f"{order.cost_amount:.3f}",
         "margin_amount": f"{order.margin_amount:.3f}",
-      "commission_estimate": f"{order.commission_estimate:.3f}",
       "version": order.version,
       "amount_version": order.amount_version,
       "payment_version": order.payment_version,
@@ -548,13 +549,6 @@ def _sales_order_data(order):
           "image_ids": list(payment.images.values_list("pk", flat=True)),
           "version": payment.version,
       },
-      "commission_review": None if commission is None else {
-          "approved_amount": f"{commission.approved_amount:.3f}" if commission.approved_amount is not None else None,
-          "approved_amount_version": commission.approved_amount_version,
-          "first_earned_at": commission.first_earned_at.isoformat() if commission.first_earned_at else None,
-          "reviewed_at": commission.reviewed_at.isoformat() if commission.reviewed_at else None,
-          "needs_review": commission.approved_amount is None or commission.approved_amount_version != order.amount_version,
-      },
       "shipments": [
           {
               "id": shipment.pk,
@@ -564,19 +558,6 @@ def _sales_order_data(order):
               "warehouses": [{"id": warehouse.pk, "name": warehouse.name} for warehouse in shipment.warehouses.all()],
           }
           for shipment in order.shipments.prefetch_related("warehouses").all()
-      ],
-      "commission_adjustments": [
-          {
-              "id": adjustment.pk,
-              "kind": adjustment.kind,
-              "kind_label": adjustment.get_kind_display(),
-              "old_amount": f"{adjustment.old_amount:.3f}",
-              "new_amount": f"{adjustment.new_amount:.3f}",
-              "delta": f"{adjustment.delta:.3f}",
-              "confirmed_at": adjustment.confirmed_at.isoformat(),
-              "completed_at": adjustment.completed_at.isoformat() if adjustment.completed_at else None,
-          }
-          for adjustment in order.commission_adjustments.all()
       ],
       "shipped_at": order.shipped_at.isoformat() if order.shipped_at else None,
       "completed_at": order.completed_at.isoformat() if order.completed_at else None,
@@ -596,8 +577,33 @@ def _sales_order_data(order):
                 "cost_mode": line.cost_mode,
             }
             for line in order.lines.filter(active=True).select_related("sku", "warehouse").order_by("line_number")
-        ],
+      ],
     }
+    if commission_visible:
+        data.update({
+            "commission_estimate": f"{order.commission_estimate:.3f}",
+            "commission_review": None if commission is None else {
+                "approved_amount": f"{commission.approved_amount:.3f}" if commission.approved_amount is not None else None,
+                "approved_amount_version": commission.approved_amount_version,
+                "first_earned_at": commission.first_earned_at.isoformat() if commission.first_earned_at else None,
+                "reviewed_at": commission.reviewed_at.isoformat() if commission.reviewed_at else None,
+                "needs_review": commission.approved_amount is None or commission.approved_amount_version != order.amount_version,
+            },
+            "commission_adjustments": [
+                {
+                    "id": adjustment.pk,
+                    "kind": adjustment.kind,
+                    "kind_label": adjustment.get_kind_display(),
+                    "old_amount": f"{adjustment.old_amount:.3f}",
+                    "new_amount": f"{adjustment.new_amount:.3f}",
+                    "delta": f"{adjustment.delta:.3f}",
+                    "confirmed_at": adjustment.confirmed_at.isoformat(),
+                    "completed_at": adjustment.completed_at.isoformat() if adjustment.completed_at else None,
+                }
+                for adjustment in order.commission_adjustments.all()
+            ],
+        })
+    return data
 
 
 @require_safe
@@ -765,7 +771,7 @@ def orders_api(request):
         page = paginate(items.order_by("-last_sequence", "-id"), request.GET)
     except CatalogQueryError as exc:
         return _api_error(request, 400, "invalid_pagination", str(exc), {"page": str(exc)})
-    page["items"] = [_sales_order_data(item) for item in page["items"]]
+    page["items"] = [_sales_order_data(item, request.user) for item in page["items"]]
     page["queried_at"] = timezone.localtime().isoformat(timespec="seconds")
     return JsonResponse(page)
 
@@ -791,7 +797,7 @@ def order_detail_api(request, order_id):
     order = sales_order_queryset_for(request.user).select_related("salesperson", "customer", "channel").filter(pk=order_id).first()
     if order is None:
         return _api_error(request, 404, "not_found", "订单不存在或不在可见范围。")
-    return JsonResponse(_sales_order_data(order))
+    return JsonResponse(_sales_order_data(order, request.user))
 
 
 @require_POST
@@ -989,7 +995,7 @@ def order_form_page(request, order_id=None):
         order = sales_order_queryset_for(request.user, changing=True).select_related("salesperson", "customer", "channel").filter(pk=order_id).first()
         if order is None:
             raise PermissionDenied
-        initial = _sales_order_data(order)
+        initial = _sales_order_data(order, request.user)
     return render(request, "crm/order_form.html", {"order": order, "initial": initial})
 
 
@@ -1000,4 +1006,19 @@ def order_detail_page(request, order_id):
     order = sales_order_queryset_for(request.user).select_related("salesperson", "customer", "channel").filter(pk=order_id).first()
     if order is None:
         raise PermissionDenied
-    return render(request, "crm/order_detail.html", {"order": order, "initial": _sales_order_data(order)})
+    can_view_commission = sales_order_commission_visible_to(request.user, order)
+    order_in_change_scope = sales_order_queryset_for(request.user, changing=True).filter(pk=order.pk).exists()
+    return render(request, "crm/order_detail.html", {
+        "order": order,
+        "initial": _sales_order_data(order, request.user),
+        "can_view_commission": can_view_commission,
+        "can_edit_sales_order": order_in_change_scope and request.user.has_perm("crm.change_salesorder"),
+        "can_cancel_sales_order": order_in_change_scope and request.user.has_perm("crm.cancel_salesorder"),
+        "can_register_payment": order_in_change_scope and request.user.has_perm("crm.register_payment"),
+        "can_confirm_salesorder_receipt": order.salesperson_id == request.user.pk and request.user.has_perm("crm.confirm_salesorder_receipt"),
+        "can_complete_commission_adjustment": (
+            can_view_commission
+            and order.salesperson_id == request.user.pk
+            and request.user.has_perm("crm.complete_commission_adjustment")
+        ),
+    })

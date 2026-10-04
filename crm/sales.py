@@ -59,6 +59,14 @@ def sales_order_queryset_for(actor, *, changing=False):
     return queryset.filter(salesperson_id=actor.pk)
 
 
+def sales_order_commission_visible_to(actor, order):
+    return (
+        actor.is_superuser
+        or actor.pk == order.salesperson_id
+        or actor.has_perm("crm.view_all_commissions")
+    )
+
+
 def _text(value, field, *, required=False, max_length=None):
     if not isinstance(value, str):
         if value is None and not required:
@@ -801,7 +809,10 @@ def preview_sales_order(actor, data, order_id=None):
             salt=SALES_ORDER_PREVIEW_SALT,
             compress=True,
         )
-        return _order_preview_result(token, control, plan, payload)
+        result = _order_preview_result(token, control, plan, payload)
+        if order is not None and not sales_order_commission_visible_to(actor, order):
+            result.pop("commission_estimate")
+        return result
 
 
 def _load_sales_preview(actor, preview_token):

@@ -2,6 +2,7 @@ from concurrent.futures import ThreadPoolExecutor
 from decimal import Decimal
 from io import BytesIO
 import json
+import tempfile
 from threading import Barrier
 from unittest.mock import patch
 from uuid import uuid4
@@ -11,6 +12,7 @@ from django.contrib.auth.models import Group, Permission
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import close_old_connections, connection
 from django.test import Client, override_settings
+from django.utils import timezone
 from PIL import Image
 
 from .fulfillment import (
@@ -23,7 +25,10 @@ from .fulfillment import (
     verify_payment,
 )
 from .models import (
+    BusinessControl,
+    BusinessOperation,
     CommissionAdjustment,
+    CommissionReview,
     Customer,
     InventoryBalance,
     InventoryMovement,
@@ -685,3 +690,388 @@ class FulfillmentPhase4Tests(Phase4Base):
             payment.refresh_from_db()
             self.assertEqual(order.status, SalesOrder.Status.SHIPPED)
             self.assertFalse(payment.paused)
+
+
+class D15PermissionBoundaryTests(Phase4Base):
+    def new_sales_user(self, username, *permissions):
+        user = User.objects.create_user(username=username, password="test-only-password")
+        user.groups.add(Group.objects.get(name=ROLE_SALES))
+        granted = Permission.objects.filter(content_type__app_label="crm", codename__in=permissions)
+        user.user_permissions.add(*granted)
+        return user
+
+    def set_commission_marker(self, order):
+        order.commission_estimate = Decimal("987.654")
+        order.save(update_fields=("commission_estimate",))
+        now = timezone.now()
+        CommissionReview.objects.create(
+            order=order,
+            approved_amount=Decimal("876.543"),
+            approved_amount_version=order.amount_version,
+            first_earned_at=now,
+            reviewer=self.owner,
+            reviewed_at=now,
+        )
+        approval_operation = BusinessOperation.objects.filter(sales_order=order).order_by("sequence", "id").first()
+        CommissionAdjustment.objects.create(
+            approval_operation=approval_operation,
+            order=order,
+            kind=CommissionAdjustment.Kind.INITIAL,
+            old_amount=Decimal("0.000"),
+            new_amount=Decimal("876.543"),
+            delta=Decimal("876.543"),
+            confirmed_at=now,
+        )
+
+    @staticmethod
+    def png_bytes():
+        buffer = BytesIO()
+        Image.new("RGB", (2, 2), "white").save(buffer, format="PNG")
+        return buffer.getvalue()
+
+    def upload_payment_image(self, client, filename="synthetic.png"):
+        response = client.post("/api/v1/images", {
+            "file": SimpleUploadedFile(filename, self.png_bytes(), content_type="image/png"),
+        })
+        self.assertEqual(response.status_code, 200, response.content)
+        return int(response.json()["image_id"])
+
+    def completed_onsite_order(self):
+        _, _, order = self.preview_and_confirm(self.order_payload(), actor=self.sales_two)
+        image = self.add_payment_image(owner=self.sales_two)
+        order.refresh_from_db()
+        register_payment(self.sales_two, order.pk, {
+            "operation_key": str(uuid4()),
+            "expected_version": order.version,
+            "account_id": self.public_account.pk,
+            "received_amount": f"{order.revenue_amount:.3f}",
+            "image_ids": [image.pk],
+        })
+        order.refresh_from_db()
+        deliver_on_site(self.user, order.pk, {
+            "operation_key": str(uuid4()),
+            "expected_version": order.version,
+            "outbound_freights": [],
+        })
+        order.refresh_from_db()
+        self.verify(order, actor=self.user, result="passed")
+        order.refresh_from_db()
+        return order
+
+    def test_view_and_change_all_order_permissions_are_independent_over_http(self):
+        self.balance.on_hand = 100
+        self.balance.cost_amount = Decimal("100.000")
+        self.balance.save(update_fields=("on_hand", "cost_amount"))
+        cases = (
+            (False, False),
+            (True, False),
+            (False, True),
+            (True, True),
+        )
+        with tempfile.TemporaryDirectory() as media_root, override_settings(MEDIA_ROOT=media_root):
+            for index, (can_view_all, can_change_all) in enumerate(cases):
+                with self.subTest(view_all=can_view_all, change_all=can_change_all):
+                    _, _, order = self.preview_and_confirm(self.order_payload(), actor=self.sales_two)
+                    self.set_commission_marker(order)
+                    actor = self.new_sales_user(f"scope-sales-{index}")
+                    if can_view_all:
+                        self.grant_permission(actor, "view_all_sales_orders")
+                    if can_change_all:
+                        self.grant_permission(actor, "change_all_sales_orders")
+                    client = Client()
+                    client.force_login(actor)
+
+                    detail = client.get(f"/api/v1/orders/{order.pk}")
+                    self.assertEqual(detail.status_code, 200 if can_view_all else 404)
+                    if can_view_all:
+                        detail_data = detail.json()
+                        for field in ("commission_estimate", "commission_review", "commission_adjustments"):
+                            self.assertNotIn(field, detail_data)
+                        listing = client.get("/api/v1/orders").json()
+                        self.assertIn(order.pk, [item["id"] for item in listing["items"]])
+                        for item in listing["items"]:
+                            for field in ("commission_estimate", "commission_review", "commission_adjustments"):
+                                self.assertNotIn(field, item)
+                        page = client.get(f"/orders/{order.pk}/")
+                        self.assertNotContains(page, "提成预估")
+                        self.assertNotContains(page, "987.654")
+                        self.assertNotContains(page, "876.543")
+                        if can_change_all:
+                            self.assertContains(page, "修改订单")
+                            self.assertContains(page, "取消订单并释放占货")
+                            self.assertContains(page, "登记或更新收款")
+                        else:
+                            self.assertNotContains(page, "修改订单")
+                            self.assertNotContains(page, "取消订单并释放占货")
+                            self.assertNotContains(page, "登记或更新收款")
+
+                    if can_change_all:
+                        edit_page = client.get(f"/orders/{order.pk}/edit/")
+                        self.assertEqual(edit_page.status_code, 200)
+                        self.assertNotContains(edit_page, '"commission_estimate"')
+                        self.assertNotContains(edit_page, "987.654")
+                        self.assertNotContains(edit_page, "876.543")
+                        amendment = client.post(
+                            f"/api/v1/orders/{order.pk}/amend/preview",
+                            data=json.dumps(self.amendment_payload(order)),
+                            content_type="application/json",
+                        )
+                        self.assertEqual(amendment.status_code, 200, amendment.content)
+                        self.assertNotIn("commission_estimate", amendment.json())
+
+                    order.refresh_from_db()
+                    original_version = order.version
+                    original_order_sequence = order.last_sequence
+                    original_global_sequence = BusinessControl.objects.get(pk=1).last_sequence
+                    original_payment_operations = BusinessOperation.objects.filter(
+                        sales_order=order, action="payment_register"
+                    ).count()
+                    image_id = self.upload_payment_image(client, f"synthetic-{index}.png")
+                    payload = {
+                        "operation_key": str(uuid4()),
+                        "expected_version": original_version,
+                        "account_id": self.public_account.pk,
+                        "received_amount": f"{order.revenue_amount:.3f}",
+                        "image_ids": [image_id],
+                    }
+                    payment_response = client.post(
+                        f"/api/v1/orders/{order.pk}/payment",
+                        data=json.dumps(payload),
+                        content_type="application/json",
+                    )
+                    self.assertEqual(payment_response.status_code, 200 if can_change_all else 404, payment_response.content)
+                    order.refresh_from_db()
+                    image = ReceiptImage.objects.get(pk=image_id)
+                    if can_change_all:
+                        self.assertIsNotNone(image.payment_id)
+                        self.assertEqual(image.payment.order_id, order.pk)
+                        self.assertEqual(order.version, original_version + 1)
+                        self.assertGreater(order.last_sequence, original_order_sequence)
+                        self.assertGreater(BusinessControl.objects.get(pk=1).last_sequence, original_global_sequence)
+                        self.assertEqual(
+                            BusinessOperation.objects.filter(sales_order=order, action="payment_register").count(),
+                            original_payment_operations + 1,
+                        )
+                    else:
+                        self.assertFalse(PaymentRecord.objects.filter(order=order).exists())
+                        self.assertIsNone(image.payment_id)
+                        self.assertEqual(order.version, original_version)
+                        self.assertEqual(order.last_sequence, original_order_sequence)
+                        self.assertEqual(BusinessControl.objects.get(pk=1).last_sequence, original_global_sequence)
+                        self.assertEqual(
+                            BusinessOperation.objects.filter(sales_order=order, action="payment_register").count(),
+                            original_payment_operations,
+                        )
+
+    def grant_permission(self, user, codename):
+        permission = Permission.objects.get(content_type__app_label="crm", codename=codename)
+        user.user_permissions.add(permission)
+
+    def test_change_all_without_register_permission_cannot_create_payment(self):
+        _, _, order = self.preview_and_confirm(self.order_payload(), actor=self.sales_two)
+        actor = User.objects.create_user(username="change-only-user", password="test-only-password")
+        self.grant_permission(actor, "view_salesorder")
+        self.grant_permission(actor, "change_all_sales_orders")
+        image = self.add_payment_image(owner=actor)
+        order.refresh_from_db()
+        sequence = BusinessControl.objects.get(pk=1).last_sequence
+        client = Client()
+        client.force_login(actor)
+        response = client.post(
+            f"/api/v1/orders/{order.pk}/payment",
+            data=json.dumps({
+                "operation_key": str(uuid4()),
+                "expected_version": order.version,
+                "account_id": self.public_account.pk,
+                "received_amount": f"{order.revenue_amount:.3f}",
+                "image_ids": [image.pk],
+            }),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(PaymentRecord.objects.filter(order=order).exists())
+        self.assertIsNone(ReceiptImage.objects.get(pk=image.pk).payment_id)
+        self.assertEqual(BusinessControl.objects.get(pk=1).last_sequence, sequence)
+
+    def test_lost_change_all_scope_blocks_exact_payment_replay_on_next_request(self):
+        _, _, order = self.preview_and_confirm(self.order_payload(), actor=self.sales_two)
+        actor = self.new_sales_user("scope-revoked-sales", "view_all_sales_orders", "change_all_sales_orders")
+        client = Client()
+        client.force_login(actor)
+        image_id = self.upload_payment_image(client)
+        order.refresh_from_db()
+        payload = {
+            "operation_key": str(uuid4()),
+            "expected_version": order.version,
+            "account_id": self.public_account.pk,
+            "received_amount": f"{order.revenue_amount:.3f}",
+            "image_ids": [image_id],
+        }
+        url = f"/api/v1/orders/{order.pk}/payment"
+        first = client.post(url, data=json.dumps(payload), content_type="application/json")
+        self.assertEqual(first.status_code, 200, first.content)
+        order.refresh_from_db()
+        payment = PaymentRecord.objects.get(order=order)
+        sequence = BusinessControl.objects.get(pk=1).last_sequence
+        self.assertEqual(client.get(f"/api/v1/orders/{order.pk}").status_code, 200)
+
+        actor.user_permissions.remove(Permission.objects.get(content_type__app_label="crm", codename="change_all_sales_orders"))
+        replay = client.post(url, data=json.dumps(payload), content_type="application/json")
+        self.assertEqual(replay.status_code, 404)
+        order.refresh_from_db()
+        payment.refresh_from_db()
+        self.assertEqual(payment.status, PaymentRecord.Status.PENDING)
+        self.assertEqual(order.version, payload["expected_version"] + 1)
+        self.assertEqual(BusinessControl.objects.get(pk=1).last_sequence, sequence)
+        self.assertEqual(ReceiptImage.objects.filter(payment=payment).count(), 1)
+
+    def test_commission_fields_are_visible_to_owner_commission_viewers_and_admin_only(self):
+        _, _, order = self.preview_and_confirm(self.order_payload(), actor=self.sales_two)
+        self.set_commission_marker(order)
+        all_commissions = self.new_sales_user("commission-viewer", "view_all_sales_orders", "view_all_commissions")
+        administrator = User.objects.create_superuser(username="phase4-admin", password="test-only-password")
+
+        for actor in (self.sales_two, all_commissions, self.owner, administrator):
+            with self.subTest(actor=actor.username):
+                client = Client()
+                client.force_login(actor)
+                detail = client.get(f"/api/v1/orders/{order.pk}")
+                self.assertEqual(detail.status_code, 200, detail.content)
+                data = detail.json()
+                self.assertEqual(data["commission_estimate"], "987.654")
+                self.assertEqual(data["commission_review"]["approved_amount"], "876.543")
+                self.assertEqual(data["commission_adjustments"][0]["delta"], "876.543")
+                self.assertContains(client.get(f"/orders/{order.pk}/"), "987.654")
+
+    def test_commission_review_response_is_masked_without_commission_view(self):
+        order = self.completed_onsite_order()
+        reviewer = self.new_sales_user("limited-commission-reviewer", "view_all_sales_orders", "review_commission")
+        client = Client()
+        client.force_login(reviewer)
+        payload = {"operation_key": str(uuid4()), "expected_version": order.version}
+        response = client.post(
+            f"/api/v1/orders/{order.pk}/review-commission",
+            data=json.dumps(payload),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200, response.content)
+        result = response.json()
+        for field in ("approved_amount", "first_earned_at", "adjustment_id", "delta"):
+            self.assertNotIn(field, result)
+        operation = BusinessOperation.objects.get(sales_order=order, action="commission_review")
+        for field in ("approved_amount", "first_earned_at", "adjustment_id", "delta"):
+            self.assertNotIn(field, operation.result)
+        hidden_detail = client.get(f"/api/v1/orders/{order.pk}").json()
+        for field in ("commission_estimate", "commission_review", "commission_adjustments"):
+            self.assertNotIn(field, hidden_detail)
+
+    def test_commission_review_replay_masks_fields_after_permission_revocation(self):
+        order = self.completed_onsite_order()
+        reviewer = self.new_sales_user(
+            "revoked-commission-reviewer",
+            "view_all_sales_orders",
+            "view_all_commissions",
+            "review_commission",
+        )
+        client = Client()
+        client.force_login(reviewer)
+        payload = {"operation_key": str(uuid4()), "expected_version": order.version}
+        url = f"/api/v1/orders/{order.pk}/review-commission"
+        first = client.post(url, data=json.dumps(payload), content_type="application/json")
+        self.assertEqual(first.status_code, 200, first.content)
+        result_fields = {"approved_amount", "first_earned_at", "adjustment_id", "delta"}
+        self.assertTrue(result_fields.issubset(first.json()))
+
+        reviewer.user_permissions.remove(
+            Permission.objects.get(content_type__app_label="crm", codename="view_all_commissions")
+        )
+        replay = client.post(url, data=json.dumps(payload), content_type="application/json")
+        self.assertEqual(replay.status_code, 200, replay.content)
+        self.assertTrue(result_fields.isdisjoint(replay.json()))
+        stored_operation = BusinessOperation.objects.get(sales_order=order, action="commission_review")
+        self.assertTrue(result_fields.issubset(stored_operation.result))
+
+    def test_order_detail_hides_other_sales_actions_and_preserves_warehouse_and_owner_actions(self):
+        payload = self.order_payload(
+            delivery_mode=SalesOrder.DeliveryMode.SHIPMENT,
+            address_snapshot={
+                "recipient": "Synthetic Recipient",
+                "contact": "Synthetic Contact",
+                "province": "北京市",
+                "city": "北京市",
+                "detail": "Synthetic street 1",
+            },
+        )
+        _, _, order = self.preview_and_confirm(payload, actor=self.sales_two)
+        image = self.add_payment_image(owner=self.sales_two)
+        order.refresh_from_db()
+        register_payment(self.sales_two, order.pk, {
+            "operation_key": str(uuid4()),
+            "expected_version": order.version,
+            "account_id": self.public_account.pk,
+            "received_amount": f"{order.revenue_amount:.3f}",
+            "image_ids": [image.pk],
+        })
+        order.refresh_from_db()
+        ship_sales_order(self.user, order.pk, self.shipment_data(order))
+        order.refresh_from_db()
+        self.set_commission_marker(order)
+
+        viewer = self.new_sales_user("other-sales-order-viewer", "view_all_sales_orders")
+        viewer_client = Client()
+        viewer_client.force_login(viewer)
+        response = viewer_client.get(f"/orders/{order.pk}/")
+        self.assertEqual(response.status_code, 200)
+        for label in (
+            "提成预估",
+            "正式核定提成",
+            "提成复核",
+            "提成差额（线下处理登记）",
+            "登记或更新收款",
+            "确认收货",
+        ):
+            self.assertNotContains(response, label)
+        self.assertNotContains(response, "987.654")
+        self.assertNotContains(response, "876.543")
+
+        warehouse_client = Client()
+        warehouse_client.force_login(self.user)
+        warehouse_page = warehouse_client.get(f"/orders/{order.pk}/")
+        self.assertContains(warehouse_page, "收款核对")
+        self.assertContains(warehouse_page, "补录或调整出库运费")
+        self.assertContains(warehouse_page, "提成预估")
+
+        seller_client = Client()
+        seller_client.force_login(self.sales_two)
+        seller_page = seller_client.get(f"/orders/{order.pk}/")
+        self.assertContains(seller_page, "确认收货")
+        self.assertContains(seller_page, "987.654")
+
+        order.refresh_from_db()
+        self.verify(order, actor=self.user, result="passed")
+        order.refresh_from_db()
+        receive_sales_order(self.sales_two, order.pk, {
+            "operation_key": str(uuid4()),
+            "expected_version": order.version,
+            "outbound_freights": [],
+        })
+        order.refresh_from_db()
+        update_outbound_freight(self.user, order.pk, {
+            "operation_key": str(uuid4()),
+            "expected_version": order.version,
+            "outbound_freights": [{
+                "line_id": order.lines.filter(active=True).first().pk,
+                "amount": "1.000",
+            }],
+        })
+        order.refresh_from_db()
+        owner_client = Client()
+        owner_client.force_login(self.owner)
+        self.assertContains(owner_client.get(f"/orders/{order.pk}/"), "复核当前提成")
+        review_commission(self.owner, order.pk, {
+            "operation_key": str(uuid4()),
+            "expected_version": order.version,
+        })
+        order.refresh_from_db()
+        seller_page = seller_client.get(f"/orders/{order.pk}/")
+        self.assertContains(seller_page, "标记线下处理完成")
