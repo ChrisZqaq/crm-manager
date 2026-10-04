@@ -82,7 +82,7 @@
       document.getElementById('search-warehouses').addEventListener('click',()=>searchWarehouses().catch(error=>{status.textContent=error.message;}));
     customerSelect.addEventListener('change',()=>{savedAddress.value='';customerAddresses();});
     province.addEventListener('change',()=>resetCities());
-    savedAddress.addEventListener('change',()=>{const item=customers.find(row=>String(row.id)===customerSelect.value),address=item?.addresses?.find(row=>String(row.id)===savedAddress.value);if(address){document.getElementById('recipient').value=address.recipient;document.getElementById('contact').value=address.contact;province.value=address.province;resetCities(address.city);document.getElementById('detail').value=address.detail;}});
+    savedAddress.addEventListener('change',()=>{const item=customers.find(row=>String(row.id)===customerSelect.value),address=item?.addresses?.find(row=>String(row.id)===savedAddress.value);if(address){document.getElementById('recipient').value=address.recipient;document.getElementById('contact').value=address.phone;province.value=address.province;resetCities(address.city);document.getElementById('detail').value=address.detail;}});
     for(const field of ['recipient','contact','detail'])document.getElementById(field).addEventListener('input',()=>{savedAddress.value='';});
     document.getElementById('order-form').addEventListener('input',()=>{previewToken=null;document.getElementById('preview-result').hidden=true;});
     document.getElementById('order-form').addEventListener('change',()=>{previewToken=null;document.getElementById('preview-result').hidden=true;});

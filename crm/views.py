@@ -470,7 +470,7 @@ def _customer_data(customer, *, birthday_today=False):
             {
                 "id": address.pk,
                 "recipient": address.recipient,
-                "contact": address.contact,
+                "phone": address.contact,
                 "province": address.province,
                 "city": address.city,
                 "detail": address.detail,

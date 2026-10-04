@@ -104,7 +104,7 @@ def _normalize_addresses(value):
         prefix = f"addresses[{index}]"
         if not isinstance(item, dict):
             raise OperationError("地址格式无效。", fields={prefix: "地址须为对象。"})
-        unknown = set(item) - {"id", "recipient", "contact", "province", "city", "detail"}
+        unknown = set(item) - {"id", "recipient", "phone", "province", "city", "detail"}
         if unknown:
             raise OperationError("地址包含不支持的字段。", fields={prefix: "请刷新后重试。"})
         address_id = item.get("id")
@@ -116,7 +116,7 @@ def _normalize_addresses(value):
         address = {
             "id": address_id,
             "recipient": _text(item.get("recipient"), f"{prefix}.recipient", required=True, max_length=120),
-            "contact": _text(item.get("contact"), f"{prefix}.contact", required=True),
+            "contact": _text(item.get("phone"), f"{prefix}.phone", required=True),
             "province": _text(item.get("province"), f"{prefix}.province", required=True, max_length=80),
             "city": _text(item.get("city"), f"{prefix}.city", required=True, max_length=80),
             "detail": _text(item.get("detail"), f"{prefix}.detail", required=True),
@@ -450,7 +450,7 @@ def _normalize_order_input(data, order=None):
         raise OperationError("交付方式无效。", fields={"delivery_mode": "请选择快递或现场。"})
     if address_id is not None and customer_id is None:
         raise OperationError("未选择客户，不能使用客户地址。", fields={"customer_address_id": "请先选择客户。"})
-    address_value = data.get("address_snapshot", current_address)
+    address_value = data.get("address_snapshot", {} if address_id is not None else current_address)
     if not isinstance(address_value, dict):
         raise OperationError("收件地址格式无效。", fields={"address_snapshot": "请填写收件地址对象。"})
     if address_id is not None and any(address_value.values()):
@@ -531,6 +531,11 @@ def _order_references(actor, payload, order, *, lock_balances=False):
             customer = customer_queryset_for(actor).filter(pk=customer_id).first()
             if customer is None or not customer.is_active:
                 raise OperationError("客户不存在、已归档或不在可见范围。", status=404, code="not_found", fields={"customer_id": "请选择可用客户。"})
+        elif payload["customer_address_id"] is not None:
+            _require(actor, "view_customer")
+            customer = customer_queryset_for(actor).filter(pk=customer_id).first()
+            if customer is None:
+                raise OperationError("客户不存在或不在可见范围。", status=404, code="not_found", fields={"customer_id": "请选择可见客户。"})
         else:
             customer = Customer.objects.filter(pk=customer_id).first()
             if customer is None:

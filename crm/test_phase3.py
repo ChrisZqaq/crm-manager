@@ -7,7 +7,7 @@ from unittest.mock import patch
 from uuid import uuid4
 
 from django.contrib.auth import get_user_model
-from django.contrib.auth.models import Group
+from django.contrib.auth.models import Group, Permission
 from django.db import close_old_connections, connection
 from django.test import Client
 from django.utils import timezone
@@ -68,7 +68,7 @@ class Phase3Base(Phase2Base):
             "hobbies": "Reading",
             "addresses": [{
                 "recipient": "Synthetic Recipient",
-                "contact": "contact text",
+                "phone": "address phone text",
                 "province": "北京市",
                 "city": "北京市",
                 "detail": "Synthetic street 1",
@@ -139,8 +139,8 @@ class Phase3Base(Phase2Base):
 class CustomerPhase3Tests(Phase3Base):
     def test_customer_addresses_region_validation_scope_transfer_and_archive(self):
         data = self.customer_payload(addresses=[
-            {"recipient": "Recipient A", "contact": "text A", "province": "北京市", "city": "北京市", "detail": "Street A"},
-            {"recipient": "Recipient B", "contact": "text B", "province": "浙江省", "city": "杭州市", "detail": "Street B"},
+            {"recipient": "Recipient A", "phone": "text A", "province": "北京市", "city": "北京市", "detail": "Street A"},
+            {"recipient": "Recipient B", "phone": "text B", "province": "浙江省", "city": "杭州市", "detail": "Street B"},
         ])
         customer = Customer.objects.get(pk=create_customer(self.sales, data, uuid4())["customer_id"])
         self.assertEqual(customer.addresses.filter(is_active=True).count(), 2)
@@ -150,7 +150,7 @@ class CustomerPhase3Tests(Phase3Base):
         self.assertEqual((duplicate_for_another_owner.name, duplicate_for_another_owner.contact), (customer.name, customer.contact))
 
         invalid = self.customer_payload(addresses=[{
-            "recipient": "Recipient", "contact": "text", "province": "北京市", "city": "上海市", "detail": "Street",
+            "recipient": "Recipient", "phone": "text", "province": "北京市", "city": "上海市", "detail": "Street",
         }])
         with self.assertRaisesRegex(OperationError, "省市不匹配"):
             create_customer(self.sales, invalid, uuid4())
@@ -182,6 +182,219 @@ class CustomerPhase3Tests(Phase3Base):
         warehouse.force_login(self.user)
         self.assertEqual(warehouse.get("/api/v1/customers").status_code, 403)
         self.assertEqual(warehouse.get("/customers/").status_code, 403)
+
+    def test_customer_address_http_contract_and_old_order_address_switch(self):
+        client = Client()
+        client.force_login(self.sales)
+        legacy_address = client.post(
+            "/api/v1/customers",
+            data=json.dumps({**self.customer_payload(addresses=[{
+                "recipient": "Legacy Recipient", "contact": "legacy contact", "province": "北京市", "city": "北京市", "detail": "Legacy street",
+            }]), "operation_key": str(uuid4())}),
+            content_type="application/json",
+        )
+        self.assertEqual(legacy_address.status_code, 400)
+        addresses = [
+            {"recipient": "First Recipient", "phone": "first phone", "province": "北京市", "city": "北京市", "detail": "First street"},
+            {"recipient": "Second Recipient", "phone": "second phone", "province": "北京市", "city": "北京市", "detail": "Second street"},
+        ]
+        customer_response = client.post(
+            "/api/v1/customers",
+            data=json.dumps({**self.customer_payload(addresses=addresses), "operation_key": str(uuid4())}),
+            content_type="application/json",
+        )
+        self.assertEqual(customer_response.status_code, 200, customer_response.content)
+        customer_id = customer_response.json()["customer_id"]
+        customer_data = client.get(f"/api/v1/customers/{customer_id}").json()
+        self.assertEqual([item["phone"] for item in customer_data["addresses"]], ["first phone", "second phone"])
+        self.assertNotIn("contact", customer_data["addresses"][0])
+        first_address, second_address = customer_data["addresses"]
+
+        order_input = {
+            "customer_id": customer_id,
+            "customer_address_id": first_address["id"],
+            "channel_id": self.channel.pk,
+            "delivery_mode": SalesOrder.DeliveryMode.SHIPMENT,
+            "lines": [{"sku_id": self.sku.pk, "warehouse_id": self.warehouse.pk, "quantity": 2, "sale_price": "5.000"}],
+        }
+        order_preview = client.post("/api/v1/orders/preview", data=json.dumps(order_input), content_type="application/json")
+        self.assertEqual(order_preview.status_code, 200, order_preview.content)
+        order_result = client.post(
+            "/api/v1/orders",
+            data=json.dumps({"operation_key": str(uuid4()), "preview_token": order_preview.json()["preview_token"]}),
+            content_type="application/json",
+        )
+        self.assertEqual(order_result.status_code, 200, order_result.content)
+        order_id = order_result.json()["order_id"]
+        order_data = client.get(f"/api/v1/orders/{order_id}").json()
+        self.assertEqual((order_data["contact"], order_data["detail"]), ("first phone", "First street"))
+
+        updated_customer = client.patch(
+            f"/api/v1/customers/{customer_id}",
+            data=json.dumps({
+                "expected_version": customer_data["version"],
+                "operation_key": str(uuid4()),
+                "addresses": [
+                    {"id": first_address["id"], "recipient": first_address["recipient"], "phone": first_address["phone"], "province": first_address["province"], "city": first_address["city"], "detail": first_address["detail"]},
+                    {"id": second_address["id"], "recipient": "Updated Second Recipient", "phone": "updated second phone", "province": "北京市", "city": "北京市", "detail": "Updated second street"},
+                ],
+            }),
+            content_type="application/json",
+        )
+        self.assertEqual(updated_customer.status_code, 200, updated_customer.content)
+        customer_data = client.get(f"/api/v1/customers/{customer_id}").json()
+        self.assertEqual(customer_data["addresses"][1]["phone"], "updated second phone")
+        self.assertNotIn("contact", customer_data["addresses"][1])
+        second_address = customer_data["addresses"][1]
+
+        amendment = {
+            "customer_id": customer_id,
+            "customer_address_id": second_address["id"],
+            "channel_id": self.channel.pk,
+            "delivery_mode": SalesOrder.DeliveryMode.SHIPMENT,
+            "expected_version": order_data["version"],
+            "lines": [{
+                "line_id": order_data["lines"][0]["line_id"],
+                "sku_id": self.sku.pk,
+                "warehouse_id": self.warehouse.pk,
+                "quantity": 2,
+                "sale_price": "5.000",
+            }],
+        }
+        conflicting_snapshot = {
+            **amendment,
+            "address_snapshot": {"recipient": "Manual Recipient", "contact": "Manual phone", "province": "北京市", "city": "北京市", "detail": "Manual street"},
+        }
+        conflict = client.post(
+            f"/api/v1/orders/{order_id}/amend/preview",
+            data=json.dumps(conflicting_snapshot),
+            content_type="application/json",
+        )
+        self.assertEqual(conflict.status_code, 400)
+
+        address_switch_preview = client.post(
+            f"/api/v1/orders/{order_id}/amend/preview",
+            data=json.dumps(amendment),
+            content_type="application/json",
+        )
+        self.assertEqual(address_switch_preview.status_code, 200, address_switch_preview.content)
+        address_switch = client.post(
+            f"/api/v1/orders/{order_id}/amend",
+            data=json.dumps({"operation_key": str(uuid4()), "preview_token": address_switch_preview.json()["preview_token"]}),
+            content_type="application/json",
+        )
+        self.assertEqual(address_switch.status_code, 200, address_switch.content)
+        switched_order = client.get(f"/api/v1/orders/{order_id}").json()
+        self.assertEqual((switched_order["contact"], switched_order["detail"]), ("updated second phone", "Updated second street"))
+
+    def test_order_saved_address_requires_current_customer_visibility_but_keeps_snapshot_access(self):
+        customer = self.create_customer(addresses=[
+            {"recipient": "First Recipient", "phone": "first phone", "province": "北京市", "city": "北京市", "detail": "First street"},
+        ])
+        address = customer.addresses.get(is_active=True)
+        order_payload = self.order_payload(
+            customer_id=customer.pk,
+            customer_address_id=address.pk,
+            address_snapshot={},
+            delivery_mode=SalesOrder.DeliveryMode.SHIPMENT,
+        )
+        _, _, order = self.preview_and_confirm(order_payload)
+        transfer_customer(self.owner, customer.pk, {"owner_id": self.sales_two.pk, "expected_version": 1, "operation_key": str(uuid4())})
+        update_customer(self.sales_two, customer.pk, {
+            "addresses": [{"id": address.pk, "recipient": "Changed Recipient", "phone": "changed phone", "province": "北京市", "city": "北京市", "detail": "Changed current street"}],
+            "expected_version": 2,
+            "operation_key": str(uuid4()),
+        })
+
+        sales_client = Client()
+        sales_client.force_login(self.sales)
+        self.assertEqual(sales_client.get(f"/api/v1/customers/{customer.pk}").status_code, 404)
+        hidden_address_payload = self.amendment_payload(order)
+        hidden_address_payload["customer_address_id"] = address.pk
+        hidden_address_payload["address_snapshot"] = {}
+        denied = sales_client.post(
+            f"/api/v1/orders/{order.pk}/amend/preview",
+            data=json.dumps(hidden_address_payload),
+            content_type="application/json",
+        )
+        self.assertEqual(denied.status_code, 404)
+        self.assertNotIn("Changed current street", denied.content.decode())
+
+        original_order = sales_client.get(f"/api/v1/orders/{order.pk}").json()
+        self.assertEqual(original_order["detail"], "First street")
+        snapshot_edit = self.amendment_payload(order)
+        snapshot_edit.pop("address_snapshot")
+        snapshot_edit["lines"][0]["quantity"] = 1
+        snapshot_preview = sales_client.post(
+            f"/api/v1/orders/{order.pk}/amend/preview",
+            data=json.dumps(snapshot_edit),
+            content_type="application/json",
+        )
+        self.assertEqual(snapshot_preview.status_code, 200, snapshot_preview.content)
+        snapshot_result = sales_client.post(
+            f"/api/v1/orders/{order.pk}/amend",
+            data=json.dumps({"operation_key": str(uuid4()), "preview_token": snapshot_preview.json()["preview_token"]}),
+            content_type="application/json",
+        )
+        self.assertEqual(snapshot_result.status_code, 200, snapshot_result.content)
+        preserved_order = sales_client.get(f"/api/v1/orders/{order.pk}").json()
+        self.assertEqual(preserved_order["detail"], "First street")
+        self.assertEqual(preserved_order["lines"][0]["quantity"], 1)
+
+        owner_client = Client()
+        owner_client.force_login(self.owner)
+        authorized_payload = self.amendment_payload(order)
+        authorized_payload["customer_address_id"] = address.pk
+        authorized_payload["address_snapshot"] = {}
+        authorized_preview = owner_client.post(
+            f"/api/v1/orders/{order.pk}/amend/preview",
+            data=json.dumps(authorized_payload),
+            content_type="application/json",
+        )
+        self.assertEqual(authorized_preview.status_code, 200, authorized_preview.content)
+
+    def test_saved_address_preview_requires_view_customer_permission(self):
+        customer = self.create_customer()
+        address = customer.addresses.get(is_active=True)
+        payload = self.order_payload(
+            customer_id=customer.pk,
+            customer_address_id=address.pk,
+            delivery_mode=SalesOrder.DeliveryMode.SHIPMENT,
+        )
+        Group.objects.get(name=ROLE_SALES).permissions.remove(
+            Permission.objects.get(content_type__app_label="crm", codename="view_customer")
+        )
+        client = Client()
+        client.force_login(self.sales)
+        denied_preview = client.post("/api/v1/orders/preview", data=json.dumps(payload), content_type="application/json")
+        self.assertEqual(denied_preview.status_code, 403)
+        self.assertEqual(SalesOrder.objects.count(), 0)
+
+    def test_confirm_rechecks_customer_permission_after_address_preview(self):
+        customer = self.create_customer()
+        address = customer.addresses.get(is_active=True)
+        payload = self.order_payload(
+            customer_id=customer.pk,
+            customer_address_id=address.pk,
+            delivery_mode=SalesOrder.DeliveryMode.SHIPMENT,
+        )
+        client = Client()
+        client.force_login(self.sales)
+        preview = client.post("/api/v1/orders/preview", data=json.dumps(payload), content_type="application/json")
+        self.assertEqual(preview.status_code, 200, preview.content)
+        Group.objects.get(name=ROLE_SALES).permissions.remove(
+            Permission.objects.get(content_type__app_label="crm", codename="view_customer")
+        )
+
+        confirmed = client.post(
+            "/api/v1/orders",
+            data=json.dumps({"operation_key": str(uuid4()), "preview_token": preview.json()["preview_token"]}),
+            content_type="application/json",
+        )
+        self.assertEqual(confirmed.status_code, 403)
+        self.assertEqual(confirmed.json()["error"]["code"], "permission_denied")
+        self.assertEqual(SalesOrder.objects.count(), 0)
+        self.assertEqual(InventoryBalance.objects.get(pk=self.balance.pk).occupied, 0)
 
     def test_birthday_today_is_shanghai_personal_and_february_29_exact(self):
         leap = self.create_customer(birthday="2000-02-29", name="Leap Customer")
@@ -319,7 +532,7 @@ class SalesOrderPhase3Tests(Phase3Base):
 
         edit = self.customer_payload(
             name="Renamed Customer",
-            addresses=[{"id": address.pk, "recipient": "Updated Recipient", "contact": "new text", "province": "北京市", "city": "北京市", "detail": "New street"}],
+            addresses=[{"id": address.pk, "recipient": "Updated Recipient", "phone": "new text", "province": "北京市", "city": "北京市", "detail": "New street"}],
         )
         edit.update({"expected_version": customer.version, "operation_key": str(uuid4())})
         update_customer(self.sales, customer.pk, edit)
