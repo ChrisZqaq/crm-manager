@@ -68,17 +68,18 @@ SKU增加可空专用预警阈值及提醒关闭标记；一个全局默认阈�
 | --- | --- | --- |
 | sales_order | 销售user_id、可空customer_id、渠道、履约状态、交付方式、收货信息及省市快照、成交／成本／毛利／提成金额、提交／发货／完成时间、版本 | 快照不随客户地址变化；销售地区统计按订单快照；不把核对状态混入履约状态 |
 | sales_order_line | order_id、sku_id、warehouse_id、数量、成交单价金额、订单单位成本及成本金额快照、出库库存成本金额 | 同SKU多仓分行；已确认分别保留订单下单成本与实际出库扣减成本 |
-| payment_record | order_id、account_id、销售登记金额、截图、可空收款时间、差额原因、核对状态、问题原因、核对人时间、问题暂停标记 | order_id唯一，一单一笔；核对绑定订单应收金额及收款信息版本，不绑定地址备注等无关版本；有关内容修改后原通过结果失效 |
+| payment_account | 名称、支付方式、责任=对公／老板私账、启用状态 | 通过Django Admin维护；不保存账户登录秘密 |
+| payment_record | order_id、account_id、销售登记金额、收款图片关联、可空收款时间、差额原因、核对状态、问题原因、核对人时间、问题暂停标记、期望及已核版本 | order_id唯一，一单一笔；核对绑定订单应收金额及收款信息版本，不绑定地址备注等无关版本；有关内容修改后原通过结果失效 |
 | shipment | order_id、承运方、运输编号 | 一单多编号；跨越／顺丰运单号、货拉拉平台订单号 |
 | shipment_warehouse | shipment_id、warehouse_id | 关联多个供货仓库，组合唯一；只能关联本订单实际供货仓库 |
-| commission_review | order_id、复核结果、对应金额版本、最后批准金额、复核人时间、原计入时间、可空纠错审批关联 | 一单当前复核记录；三条件满足时首次计入；已计入普通修改待重审仍保留原日期与旧批准金额，再次通过更新批准金额，不把新计算值当已批准；纠错不使未审核订单自动计入 |
-| commission_adjustment | order_id、原因类型、可空correction_id、原值、新值、差额、确认人时间、销售确认完成人时间 | 复用一张差额表记录采购／期初纠错和已计入后普通修改重新批准的对比；差额为新值减上次批准值；多次批准分别记录，不转账，不重复加到已修正提成汇总 |
+| commission_review | order_id、对应金额版本、最后批准金额、复核人时间、原计入时间 | 一单当前复核记录；三条件满足时首次计入；已计入普通修改待重审仍保留原日期与旧批准金额，再次通过更新批准金额，不把新计算值当已批准 |
+| commission_adjustment | approval_operation_id、order_id、原因类型(initial/rereview)、原值、新值、差额、确认人时间、销售确认完成人时间 | 当前阶段记录首次核定及重审差额；差额为新值减上次批准值；多次批准分别记录，不转账，不重复加到已批准提成汇总；采购／期初纠错关联留后续阶段 |
 
-阶段3当前实现：订单状态数据库约束仅允许`awaiting_payment`（待付款凭证）和`cancelled`（已取消）；支付、发货、完成、核账及正式提成字段流程尚未实现。销售订单行有稳定主键和`active`标记，修改移除行不物理删除；每次业务操作保留当时SKU、仓库、数量、成交价、单位成本、行成本及固定／沿用／重算模式。占货流水以销售订单为唯一来源，改单按旧、新仓库SKU集合合并差额。
+阶段4当前实现：`sales_order.status`约束允许`awaiting_payment`、`ready_to_ship`、`shipped`、`completed`、`cancelled`；付款核对状态独立于履约状态，订单保留`payment_version`、`amount_version`、`shipped_at`及`completed_at`。销售订单行有稳定主键和`active`标记，修改移除行不物理删除；每次业务操作保留当时SKU、仓库、数量、成交价、单位成本、行成本及固定／沿用／重算模式。占货流水以销售订单为来源；履约出库按库存移动平均成本记流水并释放占货。
 
 出库运费建议存各订单行人工分摊金额，默认0，整单汇总；不能同时把总运费和逐行分摊重复扣毛利。已确认下单默认0，发货／现场交付填写已知运费、未知可后补不阻止出货；录入更改重算本单毛利提成，不改商品及剩余库存成本，已复核需重新复核。
 
-截图及送货单仅支持JPEG、PNG、WebP图片，单张最多10MB，可多张；入库凭证选填、收款至少一张。存受控文件目录，数据库存文件引用；访问受单据权限保护，不将内容塞入金额或日志字段，不先创建通用文件管理系统。多图建议采用小型单据图片记录（入库或收款外键二选一、路径、类型、大小、上传人时间），不使用公开文件地址。上传张数技术限制及历史图片保留方案仍需在实施规格落实。
+图片仅支持JPEG、PNG、WebP，单张最多10MB，上传时校验实际内容及解码；收款登记至少一张，单据最多20张。现有`ReceiptImage`复用图片存储，入库凭证或收款外键最多一个；文件无公开地址，访问受单据权限控制，未关联暂存图片仅上传者可读，过期暂存图片24小时后清理，已关联凭证保留。
 
 客户散客可空，快递收货信息必须有独立订单快照；创建客户必须有地址，不意味着门店散客必须建档或填快递地址。
 
@@ -135,7 +136,7 @@ erDiagram
 
 ## 8. 总审状态
 
-本稿保留当前模型和后续目标模型。2026-10-04阶段3迁移0008已在隔离PostgreSQL测试库应用，16项阶段3专项测试及51项全量回归通过；独立验收待进行。当前订单状态及可用字段以实际模型和迁移为准，后续支付、履约、纠错与提成模型仍是目标设计，须由对应阶段实现。进度及验证记录在[开发计划](DEVELOPMENT_PLAN.md)，未确认及未解决问题见[问题记录](ISSUE_LOG.md)。
+本稿保留当前模型和后续目标模型。2026-10-04阶段4应用`73666ea`及迁移0009实现了付款、履约、正式提成复核模型；PostgreSQL全量76项回归、系统检查、迁移漂移检查及编译通过，独立复测与负责人审查待进行。阶段5纠错与阶段6报表仍是后续目标。进度及验证记录在[开发计划](DEVELOPMENT_PLAN.md)，未确认及未解决问题见[问题记录](ISSUE_LOG.md)。
 
 ## 9. 字段、约束与历史记录补全（技术总审稿）
 
@@ -157,12 +158,12 @@ erDiagram
 | receipt_line补全 | 稳定行ID；quantity、purchase_price、inbound_freight、cost_amount、reserved、damaged | quantity>0，金额非负；reserved＋damaged≤quantity；确认生成受限明细；同SKU多行累计检查，不重复设置冲突阈值 |
 | damaged_record补全 | balance_id、receipt_line/opening_line二选一、original_quantity、remaining_quantity、version | 来源明确，remaining不超过原数量；余额破损数为当前剩余明细合计；原来源更正不得使已处理数量无依据 |
 | damaged_resolution补全 | record_id、kind、quantity、refund_amount可空、deducted_cost、difference、unreturned_freight、operator_id、confirmed_at | exchange退款字段为空；refund实退必填、quantity≤未处理量；difference=扣减成本－退款；不重复相加运费损失 |
-| sales_order补全 | delivery_mode=shipment/on_site；当前status仅awaiting_payment/cancelled；customer_name及收件省市地址快照；payment_version=1、amount_version=1、version=1 | 快递必填完整收件，现场散客可空；订单版本用于并发修改／取消；后续履约状态不在阶段3约束内 |
-| sales_order_line补全 | 稳定行ID、active、quantity、unit_price、revenue_amount、unit_cost_snapshot、order_cost_amount、outbound_freight=0、cost_mode | quantity>0；修改不物理删除行；减量及只改价沿用原成本快照，增量、新增行、SKU或仓库变化重算整单；阶段3未登记出库成本 |
+| sales_order补全 | delivery_mode=shipment/on_site；status为awaiting_payment/ready_to_ship/shipped/completed/cancelled；customer_name及收件省市地址快照；payment_version、amount_version、version；shipped_at、completed_at | 快递必填完整收件，现场散客可空；订单版本用于并发修改及履约；付款状态独立 |
+| sales_order_line补全 | 稳定行ID、active、quantity、unit_price、revenue_amount、unit_cost_snapshot、order_cost_amount、outbound_freight=0、cost_mode | quantity>0；修改不物理删除行；减量及只改价沿用原成本快照，增量、新增行、SKU或仓库变化重算整单；出库成本另按实际库存加权平均记录 |
 | payment_record补全 | expected_payment_version、verified_version可空、status=pending/problem/passed、paused=false | 订单一对一；图片至少一张才能进入待出库；problem原因非空；更新凭证不清除已有暂停，核对通过才能解除 |
 | commission_review补全 | order一对一、approved_amount可空、approved_amount_version可空、first_earned_at可空、reviewer_id及reviewed_at | 未批准金额为空不默认0；首次三条件齐备才写first_earned_at；已计入重审旧批准金额保留，不能只按当前条件抹掉旧月份金额 |
-| commission_adjustment补全 | approval_operation_id、order_id、kind、可空correction_id、old_amount、new_amount、delta、confirmed_at、completed_by/time可空 | 批准操作＋订单唯一；delta=new-old；同次成本纠错一个订单汇总一条，不逐行重复记录；销售完成仅影响线下处理标记 |
-| document_image | receipt_id/payment_id二选一，未关联暂存时两者均空；owner_id、storage_key、type、size、created_at | 绑定时只能一项非空，关联后按单据授权，路径非公开；已确认每单最多20张、暂存24小时清理；旧已关联凭证保留 |
+| commission_adjustment补全 | approval_operation_id、order_id、kind=initial/rereview、old_amount、new_amount、delta、confirmed_at、completed_by/time可空 | 批准操作＋订单唯一；delta=new-old；阶段5再扩展成本纠错关联；销售完成仅影响线下处理标记 |
+| receipt_image | receipt_id/payment_id至多一项，未关联暂存时两者均空；owner_id、file、image_format、size、created_at | 绑定后按单据授权，文件无公开地址；每单最多20张、暂存24小时清理；旧已关联凭证保留 |
 | stock_count_line补全 | balance_id、observed_quantity、captured_quantity_version、basis_cost_version、delta、cost_mode=average/manual、manual_unit_cost可空、supplemental_unit_cost可空、supplement_approval_id可空 | 观测数≥0，manual必填；basis_cost_version取balance.version，该版在任何余额字段变化时增，quantity_version仅实物变时增；成本版变化刷新金额不重盘；补充值只来自已批准纠错并保留原cost_mode |
 | cost_correction补全 | receipt_id/opening_batch_id恰一、state=pending/applied/rejected、reason、proposed_input、supplemental_count_costs JSON、before_after JSON、preview_sequence、request_version、submitter/reviewer/time | 一次目标一张采购或一期初批次；单价数量SKU运费受限数可选行更正，采购仓库仅整单改仓；补录历史盘点成本纳入同次老板批准；未批准不覆盖来源及补充有效值，依赖变化重预览 |
 

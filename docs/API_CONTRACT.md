@@ -1,6 +1,6 @@
 # 第一版网页与API合同
 
-状态：2026-10-04阶段3独立复测及负责人复审通过，55项回归通过。阶段1、2已验收；本合同第3.1节列出当前已实现的阶段3客户、生日、渠道和订单接口。付款凭证、核对、履约、提成复核及报表仍是后续规格，当前不可用，也不代表已上线。
+状态：2026-10-04阶段4应用`73666ea`实现及开发自测完成，等待原测试会话独立复测与负责人复审；第3.1—3.2节列出阶段3—4当前接口。阶段5纠错、阶段6报表尚未实现；本地可用不代表已上线。
 
 ## 1. 公共格式和权限
 
@@ -72,19 +72,35 @@
 | POST `/api/v1/customers/{id}/archive`、`/transfer` | 归档传版本及操作标识；转交仅老板／管理员，另传新`owner_id`，不改订单销售人或历史地址快照。 |
 | GET／PATCH `/api/v1/me/preferences` | 读取或修改本人生日提醒开关；PATCH传版本及操作标识。 |
 | GET `/api/v1/birthdays` | 返回北京时间当天、当前用户可查看且未归档客户的生日；关闭个人提醒时返回空列表。 |
-| GET `/api/v1/orders` | 支持`q`、`status`和标准分页；销售只见本人订单，仓管默认见全部订单。当前状态仅“待付款凭证”和“已取消”。 |
+| GET `/api/v1/orders` | 支持`q`、`status`和标准分页；销售只见本人订单，仓管默认见全部订单。状态为待付款凭证、待出库、待收货、已完成、已取消。 |
 | POST `/api/v1/orders/preview`、POST `/api/v1/orders` | 先提交订单输入获取短时签名预览，再以`preview_token`和`operation_key`确认并占货。现场散客可不关联客户或收货地址；快递须有完整收件快照。 |
-| GET `/api/v1/orders/{id}` | 返回授权范围内订单、活动明细及成交、订单成本、毛利和提成预估快照。 |
+| GET `/api/v1/orders/{id}` | 返回授权范围内订单、活动明细、成交／订单成本／毛利／提成预估、付款核对状态、物流供货仓、正式提成批准及差额状态。图片仍使用受控image_id读取。 |
 | POST `/api/v1/orders/{id}/amend/preview`、POST `/api/v1/orders/{id}/amend` | 预览完整新明细并校验版本；确认使用签名token及操作标识。删行保留为不活动历史行，新行分配新行ID。 |
-| POST `/api/v1/orders/{id}/cancel` | 仅待付款凭证订单可取消；传`expected_version`及`operation_key`，取消与释放全部占货同事务完成。 |
+| POST `/api/v1/orders/{id}/cancel` | 未交付订单（待付款凭证或待出库）可取消；传`expected_version`及`operation_key`，取消与释放全部占货同事务完成。已登记的付款记录保留。 |
 
-订单预览有效期10分钟。预览到提交期间受协调业务序号或相关SKU、仓库、客户地址、渠道、余额及订单版本变化时返回409，旧占货保持不变，须重新预览。订单写操作的锁序为`BusinessControl →（修改／取消时）订单 → 仓库ID、SKU ID排序的余额`；重复仓库SKU先合并数量后校验可售。订单行单位平均成本先ROUND_HALF_UP至3位，再乘数量保存行成本；只减量或只改价沿用原单位成本，增量、新增明细、SKU或仓库变化会重算整单成本。订单成本和提成估算不随普通采购入库改写。当前没有收款、发货／现场完成、出库扣减、正式提成核定或历史成本纠错接口。
+### 3.2 阶段4已实现接口
+
+阶段4写接口统一使用`expected_version`和UUID格式`operation_key`；金额按3位小数，服务端重新校验权限、版本、状态和幂等摘要。收款账户只在Django Admin维护名称、支付方式、核对责任及启停，不存登录凭据。
+
+| 路径／方法 | 输入、行为与权限 |
+| --- | --- |
+| GET `/api/v1/payment-accounts` | 返回启用账户的ID、名称、方式及核对责任；需`view_paymentaccount`。 |
+| POST `/api/v1/orders/{id}/payment` | `account_id`、`received_amount`、`image_ids`（1—20张）、可选`received_at`、`difference_reason`；订单有应收差额时原因必填。需订单归属范围及`register_payment`。重新登记令旧核对失效，但保留问题暂停标记。 |
+| POST `/api/v1/orders/{id}/verify-payment` | `result=passed/problem`；problem须有`problem_reason`。对公账户由仓管／老板核对，老板私账仅老板核对；问题暂停未交付订单，核对通过才解除暂停。需`verify_payment`及账户责任匹配。 |
+| POST `/api/v1/orders/{id}/ship` | `shipments[{carrier,tracking_number,warehouse_ids}]`及可选`outbound_freights[{line_id,amount}]`；整单发货，供货仓库须覆盖订单全部已有供货仓，不能另选仓。有当前版本登记凭证（可待核对）且未暂停时允许出库；暂停、旧付款版本或库存不足会拒绝。需`ship_salesorder`。 |
+| POST `/api/v1/orders/{id}/deliver-on-site` | 可选`outbound_freights[{line_id,amount}]`；仅现场订单，凭证齐备、未暂停且只交付一次。扣库存、释放占货、运费及完成状态同事务处理。需`deliver_on_site`。 |
+| POST `/api/v1/orders/{id}/receive` | 快递订单销售负责人传版本及操作标识确认收货；不再次扣库存。需`confirm_salesorder_receipt`及本人订单身份。 |
+| POST `/api/v1/orders/{id}/freight` | `outbound_freights[{line_id,amount}]`；交付后补录／更正。省略行沿用原分摊，显式0清零；仅金额变化时递增`amount_version`并重算毛利、提成，不重算库存成本。需对应发货／现场交付权限。 |
+| POST `/api/v1/orders/{id}/review-commission` | 仅传版本及操作标识；订单已完成且当前付款版本核对通过后，老板复核当前提成金额。重审保留首次计入时间，按新旧正式金额记一条差额。需`review_commission`。 |
+| POST `/api/v1/commission-adjustments/{id}/complete` | 所属订单销售负责人传版本及操作标识，登记线下差额处理完成；不执行转账。需`complete_commission_adjustment`及本人身份。 |
+
+订单预览有效期10分钟。预览到提交期间受协调业务序号或相关SKU、仓库、客户地址、渠道、余额及订单版本变化时返回409，旧占货保持不变，须重新预览。订单写操作先锁`BusinessControl`，再按动作锁订单、收款及仓库ID／SKU ID排序的余额；重复仓库SKU先合并数量后校验。实际出库按移动加权平均成本扣减库存并释放占货，与交付、运费和流水写入同一事务；同一请求重放不重复履约。历史成本纠错仍未实现。
 
 交付运费字段省略时沿用已保存分摊（下单初始为0），明确提交的0才清零；已知费用由人员填写，未知仍允许0并后补，不引入运费是否已知的额外状态。交付成功前不能独立确认一个尚未保存运费的新金额版本。
 
 ## 4. 图片与报表
 
-POST `images`支持JPEG／PNG／WebP，每张≤10MB，服务端验证实际内容及解码；返回受控image_id，无公共文件URL。GET `images/{id}`必须检查所关联单据权限，未关联暂存图片仅上传者可访问。第一版每单最多20张，用户已确认该技术容量；失败暂存文件按24小时清理，关联旧凭证保留，不因新截图替换或日志轮转删除。
+POST `/api/v1/images`支持JPEG／PNG／WebP，每张≤10MB，服务端验证实际格式及解码；返回受控image_id，无公共文件URL。可由入库凭证或订单收款登记授权上传；已关联图片按单据及订单可见范围访问，未关联暂存图片仅上传者可访问。每单最多20张；失败暂存文件按24小时清理，关联旧凭证保留，不因新截图替换或日志轮转删除。
 
 GET `reports/inventory`、`sales`、`payments`、`commissions`，公共日期输入`period=1m/3m/6m/12m/all/custom`或自定义start_date/end_date。月推算遇不存在的日取该月最后一天，查询区间为起始日00:00包含、结束日下一天00:00不包含，统一北京时间。
 
