@@ -29,7 +29,15 @@
   </tbody></table>
   {% if order.status == "awaiting_payment" or order.status == "ready_to_ship" %}
     {% if can_edit_sales_order %}<p><a href="{% url 'order-edit' order.pk %}">修改订单</a></p>{% endif %}
-    {% if can_cancel_sales_order %}<button id="cancel" type="button">取消订单并释放占货</button>{% endif %}
+    {% if can_cancel_sales_order %}
+      <button id="cancel" type="button" aria-controls="cancel-confirmation" aria-expanded="false">取消订单并释放占货</button>
+      <section id="cancel-confirmation" hidden aria-labelledby="cancel-confirmation-title">
+        <h2 id="cancel-confirmation-title">确认取消订单</h2>
+        <p>确认后将取消订单并释放该订单占用的库存。</p>
+        <button id="confirm-cancel" type="button">确认取消订单并释放占货</button>
+        <button id="cancel-back" type="button">返回</button>
+      </section>
+    {% endif %}
   {% endif %}
 
   {% if can_register_payment %}
@@ -132,7 +140,46 @@
     async function runForm(formId,callback){const form=document.getElementById(formId);if(!form)return;form.addEventListener('submit',async event=>{event.preventDefault();try{await callback();location.reload();}catch(error){status.textContent=error.message;}});}
 
     const cancel=document.getElementById('cancel');
-    if(cancel)cancel.addEventListener('click',async()=>{if(!confirm('取消该订单并释放占用库存？'))return;try{await postJson(`/api/v1/orders/${initial.id}/cancel`,actionData());location.reload();}catch(error){status.textContent=error.message;}});
+    const cancelConfirmation=document.getElementById('cancel-confirmation');
+    const confirmCancel=document.getElementById('confirm-cancel');
+    const cancelBack=document.getElementById('cancel-back');
+    if(cancel&&cancelConfirmation&&confirmCancel&&cancelBack){
+      let cancelSubmitting=false;
+      let cancelOperationKey=null;
+      cancel.addEventListener('click',()=>{
+        status.textContent='';
+        cancel.hidden=true;
+        cancel.setAttribute('aria-expanded','true');
+        cancelConfirmation.hidden=false;
+        confirmCancel.focus();
+      });
+      cancelBack.addEventListener('click',()=>{
+        if(cancelSubmitting)return;
+        cancelConfirmation.hidden=true;
+        cancel.hidden=false;
+        cancel.setAttribute('aria-expanded','false');
+        status.textContent='';
+        cancel.focus();
+      });
+      confirmCancel.addEventListener('click',async()=>{
+        if(cancelSubmitting)return;
+        cancelSubmitting=true;
+        confirmCancel.disabled=true;
+        cancelBack.disabled=true;
+        cancel.disabled=true;
+        if(!cancelOperationKey)cancelOperationKey=crypto.randomUUID();
+        try{
+          await postJson(`/api/v1/orders/${initial.id}/cancel`,{expected_version:initial.version,operation_key:cancelOperationKey});
+          location.reload();
+        }catch(error){
+          status.textContent=error.message;
+          cancelSubmitting=false;
+          confirmCancel.disabled=false;
+          cancelBack.disabled=false;
+          cancel.disabled=false;
+        }
+      });
+    }
 
     const paymentForm=document.getElementById('payment-form');
     let paymentImageIds=initial.payment?.image_ids||[];

@@ -568,6 +568,59 @@ class SalesOrderPhase3Tests(Phase3Base):
             cancel_sales_order(self.sales, first["order_id"], {"expected_version": cancelled["version"], "operation_key": str(uuid4())})
         self.assertEqual(error.exception.code, "state_conflict")
 
+    def test_cancel_api_releases_holds_once_and_renders_inline_confirmation(self):
+        _, _, order = self.preview_and_confirm()
+        client = Client()
+        client.force_login(self.sales)
+
+        page = client.get(f"/orders/{order.pk}/")
+        self.assertEqual(page.status_code, 200)
+        self.assertContains(page, 'id="cancel"')
+        self.assertContains(page, 'id="cancel-confirmation" hidden')
+        self.assertContains(page, 'id="confirm-cancel"')
+        self.assertContains(page, 'id="cancel-back"')
+        self.assertContains(page, "确认后将取消订单并释放该订单占用的库存。")
+
+        control = BusinessControl.objects.get(pk=1)
+        sequence_before = control.last_sequence
+        balance = InventoryBalance.objects.get(pk=self.balance.pk)
+        self.assertEqual(balance.occupied, 2)
+        payload = {"expected_version": order.version, "operation_key": str(uuid4())}
+        first = client.post(
+            f"/api/v1/orders/{order.pk}/cancel",
+            data=json.dumps(payload),
+            content_type="application/json",
+        )
+        self.assertEqual(first.status_code, 200)
+        first_result = first.json()
+        self.assertEqual(first_result["status"], SalesOrder.Status.CANCELLED)
+        order.refresh_from_db()
+        balance.refresh_from_db()
+        control.refresh_from_db()
+        self.assertEqual(order.status, SalesOrder.Status.CANCELLED)
+        self.assertEqual(balance.occupied, 0)
+        self.assertEqual(control.last_sequence, sequence_before + 1)
+        self.assertEqual(
+            BusinessOperation.objects.filter(sales_order=order, action="sales_order_cancel").count(),
+            1,
+        )
+
+        replay = client.post(
+            f"/api/v1/orders/{order.pk}/cancel",
+            data=json.dumps(payload),
+            content_type="application/json",
+        )
+        self.assertEqual(replay.status_code, 200)
+        self.assertEqual(replay.json(), first_result)
+        balance.refresh_from_db()
+        control.refresh_from_db()
+        self.assertEqual(balance.occupied, 0)
+        self.assertEqual(control.last_sequence, sequence_before + 1)
+        self.assertEqual(
+            BusinessOperation.objects.filter(sales_order=order, action="sales_order_cancel").count(),
+            1,
+        )
+
     def test_stale_amendment_preview_leaves_existing_holds_untouched(self):
         _, _, order = self.preview_and_confirm()
         update = self.amendment_payload(order)
