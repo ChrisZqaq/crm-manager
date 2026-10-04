@@ -1,6 +1,6 @@
 # 第一版网页与API合同
 
-状态：2026-10-04阶段4 D15权限修复应用`1c6aa5570d78782578f960ff57aacc7001149b88`已完成开发自测，等待原测试会话独立复测及负责人复核；真实浏览器仍受V04环境限制。第3.1—3.2节列出阶段3—4当前接口。阶段5纠错、阶段6报表尚未实现；本地可用不代表已上线。
+状态：2026-10-04阶段4 D16列表状态修复应用`1ce7405c57b2c7e440d8d43ddd197c5d8ad95466`已完成开发自测，等待原测试会话独立复测及负责人复核；真实浏览器仍受V04环境限制。第3.1—3.2节列出阶段3—4当前接口。阶段5纠错、阶段6报表尚未实现；本地可用不代表已上线。
 
 ## 1. 公共格式和权限
 
@@ -72,9 +72,9 @@
 | POST `/api/v1/customers/{id}/archive`、`/transfer` | 归档传版本及操作标识；转交仅老板／管理员，另传新`owner_id`，不改订单销售人或历史地址快照。 |
 | GET／PATCH `/api/v1/me/preferences` | 读取或修改本人生日提醒开关；PATCH传版本及操作标识。 |
 | GET `/api/v1/birthdays` | 返回北京时间当天、当前用户可查看且未归档客户的生日；关闭个人提醒时返回空列表。 |
-| GET `/api/v1/orders` | 支持`q`、`status`和标准分页；销售默认只见本人订单，获`view_all_sales_orders`者可查看全部；仓管默认见全部订单。状态为待付款凭证、待出库、待收货、已完成、已取消。 |
+| GET `/api/v1/orders` | 支持`q`、`status`和标准分页；销售默认只见本人订单，获`view_all_sales_orders`者可查看全部；仓管默认见全部订单。`status`保留原状态枚举，另返回由模型`get_status_display()`生成的`status_label`；支持全部五种现有状态筛选。 |
 | POST `/api/v1/orders/preview`、POST `/api/v1/orders` | 先提交订单输入获取短时签名预览，再以`preview_token`和`operation_key`确认并占货。现场散客可不关联客户或收货地址；快递须有完整收件快照。 |
-| GET `/api/v1/orders/{id}` | 返回授权范围内订单、活动明细、成交／订单成本／毛利、付款核对状态及物流供货仓。提成预估、正式批准及差额状态仅向本人销售、`view_all_commissions`或管理员提供；不符合条件时从JSON完全省略对应字段。图片仍使用受控image_id读取。 |
+| GET `/api/v1/orders/{id}` | 返回授权范围内订单、活动明细、成交／订单成本／毛利、付款核对状态及物流供货仓；`status`保留原枚举并返回模型生成的`status_label`。提成预估、正式批准及差额状态仅向本人销售、`view_all_commissions`或管理员提供；不符合条件时从JSON完全省略对应字段。图片仍使用受控image_id读取。 |
 | POST `/api/v1/orders/{id}/amend/preview`、POST `/api/v1/orders/{id}/amend` | 预览完整新明细并校验版本；确认使用签名token及操作标识。删行保留为不活动历史行，新行分配新行ID。修改他人订单时，预览的`commission_estimate`仍按提成查看权限控制。 |
 | POST `/api/v1/orders/{id}/cancel` | 未交付订单（待付款凭证或待出库）可取消；传`expected_version`及`operation_key`，取消与释放全部占货同事务完成。已登记的付款记录保留。 |
 
