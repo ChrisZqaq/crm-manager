@@ -14,7 +14,7 @@ from xml.sax.saxutils import escape
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.db import close_old_connections
+from django.db import close_old_connections, connections, transaction
 from django.db.models.query import QuerySet
 from django.test import Client, TransactionTestCase, override_settings
 from django.utils import timezone
@@ -277,6 +277,176 @@ class SKUUnitHistoryPhase2Tests(Phase2Base):
         self.sku.refresh_from_db()
         balance.refresh_from_db()
         self.assertEqual((self.sku.unit, balance.on_hand, balance.cost_amount), ("盒", 5, Decimal("50.000")))
+
+    def test_receipt_commit_wins_race_and_admin_rechecks_unit_history_under_control_lock(self):
+        self.assertEqual(connections["default"].vendor, "postgresql")
+        admin_user = self.User.objects.create_superuser(
+            username="sku-unit-race-admin-1", email="sku-unit-race-admin-1@example.test", password="test-only-password"
+        )
+        payload = self.receipt_payload(self.sku, quantity_value=5, price="10.000")
+        preview = preview_receipt(self.user, payload)
+        receipt_write_done = threading.Event()
+        allow_receipt_commit = threading.Event()
+        admin_db_attempt = threading.Event()
+        admin_control_lock_attempt = threading.Event()
+        admin_sku_update_attempt = threading.Event()
+        backend_pids = {}
+
+        def backend_pid():
+            with connections["default"].cursor() as cursor:
+                cursor.execute("SELECT pg_backend_pid()")
+                return cursor.fetchone()[0]
+
+        def receipt_worker():
+            close_old_connections()
+            try:
+                actor = self.User.objects.get(pk=self.user.pk)
+                backend_pids["receipt"] = backend_pid()
+                with transaction.atomic():
+                    result = confirm_receipt(actor, uuid4(), preview["preview_token"])
+                    receipt_write_done.set()
+                    if not allow_receipt_commit.wait(timeout=10):
+                        raise TimeoutError("receipt transaction was not released")
+                return result
+            finally:
+                close_old_connections()
+
+        def track_admin_sql(execute, sql, params, many, context):
+            normalized = sql.lower()
+            if "crm_businesscontrol" in normalized and "for update" in normalized:
+                admin_control_lock_attempt.set()
+                admin_db_attempt.set()
+            if normalized.lstrip().startswith("update") and "crm_sku" in normalized:
+                admin_sku_update_attempt.set()
+                admin_db_attempt.set()
+            return execute(sql, params, many, context)
+
+        def admin_worker():
+            close_old_connections()
+            try:
+                client = Client()
+                client.force_login(self.User.objects.get(pk=admin_user.pk))
+                backend_pids["admin"] = backend_pid()
+                with connections["default"].execute_wrapper(track_admin_sql):
+                    response = client.post(
+                        f"/admin/crm/sku/{self.sku.pk}/change/",
+                        self._admin_sku_data(self.sku, unit="包"),
+                    )
+                return response.status_code, "已有库存业务或余额记录，不能修改售卖单位。" in response.content.decode()
+            finally:
+                close_old_connections()
+
+        admin_response = None
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            receipt_future = executor.submit(receipt_worker)
+            admin_future = None
+            try:
+                self.assertTrue(receipt_write_done.wait(timeout=10), "receipt did not reach its held-commit point")
+                admin_future = executor.submit(admin_worker)
+                self.assertTrue(admin_db_attempt.wait(timeout=10), "Admin POST did not reach its database lock/write")
+            finally:
+                allow_receipt_commit.set()
+            receipt_future.result(timeout=15)
+            admin_response = admin_future.result(timeout=15)
+
+        self.assertNotEqual(backend_pids["receipt"], backend_pids["admin"])
+        self.assertTrue(admin_control_lock_attempt.is_set())
+        self.assertFalse(admin_sku_update_attempt.is_set())
+        self.assertEqual(admin_response, (200, True))
+        self.sku.refresh_from_db()
+        balance = InventoryBalance.objects.get(sku=self.sku)
+        self.assertEqual((self.sku.unit, balance.on_hand, balance.cost_amount), ("盒", 5, Decimal("50.000")))
+        self.assertEqual(ReceiptLine.objects.filter(sku=self.sku).count(), 1)
+
+    def test_admin_unit_commit_makes_previous_receipt_preview_stale(self):
+        self.assertEqual(connections["default"].vendor, "postgresql")
+        sku = self.new_sku(2)
+        admin_user = self.User.objects.create_superuser(
+            username="sku-unit-race-admin-2", email="sku-unit-race-admin-2@example.test", password="test-only-password"
+        )
+        payload = self.receipt_payload(sku, quantity_value=5, price="10.000")
+        preview = preview_receipt(self.user, payload)
+        admin_saved = threading.Event()
+        allow_admin_commit = threading.Event()
+        receipt_control_lock_attempt = threading.Event()
+        backend_pids = {}
+        admin_sql_order = []
+
+        def backend_pid():
+            with connections["default"].cursor() as cursor:
+                cursor.execute("SELECT pg_backend_pid()")
+                return cursor.fetchone()[0]
+
+        def track_admin_sql(execute, sql, params, many, context):
+            normalized = sql.lower()
+            if "crm_businesscontrol" in normalized and "for update" in normalized:
+                admin_sql_order.append("control_lock")
+            if normalized.lstrip().startswith("update") and "crm_sku" in normalized:
+                admin_sql_order.append("sku_update")
+            return execute(sql, params, many, context)
+
+        def admin_worker():
+            close_old_connections()
+            try:
+                client = Client()
+                client.force_login(self.User.objects.get(pk=admin_user.pk))
+                backend_pids["admin"] = backend_pid()
+                with transaction.atomic():
+                    with connections["default"].execute_wrapper(track_admin_sql):
+                        response = client.post(
+                            f"/admin/crm/sku/{sku.pk}/change/",
+                            self._admin_sku_data(sku, unit="包"),
+                        )
+                    status_code = response.status_code
+                    admin_saved.set()
+                    if not allow_admin_commit.wait(timeout=10):
+                        raise TimeoutError("Admin transaction was not released")
+                return status_code
+            finally:
+                close_old_connections()
+
+        def receipt_worker():
+            close_old_connections()
+            try:
+                actor = self.User.objects.get(pk=self.user.pk)
+                backend_pids["receipt"] = backend_pid()
+
+                def track_receipt_sql(execute, sql, params, many, context):
+                    normalized = sql.lower()
+                    if "crm_businesscontrol" in normalized and "for update" in normalized:
+                        receipt_control_lock_attempt.set()
+                    return execute(sql, params, many, context)
+
+                with connections["default"].execute_wrapper(track_receipt_sql):
+                    try:
+                        confirm_receipt(actor, uuid4(), preview["preview_token"])
+                        return "confirmed"
+                    except OperationError as exc:
+                        return exc.code
+            finally:
+                close_old_connections()
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            admin_future = executor.submit(admin_worker)
+            receipt_future = None
+            try:
+                self.assertTrue(admin_saved.wait(timeout=10), "Admin POST did not save the new unit")
+                receipt_future = executor.submit(receipt_worker)
+                self.assertTrue(receipt_control_lock_attempt.wait(timeout=10), "receipt did not reach BusinessControl lock")
+            finally:
+                allow_admin_commit.set()
+            admin_status = admin_future.result(timeout=15)
+            receipt_result = receipt_future.result(timeout=15)
+
+        self.assertNotEqual(backend_pids["admin"], backend_pids["receipt"])
+        self.assertEqual(admin_status, 302)
+        self.assertLess(admin_sql_order.index("control_lock"), admin_sql_order.index("sku_update"))
+        self.assertEqual(receipt_result, "stale_preview")
+        sku.refresh_from_db()
+        self.assertEqual(sku.unit, "包")
+        self.assertFalse(InventoryBalance.objects.filter(sku=sku).exists())
+        self.assertFalse(ReceiptLine.objects.filter(sku=sku).exists())
+        self.assertEqual(Receipt.objects.count(), 0)
 
 
 class OpeningPhase2Tests(Phase2Base):
