@@ -493,9 +493,38 @@ class AccountProfile(models.Model):
     version = models.PositiveIntegerField(default=1)
 
 
+class PaymentAccount(models.Model):
+    class Method(models.TextChoices):
+        BANK = "bank", "银行"
+        WECHAT = "wechat", "微信"
+        ALIPAY = "alipay", "支付宝"
+
+    class Responsibility(models.TextChoices):
+        PUBLIC = "public", "对公／财务核对"
+        OWNER_PRIVATE = "owner_private", "老板私账／老板核对"
+
+    name = models.CharField(max_length=255)
+    method = models.CharField(max_length=16, choices=Method.choices)
+    responsibility = models.CharField(max_length=24, choices=Responsibility.choices)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ("name", "id")
+        constraints = [
+            models.CheckConstraint(condition=Q(method__in=("bank", "wechat", "alipay")), name="crm_payment_account_method"),
+            models.CheckConstraint(condition=Q(responsibility__in=("public", "owner_private")), name="crm_payment_account_responsibility"),
+        ]
+
+    def __str__(self):
+        return self.name
+
+
 class SalesOrder(models.Model):
     class Status(models.TextChoices):
         AWAITING_PAYMENT = "awaiting_payment", "待付款凭证"
+        READY_TO_SHIP = "ready_to_ship", "待出库"
+        SHIPPED = "shipped", "待收货"
+        COMPLETED = "completed", "已完成"
         CANCELLED = "cancelled", "已取消"
 
     class DeliveryMode(models.TextChoices):
@@ -525,6 +554,8 @@ class SalesOrder(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     cancelled_at = models.DateTimeField(null=True, blank=True)
+    shipped_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ("-id",)
@@ -532,9 +563,13 @@ class SalesOrder(models.Model):
             ("view_all_sales_orders", "查看全部销售订单"),
             ("change_all_sales_orders", "维护全部销售订单"),
             ("cancel_salesorder", "取消未交付销售订单"),
+            ("register_payment", "登记订单收款凭证"),
+            ("ship_salesorder", "确认订单发货"),
+            ("deliver_on_site", "确认现场交付"),
+            ("confirm_salesorder_receipt", "确认订单收货"),
         )
         constraints = [
-            models.CheckConstraint(condition=Q(status__in=("awaiting_payment", "cancelled")), name="crm_order_stage3_status"),
+            models.CheckConstraint(condition=Q(status__in=("awaiting_payment", "ready_to_ship", "shipped", "completed", "cancelled")), name="crm_order_phase4_status"),
             models.CheckConstraint(condition=Q(delivery_mode__in=("shipment", "on_site")), name="crm_order_delivery_mode"),
             models.CheckConstraint(condition=Q(revenue_amount__gte=0, cost_amount__gte=0), name="crm_order_totals_nonnegative"),
         ]
@@ -566,6 +601,113 @@ class SalesOrderLine(models.Model):
         ]
 
 
+class PaymentRecord(models.Model):
+    class Status(models.TextChoices):
+        PENDING = "pending", "待核对"
+        PROBLEM = "problem", "待处理"
+        PASSED = "passed", "核对通过"
+
+    order = models.OneToOneField(SalesOrder, on_delete=models.PROTECT, related_name="payment_record")
+    account = models.ForeignKey(PaymentAccount, on_delete=models.PROTECT, related_name="payment_records")
+    registered_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="registered_payments")
+    expected_amount = models.DecimalField(max_digits=20, decimal_places=3)
+    received_amount = models.DecimalField(max_digits=20, decimal_places=3)
+    expected_payment_version = models.PositiveIntegerField(default=1)
+    verified_version = models.PositiveIntegerField(null=True, blank=True)
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.PENDING)
+    paused = models.BooleanField(default=False)
+    difference_reason = models.TextField(blank=True)
+    problem_reason = models.TextField(blank=True)
+    received_at = models.DateTimeField(null=True, blank=True)
+    verified_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="verified_payments")
+    verified_at = models.DateTimeField(null=True, blank=True)
+    version = models.PositiveIntegerField(default=1)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        permissions = (("verify_payment", "核对订单收款"),)
+        constraints = [
+            models.CheckConstraint(condition=Q(status__in=("pending", "problem", "passed")), name="crm_payment_status_valid"),
+            models.CheckConstraint(condition=Q(expected_amount__gte=0, received_amount__gte=0), name="crm_payment_amounts_nonnegative"),
+            models.CheckConstraint(condition=~Q(status="problem") | Q(problem_reason__gt=""), name="crm_payment_problem_has_reason"),
+        ]
+
+
+class Shipment(models.Model):
+    class Carrier(models.TextChoices):
+        CROSSING = "crossing", "跨越"
+        SF = "sf", "顺丰"
+        HUOLALA = "huolala", "货拉拉"
+
+    order = models.ForeignKey(SalesOrder, on_delete=models.PROTECT, related_name="shipments")
+    carrier = models.CharField(max_length=16, choices=Carrier.choices)
+    tracking_number = models.CharField(max_length=255)
+    warehouses = models.ManyToManyField(Warehouse, through="ShipmentWarehouse", related_name="shipments")
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="shipments_created")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("id",)
+        constraints = [models.CheckConstraint(condition=Q(carrier__in=("crossing", "sf", "huolala")), name="crm_shipment_carrier_valid")]
+
+
+class ShipmentWarehouse(models.Model):
+    shipment = models.ForeignKey(Shipment, on_delete=models.PROTECT, related_name="warehouse_links")
+    warehouse = models.ForeignKey(Warehouse, on_delete=models.PROTECT, related_name="shipment_links")
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=("shipment", "warehouse"), name="crm_shipment_warehouse_unique")]
+
+
+class CommissionReview(models.Model):
+    order = models.OneToOneField(SalesOrder, on_delete=models.PROTECT, related_name="commission_review")
+    approved_amount = models.DecimalField(max_digits=20, decimal_places=3, null=True, blank=True)
+    approved_amount_version = models.PositiveIntegerField(null=True, blank=True)
+    first_earned_at = models.DateTimeField(null=True, blank=True)
+    reviewer = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="commission_reviews")
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        permissions = (("review_commission", "复核订单提成"), ("view_all_commissions", "查看全部订单提成"))
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(approved_amount__isnull=True, approved_amount_version__isnull=True, first_earned_at__isnull=True)
+                | Q(approved_amount__isnull=False, approved_amount_version__isnull=False, first_earned_at__isnull=False),
+                name="crm_commission_review_snapshot_complete",
+            ),
+        ]
+
+
+class CommissionAdjustment(models.Model):
+    class Kind(models.TextChoices):
+        INITIAL = "initial", "首次核定"
+        REREVIEW = "rereview", "重审差额"
+
+    approval_operation = models.ForeignKey("BusinessOperation", on_delete=models.PROTECT, related_name="commission_adjustments")
+    order = models.ForeignKey(SalesOrder, on_delete=models.PROTECT, related_name="commission_adjustments")
+    kind = models.CharField(max_length=16, choices=Kind.choices)
+    old_amount = models.DecimalField(max_digits=20, decimal_places=3)
+    new_amount = models.DecimalField(max_digits=20, decimal_places=3)
+    delta = models.DecimalField(max_digits=20, decimal_places=3)
+    confirmed_at = models.DateTimeField()
+    completed_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="completed_commission_adjustments")
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ("confirmed_at", "id")
+        permissions = (("complete_commission_adjustment", "确认本人提成差额已线下处理"),)
+        constraints = [
+            models.UniqueConstraint(fields=("approval_operation", "order"), name="crm_commission_adjustment_operation_order_unique"),
+            models.CheckConstraint(condition=Q(delta=models.F("new_amount") - models.F("old_amount")), name="crm_commission_adjustment_delta_valid"),
+            models.CheckConstraint(condition=Q(kind__in=("initial", "rereview")), name="crm_commission_adjustment_kind_valid"),
+            models.CheckConstraint(
+                condition=Q(completed_by__isnull=True, completed_at__isnull=True)
+                | Q(completed_by__isnull=False, completed_at__isnull=False),
+                name="crm_commission_adjustment_completion_pair",
+            ),
+        ]
+
+
 def receipt_image_upload_to(instance, filename):
     from uuid import uuid4
 
@@ -576,12 +718,16 @@ class ReceiptImage(models.Model):
     file = models.FileField(upload_to=receipt_image_upload_to)
     owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="receipt_images")
     receipt = models.ForeignKey(Receipt, null=True, blank=True, on_delete=models.PROTECT, related_name="images")
+    payment = models.ForeignKey(PaymentRecord, null=True, blank=True, on_delete=models.PROTECT, related_name="images")
     image_format = models.CharField(max_length=8)
     size = models.PositiveBigIntegerField()
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ("id",)
+        constraints = [
+            models.CheckConstraint(condition=Q(receipt__isnull=True) | Q(payment__isnull=True), name="crm_image_single_document"),
+        ]
 
 
 class PermissionChange(models.Model):

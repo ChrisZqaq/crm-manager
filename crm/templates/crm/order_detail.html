@@ -8,20 +8,161 @@
   <p>地址：{{ order.province_snapshot }} {{ order.city_snapshot }} {{ order.detail_snapshot }}</p>
   <p>收入 {{ order.revenue_amount }} · 成本 {{ order.cost_amount }} · 毛利 {{ order.margin_amount }} · 提成预估 {{ order.commission_estimate }}</p>
   <p>备注：{{ order.remarks|default:"—" }}</p>
-  <table><thead><tr><th>SKU</th><th>仓库</th><th>数量</th><th>单价</th><th>收入</th><th>成本单价快照</th><th>成本合计</th></tr></thead><tbody>
-    {% for line in initial.lines %}<tr><td>{{ line.sku_code }}</td><td>{{ line.warehouse }}</td><td>{{ line.quantity }}</td><td>{{ line.unit_price }}</td><td>{{ line.revenue_amount }}</td><td>{{ line.unit_cost_snapshot }}</td><td>{{ line.order_cost_amount }}</td></tr>{% empty %}<tr><td colspan="7">暂无明细。</td></tr>{% endfor %}
+  {% if initial.payment %}
+    <section>
+      <h2>收款凭证</h2>
+      <p>账户：{{ initial.payment.account_name }}（{{ initial.payment.account_method_label }}；{{ initial.payment.account_responsibility_label }}）；登记金额 {{ initial.payment.received_amount }}；核对状态 {{ initial.payment.status_label }}；暂停出库：{{ initial.payment.paused|yesno:"是,否" }}</p>
+      <p>收款时间：{{ initial.payment.received_at|default:"未填写" }}；订单金额版本 {{ order.payment_version }}；凭证版本 {{ initial.payment.expected_payment_version }}；差额原因：{{ initial.payment.difference_reason|default:"—" }}；问题原因：{{ initial.payment.problem_reason|default:"—" }}</p>
+      <div id="payment-images"></div>
+    </section>
+  {% endif %}
+  {% if initial.shipments %}
+    <section><h2>物流信息</h2><ul>
+      {% for shipment in initial.shipments %}<li>{{ shipment.carrier_label }} · {{ shipment.tracking_number }} · 仓库：{% for warehouse in shipment.warehouses %}{{ warehouse.name }}{% if not forloop.last %}、{% endif %}{% endfor %}</li>{% endfor %}
+    </ul></section>
+  {% endif %}
+  {% if initial.commission_review %}
+    <p>正式核定提成：{{ initial.commission_review.approved_amount|default:"尚未核定" }}；首次计入：{{ initial.commission_review.first_earned_at|default:"—" }}；{% if initial.commission_review.needs_review %}当前金额待复核{% else %}当前金额已复核{% endif %}</p>
+  {% endif %}
+  <table><thead><tr><th>SKU</th><th>仓库</th><th>数量</th><th>单价</th><th>收入</th><th>成本单价快照</th><th>成本合计</th><th>出库运费</th></tr></thead><tbody>
+    {% for line in initial.lines %}<tr><td>{{ line.sku_code }}</td><td>{{ line.warehouse }}</td><td>{{ line.quantity }}</td><td>{{ line.unit_price }}</td><td>{{ line.revenue_amount }}</td><td>{{ line.unit_cost_snapshot }}</td><td>{{ line.order_cost_amount }}</td><td>{{ line.outbound_freight }}</td></tr>{% empty %}<tr><td colspan="8">暂无明细。</td></tr>{% endfor %}
   </tbody></table>
-  {% if order.status == "awaiting_payment" %}
+  {% if order.status == "awaiting_payment" or order.status == "ready_to_ship" %}
     {% if perms.crm.change_salesorder or request.user.is_superuser %}<p><a href="{% url 'order-edit' order.pk %}">修改订单</a></p>{% endif %}
     {% if perms.crm.cancel_salesorder or request.user.is_superuser %}<button id="cancel" type="button">取消订单并释放占货</button>{% endif %}
+  {% endif %}
+
+  {% if perms.crm.register_payment or request.user.is_superuser %}
+    {% if order.status != "cancelled" %}
+      <section>
+        <h2>登记或更新收款</h2>
+        <form id="payment-form">
+          <label>收款账户 <select id="payment-account" required><option value="">加载中…</option></select></label>
+          <label>登记金额 <input id="received-amount" type="number" min="0" step="0.001" value="{{ order.revenue_amount }}" required></label>
+          <label>收款时间（可空） <input id="received-at" type="datetime-local"></label>
+          <label>金额不一致原因 <textarea id="difference-reason"></textarea></label>
+          <label>收款图片（JPEG/PNG/WebP，每张≤10MB，整单最多20张） <input id="payment-files" type="file" accept="image/jpeg,image/png,image/webp" multiple></label>
+          <p id="payment-image-status" role="status"></p>
+          <button type="submit">保存收款凭证</button>
+        </form>
+      </section>
+    {% endif %}
+  {% endif %}
+
+  {% if initial.payment and perms.crm.verify_payment or initial.payment and request.user.is_superuser %}
+    <section>
+      <h2>收款核对</h2>
+      <form id="verify-form">
+        <label>结果 <select id="verify-result"><option value="passed">核对通过</option><option value="problem">待处理</option></select></label>
+        <label>问题原因 <textarea id="problem-reason"></textarea></label>
+        <button type="submit">提交核对结果</button>
+      </form>
+    </section>
+  {% endif %}
+
+  {% if order.status == "ready_to_ship" and order.delivery_mode == "shipment" and perms.crm.ship_salesorder or order.status == "ready_to_ship" and order.delivery_mode == "shipment" and request.user.is_superuser %}
+    <section>
+      <h2>整单发货</h2>
+      <p>每个供货仓库关联一条物流；本次必须覆盖所有供货仓库。货拉拉编号填写平台订单号。</p>
+      <form id="ship-form">
+        <div id="shipment-rows"></div>
+        <button id="add-shipment" type="button">添加物流</button>
+        <table><thead><tr><th>SKU</th><th>供货仓库</th><th>运费（留空沿用，0清零）</th></tr></thead><tbody id="ship-freight"></tbody></table>
+        <button type="submit">确认整单发货并扣减库存</button>
+      </form>
+    </section>
+  {% endif %}
+
+  {% if order.status == "ready_to_ship" and order.delivery_mode == "on_site" and perms.crm.deliver_on_site or order.status == "ready_to_ship" and order.delivery_mode == "on_site" and request.user.is_superuser %}
+    <section>
+      <h2>现场交付</h2>
+      <form id="onsite-form">
+        <table><thead><tr><th>SKU</th><th>供货仓库</th><th>运费（留空沿用，0清零）</th></tr></thead><tbody id="onsite-freight"></tbody></table>
+        <button type="submit">确认现场交付并扣减库存</button>
+      </form>
+    </section>
+  {% endif %}
+
+  {% if order.status == "shipped" and perms.crm.confirm_salesorder_receipt or order.status == "shipped" and request.user.is_superuser %}
+    <section>
+      <h2>确认收货</h2>
+      <form id="receive-form">
+        <table><thead><tr><th>SKU</th><th>供货仓库</th><th>运费（留空沿用，0清零）</th></tr></thead><tbody id="receive-freight"></tbody></table>
+        <button type="submit">确认收货并完成订单</button>
+      </form>
+    </section>
+  {% endif %}
+
+  {% if order.status == "shipped" or order.status == "completed" %}
+    {% if perms.crm.ship_salesorder and order.delivery_mode == "shipment" or perms.crm.deliver_on_site and order.delivery_mode == "on_site" or request.user.is_superuser %}
+      <section>
+        <h2>补录或调整出库运费</h2>
+        <form id="freight-form">
+          <table><thead><tr><th>SKU</th><th>供货仓库</th><th>运费（留空沿用，0清零）</th></tr></thead><tbody id="extra-freight"></tbody></table>
+          <button type="submit">保存运费并更新毛利、提成</button>
+        </form>
+      </section>
+    {% endif %}
+  {% endif %}
+
+  {% if order.status == "completed" and perms.crm.review_commission or order.status == "completed" and request.user.is_superuser %}
+    <section><h2>提成复核</h2><p>当前计算金额：{{ order.commission_estimate }}；金额版本：{{ order.amount_version }}</p>
+      {% if not initial.commission_review or initial.commission_review.needs_review %}<button id="review-commission" type="button">复核当前提成</button>{% endif %}
+    </section>
+  {% endif %}
+
+  {% if perms.crm.complete_commission_adjustment or request.user.is_superuser %}
+    {% if initial.commission_adjustments %}
+      <section><h2>提成差额（线下处理登记）</h2><ul id="commission-adjustments">
+        {% for item in initial.commission_adjustments %}<li>{{ item.kind_label }}：{{ item.old_amount }} → {{ item.new_amount }}，差额 {{ item.delta }}；{% if item.completed_at %}已登记完成{% else %}<button class="complete-adjustment" data-id="{{ item.id }}" type="button">标记线下处理完成</button>{% endif %}</li>{% endfor %}
+      </ul></section>
+    {% endif %}
   {% endif %}
   <p id="status" role="status"></p>
   {{ initial|json_script:"order-initial" }}
   <form hidden>{% csrf_token %}</form>
   <script>
+    const initial=JSON.parse(document.getElementById('order-initial').textContent);
+    const status=document.getElementById('status');
     function csrfToken(){return document.cookie.split('; ').find(x=>x.startsWith('csrftoken='))?.split('=')[1]||'';}
-    const initial=JSON.parse(document.getElementById('order-initial').textContent),button=document.getElementById('cancel');
-    if(button)button.addEventListener('click',async()=>{if(!confirm('取消该订单并释放占用库存？'))return;try{const response=await fetch(`/api/v1/orders/${initial.id}/cancel`,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-CSRFToken':csrfToken()},body:JSON.stringify({expected_version:initial.version,operation_key:crypto.randomUUID()})});const data=await response.json();if(!response.ok)throw new Error(data.error?.message||'请求失败');location.reload();}catch(error){document.getElementById('status').textContent=error.message;}});
+    async function postJson(url,data){const response=await fetch(url,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-CSRFToken':csrfToken()},body:JSON.stringify(data)});const result=await response.json();if(!response.ok)throw new Error(result.error?.message||'请求失败');return result;}
+    function actionData(extra={}){return {expected_version:initial.version,operation_key:crypto.randomUUID(),...extra};}
+    function freightRows(tableId){const table=document.getElementById(tableId);if(!table)return;for(const line of initial.lines){const row=document.createElement('tr'),sku=document.createElement('td'),warehouse=document.createElement('td'),freight=document.createElement('td'),input=document.createElement('input');sku.textContent=line.sku_code;warehouse.textContent=line.warehouse;input.type='number';input.min='0';input.step='0.001';input.dataset.lineId=line.line_id;input.value=line.outbound_freight;freight.appendChild(input);row.append(sku,warehouse,freight);table.appendChild(row);}}
+    function freightPayload(tableId){return [...document.querySelectorAll(`#${tableId} input[data-line-id]`)].filter(input=>input.value!=='').map(input=>({line_id:Number(input.dataset.lineId),amount:input.value}));}
+    async function runForm(formId,callback){const form=document.getElementById(formId);if(!form)return;form.addEventListener('submit',async event=>{event.preventDefault();try{await callback();location.reload();}catch(error){status.textContent=error.message;}});}
+
+    const cancel=document.getElementById('cancel');
+    if(cancel)cancel.addEventListener('click',async()=>{if(!confirm('取消该订单并释放占用库存？'))return;try{await postJson(`/api/v1/orders/${initial.id}/cancel`,actionData());location.reload();}catch(error){status.textContent=error.message;}});
+
+    const paymentForm=document.getElementById('payment-form');
+    let paymentImageIds=initial.payment?.image_ids||[];
+    if(paymentForm){
+      const accounts=document.getElementById('payment-account');
+      fetch('/api/v1/payment-accounts',{credentials:'same-origin'}).then(response=>response.json()).then(data=>{accounts.innerHTML='<option value="">请选择</option>';for(const item of data.items){const option=document.createElement('option');option.value=item.id;option.textContent=`${item.name} · ${item.method_label} · ${item.responsibility_label}`;if(item.id===initial.payment?.account_id)option.selected=true;accounts.appendChild(option);}}).catch(error=>status.textContent=error.message);
+      if(initial.payment){document.getElementById('received-amount').value=initial.payment.received_amount;document.getElementById('difference-reason').value=initial.payment.difference_reason||'';}
+      document.getElementById('payment-image-status').textContent=paymentImageIds.length?`已关联${paymentImageIds.length}张凭证图片`:'';
+      document.getElementById('payment-files').addEventListener('change',async event=>{for(const file of event.target.files){if(paymentImageIds.length>=20){status.textContent='每张订单最多20张收款图片。';break;}const form=new FormData();form.append('file',file);try{const response=await fetch('/api/v1/images',{method:'POST',credentials:'same-origin',headers:{'X-CSRFToken':csrfToken()},body:form});const result=await response.json();if(!response.ok)throw new Error(result.error?.message||'图片上传失败');paymentImageIds.push(Number(result.image_id));}catch(error){status.textContent=error.message;}}document.getElementById('payment-image-status').textContent=`已关联${paymentImageIds.length}张凭证图片`;event.target.value='';});
+      runForm('payment-form',()=>postJson(`/api/v1/orders/${initial.id}/payment`,actionData({account_id:Number(accounts.value),received_amount:document.getElementById('received-amount').value,image_ids:paymentImageIds,received_at:document.getElementById('received-at').value||null,difference_reason:document.getElementById('difference-reason').value})));
+    }
+
+    const imagesBox=document.getElementById('payment-images');
+    if(imagesBox&&initial.payment){for(const id of initial.payment.image_ids){const image=document.createElement('img');image.src=`/api/v1/images/${id}`;image.alt='收款凭证';image.width=180;image.loading='lazy';imagesBox.appendChild(image);}}
+
+    const verifyForm=document.getElementById('verify-form');
+    if(verifyForm)runForm('verify-form',()=>postJson(`/api/v1/orders/${initial.id}/verify-payment`,actionData({result:document.getElementById('verify-result').value,problem_reason:document.getElementById('problem-reason').value})));
+
+    function makeShipmentRow(){const row=document.createElement('fieldset');row.className='shipment-row';const warehouses=[...new Map(initial.lines.map(line=>[line.warehouse_id,line.warehouse])).entries()];row.innerHTML='<legend>物流信息</legend><label>承运方 <select class="carrier"><option value="crossing">跨越</option><option value="sf">顺丰</option><option value="huolala">货拉拉</option></select></label> <label>运单号／平台订单号 <input class="tracking" required></label><div class="warehouse-options"></div><button class="remove-shipment" type="button">移除此物流</button>';const options=row.querySelector('.warehouse-options');for(const [id,name] of warehouses){const label=document.createElement('label'),checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.value=id;label.append(checkbox,document.createTextNode(` ${name}`));options.appendChild(label);}row.querySelector('.remove-shipment').addEventListener('click',()=>{if(document.querySelectorAll('.shipment-row').length>1)row.remove();});return row;}
+    const shipmentRows=document.getElementById('shipment-rows');
+    if(shipmentRows){shipmentRows.appendChild(makeShipmentRow());document.getElementById('add-shipment').addEventListener('click',()=>shipmentRows.appendChild(makeShipmentRow()));freightRows('ship-freight');runForm('ship-form',()=>{const shipments=[...shipmentRows.querySelectorAll('.shipment-row')].map(row=>({carrier:row.querySelector('.carrier').value,tracking_number:row.querySelector('.tracking').value,warehouse_ids:[...row.querySelectorAll('.warehouse-options input:checked')].map(input=>Number(input.value))}));return postJson(`/api/v1/orders/${initial.id}/ship`,actionData({shipments,outbound_freights:freightPayload('ship-freight')}));});}
+
+    for(const tableId of ['onsite-freight','receive-freight','extra-freight'])freightRows(tableId);
+    runForm('onsite-form',()=>postJson(`/api/v1/orders/${initial.id}/deliver-on-site`,actionData({outbound_freights:freightPayload('onsite-freight')})));
+    runForm('receive-form',()=>postJson(`/api/v1/orders/${initial.id}/receive`,actionData({outbound_freights:freightPayload('receive-freight')})));
+    runForm('freight-form',()=>postJson(`/api/v1/orders/${initial.id}/freight`,actionData({outbound_freights:freightPayload('extra-freight')})));
+
+    const review=document.getElementById('review-commission');
+    if(review)review.addEventListener('click',async()=>{try{await postJson(`/api/v1/orders/${initial.id}/review-commission`,actionData());location.reload();}catch(error){status.textContent=error.message;}});
+    document.querySelectorAll('.complete-adjustment').forEach(button=>button.addEventListener('click',async()=>{try{await postJson(`/api/v1/commission-adjustments/${button.dataset.id}/complete`,actionData());location.reload();}catch(error){status.textContent=error.message;}}));
   </script>
 </body>
 </html>

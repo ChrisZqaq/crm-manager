@@ -7,7 +7,14 @@ from django.test import Client, TestCase
 from .catalog import search_products, search_skus, search_warehouses
 from .forms import ProductAdminForm, SKUAdminForm, WarehouseAdminForm
 from .models import Brand, PermissionChange, Product, SKU, Warehouse
-from .permissions import ROLE_DEFAULTS, ROLE_OWNER, ROLE_SALES, ROLE_WAREHOUSE
+from .permissions import (
+    PRE_D14_WAREHOUSE_DEFAULTS,
+    ROLE_DEFAULTS,
+    ROLE_OWNER,
+    ROLE_SALES,
+    ROLE_WAREHOUSE,
+    create_fixed_role_groups,
+)
 
 
 User = get_user_model()
@@ -57,6 +64,30 @@ class CatalogTestCase(TestCase):
         warehouse.permissions.set(permissions.filter(codename="view_sku"))
         user.groups.add(sales, warehouse)
         self.assertTrue(user.has_perms(("crm.view_brand", "crm.view_product", "crm.view_sku")))
+
+    def test_warehouse_customer_permission_upgrade_preserves_custom_permissions(self):
+        self.assertIn(("crm", "add_customer"), ROLE_DEFAULTS[ROLE_WAREHOUSE])
+        self.assertNotIn(("crm", "view_customer"), ROLE_DEFAULTS[ROLE_WAREHOUSE])
+        self.assertNotIn(("crm", "view_all_customers"), ROLE_DEFAULTS[ROLE_WAREHOUSE])
+        self.assertNotIn(("crm", "change_all_customers"), ROLE_DEFAULTS[ROLE_WAREHOUSE])
+
+        warehouse = Group.objects.get(name=ROLE_WAREHOUSE)
+        previous = [
+            Permission.objects.get(content_type__app_label=app_label, codename=codename)
+            for app_label, codename in PRE_D14_WAREHOUSE_DEFAULTS
+        ]
+        warehouse.permissions.set(previous)
+        create_fixed_role_groups(sender=None)
+        upgraded = set(warehouse.permissions.values_list("content_type__app_label", "codename"))
+        self.assertEqual(upgraded, set(ROLE_DEFAULTS[ROLE_WAREHOUSE]))
+
+        custom = Permission.objects.get(content_type__app_label="crm", codename="view_sku")
+        warehouse.permissions.set((custom,))
+        create_fixed_role_groups(sender=None)
+        self.assertEqual(
+            set(warehouse.permissions.values_list("content_type__app_label", "codename")),
+            {("crm", "view_sku")},
+        )
 
     def test_api_and_html_access_require_login_and_permissions(self):
         api = self.client.get("/api/v1/skus")

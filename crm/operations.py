@@ -305,7 +305,7 @@ def _receipt_reference_data(payload, *, lock=False):
     if len(images) != len(image_ids):
         raise OperationError("图片已失效，请重新上传。", status=409, code="stale_preview")
     for image in images.values():
-        if image.receipt_id is not None:
+        if image.receipt_id is not None or image.payment_id is not None:
             raise OperationError("图片已关联其他入库单。", status=409, code="stale_preview")
         if image.created_at < timezone.now() - timedelta(hours=24):
             raise OperationError("暂存图片已过期，请重新上传。", status=409, code="stale_preview")
@@ -332,7 +332,7 @@ def _receipt_reference_data(payload, *, lock=False):
             if sku_id in balances else [sku_id, 0, 0, 0, 0, 0, "0.000", 0]
             for sku_id in sku_ids
         ],
-        "images": [[image.pk, image.owner_id, image.image_format, image.size, image.receipt_id] for image in images.values()],
+        "images": [[image.pk, image.owner_id, image.image_format, image.size, image.receipt_id, image.payment_id] for image in images.values()],
     }
     return warehouse, supplier, skus, products, brands, images, balances, snapshot
 
@@ -520,7 +520,7 @@ def confirm_receipt(actor, operation_key, preview_token, request_id=""):
                 sku.low_stock_threshold = threshold
                 sku.save(update_fields=("low_stock_threshold",))
             if images:
-                ReceiptImage.objects.filter(pk__in=images).update(receipt=receipt)
+                ReceiptImage.objects.filter(pk__in=images, payment__isnull=True).update(receipt=receipt)
             result = {
                 "document_id": receipt.pk,
                 "receipt_id": receipt.pk,

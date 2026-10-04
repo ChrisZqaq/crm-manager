@@ -15,6 +15,7 @@ from .models import (
     CustomerAddress,
     InventoryBalance,
     InventoryMovement,
+    PaymentRecord,
     SKU,
     SalesOrder,
     SalesOrderLine,
@@ -779,8 +780,8 @@ def preview_sales_order(actor, data, order_id=None):
             order = sales_order_queryset_for(actor, changing=True).select_related("customer", "channel").filter(pk=order_id).first()
             if order is None:
                 raise OperationError("订单不存在或不在可维护范围。", status=404, code="not_found")
-            if order.status != SalesOrder.Status.AWAITING_PAYMENT:
-                raise OperationError("只有待付款凭证订单可以修改。", status=409, code="state_conflict")
+            if order.status not in (SalesOrder.Status.AWAITING_PAYMENT, SalesOrder.Status.READY_TO_SHIP):
+                raise OperationError("只有未交付订单可以修改。", status=409, code="state_conflict")
         payload = _normalize_order_input(data, order)
         if order and payload["expected_version"] != order.version:
             raise OperationError("订单已变化，请刷新后重试。", status=409, code="version_conflict")
@@ -838,8 +839,8 @@ def confirm_sales_order(actor, operation_key_value, preview_token, request_id=""
                 if order is None:
                     raise OperationError("订单不存在或不在可维护范围。", status=404, code="not_found")
                 set_operation_document_id(order.pk)
-                if order.status != SalesOrder.Status.AWAITING_PAYMENT:
-                    raise OperationError("只有待付款凭证订单可以修改。", status=409, code="state_conflict")
+                if order.status not in (SalesOrder.Status.AWAITING_PAYMENT, SalesOrder.Status.READY_TO_SHIP):
+                    raise OperationError("只有未交付订单可以修改。", status=409, code="state_conflict")
                 if order.version != preview["payload"]["expected_version"]:
                     raise OperationError("订单已变化，请重新预览。", status=409, code="version_conflict")
             payload = _normalize_order_input(preview["payload"], order)
@@ -923,6 +924,7 @@ def confirm_sales_order(actor, operation_key_value, preview_token, request_id=""
                 movements.append((balance, delta))
 
             if is_amend:
+                payment_amount_changed = order.revenue_amount != plan["revenue_amount"]
                 order.customer = plan["customer"]
                 order.channel = plan["channel"]
                 order.delivery_mode = payload["delivery_mode"]
@@ -940,8 +942,20 @@ def confirm_sales_order(actor, operation_key_value, preview_token, request_id=""
                 order.version += 1
                 if plan["amount_changed"]:
                     order.amount_version += 1
+                if payment_amount_changed:
+                    order.payment_version += 1
                 order.last_sequence = sequence
                 order.save()
+                if payment_amount_changed:
+                    payment = PaymentRecord.objects.select_for_update().filter(order=order).first()
+                    if payment:
+                        payment.status = PaymentRecord.Status.PENDING
+                        payment.verified_version = None
+                        payment.problem_reason = ""
+                        payment.verified_by = None
+                        payment.verified_at = None
+                        payment.version += 1
+                        payment.save()
 
             operation_lines = [
                 {
@@ -1011,8 +1025,8 @@ def cancel_sales_order(actor, order_id, data, request_id=""):
             if order is None:
                 raise OperationError("订单不存在或不在可维护范围。", status=404, code="not_found")
             set_operation_document_id(order.pk)
-            if order.status != SalesOrder.Status.AWAITING_PAYMENT:
-                raise OperationError("只有未交付订单可以取消。", status=409, code="state_conflict")
+            if order.status not in (SalesOrder.Status.AWAITING_PAYMENT, SalesOrder.Status.READY_TO_SHIP):
+                raise OperationError("已发货或已完成的订单不能取消。", status=409, code="state_conflict")
             if order.version != expected_version:
                 raise OperationError("订单已变化，请刷新后重试。", status=409, code="version_conflict")
             lines = list(order.lines.filter(active=True).order_by("warehouse_id", "sku_id", "id"))

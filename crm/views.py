@@ -25,6 +25,9 @@ from .models import (
     Customer,
     CustomerAddress,
     InventoryBalance,
+    CommissionAdjustment,
+    PaymentAccount,
+    PaymentRecord,
     ReceiptImage,
     SalesOrder,
     SalesOrderLine,
@@ -46,6 +49,16 @@ from .operations import (
     preview_receipt,
 )
 from .opening import confirm_opening, preview_opening
+from .fulfillment import (
+    complete_commission_adjustment,
+    deliver_on_site,
+    receive_sales_order,
+    register_payment,
+    review_commission,
+    ship_sales_order,
+    update_outbound_freight,
+    verify_payment,
+)
 from .permissions import ROLE_OWNER, ROLE_SALES
 from .regions import region_options
 from .sales import (
@@ -335,10 +348,12 @@ def sku_low_stock_update_api(request, sku_id):
 
 
 @require_POST
+@require_POST
 def receipt_image_upload_api(request):
-    error = _require_api_access(request, (("crm", "confirm_receipt"),))
-    if error:
-        return error
+    if not request.user.is_authenticated:
+        return _api_error(request, 401, "authentication_required", "请先登录。")
+    if not (request.user.has_perm("crm.confirm_receipt") or request.user.has_perm("crm.register_payment")):
+        return _api_error(request, 403, "permission_denied", "没有上传单据图片的权限。")
     upload = request.FILES.get("file")
     if not upload:
         return _api_error(request, 400, "invalid_input", "请选择图片文件。", {"file": "此项必填。"})
@@ -377,14 +392,22 @@ def receipt_image_upload_api(request):
 
 @require_safe
 def receipt_image_api(request, image_id):
+    if not request.user.is_authenticated:
+        return _api_error(request, 401, "authentication_required", "请先登录。")
     image = get_object_or_404(ReceiptImage, pk=image_id)
-    if image.receipt_id is None:
+    if image.receipt_id is None and image.payment_id is None:
         if image.owner_id != request.user.pk:
             return _api_error(request, 404, "not_found", "图片不存在。")
-    else:
+    elif image.receipt_id is not None:
         error = _require_api_access(request, (("crm", "view_receipt"),))
         if error:
             return error
+    else:
+        error = _require_api_access(request, (("crm", "view_salesorder"),))
+        if error:
+            return error
+        if not sales_order_queryset_for(request.user).filter(pk=image.payment.order_id).exists():
+            return _api_error(request, 404, "not_found", "图片不存在。")
     content_type = {"JPEG": "image/jpeg", "PNG": "image/png", "WEBP": "image/webp"}.get(image.image_format, "application/octet-stream")
     return FileResponse(default_storage.open(image.file.name, "rb"), content_type=content_type)
 
@@ -481,6 +504,8 @@ def _customer_data(customer, *, birthday_today=False):
 
 
 def _sales_order_data(order):
+    payment = getattr(order, "payment_record", None)
+    commission = getattr(order, "commission_review", None)
     return {
         "id": order.pk,
         "sequence": order.last_sequence,
@@ -501,10 +526,61 @@ def _sales_order_data(order):
         "revenue_amount": f"{order.revenue_amount:.3f}",
         "cost_amount": f"{order.cost_amount:.3f}",
         "margin_amount": f"{order.margin_amount:.3f}",
-        "commission_estimate": f"{order.commission_estimate:.3f}",
-        "version": order.version,
-        "amount_version": order.amount_version,
-        "lines": [
+      "commission_estimate": f"{order.commission_estimate:.3f}",
+      "version": order.version,
+      "amount_version": order.amount_version,
+      "payment_version": order.payment_version,
+      "payment": None if payment is None else {
+          "account_id": payment.account_id,
+          "account_name": payment.account.name,
+          "account_method_label": payment.account.get_method_display(),
+          "account_responsibility_label": payment.account.get_responsibility_display(),
+          "expected_amount": f"{payment.expected_amount:.3f}",
+          "received_amount": f"{payment.received_amount:.3f}",
+          "expected_payment_version": payment.expected_payment_version,
+          "verified_version": payment.verified_version,
+          "status": payment.status,
+          "status_label": payment.get_status_display(),
+          "paused": payment.paused,
+          "difference_reason": payment.difference_reason,
+          "problem_reason": payment.problem_reason,
+          "received_at": payment.received_at.isoformat() if payment.received_at else None,
+          "image_ids": list(payment.images.values_list("pk", flat=True)),
+          "version": payment.version,
+      },
+      "commission_review": None if commission is None else {
+          "approved_amount": f"{commission.approved_amount:.3f}" if commission.approved_amount is not None else None,
+          "approved_amount_version": commission.approved_amount_version,
+          "first_earned_at": commission.first_earned_at.isoformat() if commission.first_earned_at else None,
+          "reviewed_at": commission.reviewed_at.isoformat() if commission.reviewed_at else None,
+          "needs_review": commission.approved_amount is None or commission.approved_amount_version != order.amount_version,
+      },
+      "shipments": [
+          {
+              "id": shipment.pk,
+              "carrier": shipment.carrier,
+              "carrier_label": shipment.get_carrier_display(),
+              "tracking_number": shipment.tracking_number,
+              "warehouses": [{"id": warehouse.pk, "name": warehouse.name} for warehouse in shipment.warehouses.all()],
+          }
+          for shipment in order.shipments.prefetch_related("warehouses").all()
+      ],
+      "commission_adjustments": [
+          {
+              "id": adjustment.pk,
+              "kind": adjustment.kind,
+              "kind_label": adjustment.get_kind_display(),
+              "old_amount": f"{adjustment.old_amount:.3f}",
+              "new_amount": f"{adjustment.new_amount:.3f}",
+              "delta": f"{adjustment.delta:.3f}",
+              "confirmed_at": adjustment.confirmed_at.isoformat(),
+              "completed_at": adjustment.completed_at.isoformat() if adjustment.completed_at else None,
+          }
+          for adjustment in order.commission_adjustments.all()
+      ],
+      "shipped_at": order.shipped_at.isoformat() if order.shipped_at else None,
+      "completed_at": order.completed_at.isoformat() if order.completed_at else None,
+      "lines": [
             {
                 "line_id": line.pk,
                 "sku_id": line.sku_id,
@@ -515,7 +591,8 @@ def _sales_order_data(order):
                 "unit_price": f"{line.unit_price:.3f}",
                 "revenue_amount": f"{line.revenue_amount:.3f}",
                 "unit_cost_snapshot": f"{line.unit_cost_snapshot:.3f}",
-                "order_cost_amount": f"{line.order_cost_amount:.3f}",
+                  "order_cost_amount": f"{line.order_cost_amount:.3f}",
+                  "outbound_freight": f"{line.outbound_freight:.3f}",
                 "cost_mode": line.cost_mode,
             }
             for line in order.lines.filter(active=True).select_related("sku", "warehouse").order_by("line_number")
@@ -753,6 +830,92 @@ def order_cancel_api(request, order_id):
         return _api_operation(request, cancel_sales_order, request.user, order_id, _json_body(request))
     except OperationError as exc:
         return _api_error(request, exc.status, exc.code, str(exc), exc.fields)
+
+
+@require_safe
+def payment_accounts_api(request):
+    error = _require_api_access(request, (("crm", "view_paymentaccount"),))
+    if error:
+        return error
+    return JsonResponse({
+        "items": [
+            {
+                "id": item.pk,
+                "name": item.name,
+                "method": item.method,
+                "method_label": item.get_method_display(),
+                "responsibility": item.responsibility,
+                "responsibility_label": item.get_responsibility_display(),
+            }
+            for item in PaymentAccount.objects.filter(is_active=True).order_by("name", "id")
+        ]
+    })
+
+
+@require_POST
+def order_payment_api(request, order_id):
+    error = _require_api_access(request, (("crm", "register_payment"),))
+    if error:
+        return error
+    return _operation_error_response(request, lambda: _api_operation(request, register_payment, request.user, order_id, _json_body(request)))
+
+
+@require_POST
+def order_payment_verify_api(request, order_id):
+    error = _require_api_access(request, (("crm", "verify_payment"),))
+    if error:
+        return error
+    return _operation_error_response(request, lambda: _api_operation(request, verify_payment, request.user, order_id, _json_body(request)))
+
+
+@require_POST
+def order_ship_api(request, order_id):
+    error = _require_api_access(request, (("crm", "ship_salesorder"),))
+    if error:
+        return error
+    return _operation_error_response(request, lambda: _api_operation(request, ship_sales_order, request.user, order_id, _json_body(request)))
+
+
+@require_POST
+def order_deliver_on_site_api(request, order_id):
+    error = _require_api_access(request, (("crm", "deliver_on_site"),))
+    if error:
+        return error
+    return _operation_error_response(request, lambda: _api_operation(request, deliver_on_site, request.user, order_id, _json_body(request)))
+
+
+@require_POST
+def order_receive_api(request, order_id):
+    error = _require_api_access(request, (("crm", "confirm_salesorder_receipt"),))
+    if error:
+        return error
+    return _operation_error_response(request, lambda: _api_operation(request, receive_sales_order, request.user, order_id, _json_body(request)))
+
+
+@require_POST
+def order_freight_api(request, order_id):
+    if not request.user.is_authenticated:
+        return _api_error(request, 401, "authentication_required", "请先登录。")
+    return _operation_error_response(request, lambda: _api_operation(request, update_outbound_freight, request.user, order_id, _json_body(request)))
+
+
+@require_POST
+def order_commission_review_api(request, order_id):
+    error = _require_api_access(request, (("crm", "review_commission"),))
+    if error:
+        return error
+    return _operation_error_response(request, lambda: _api_operation(request, review_commission, request.user, order_id, _json_body(request)))
+
+
+@require_POST
+def commission_adjustment_complete_api(request, adjustment_id):
+    error = _require_api_access(request, (("crm", "complete_commission_adjustment"),))
+    if error:
+        return error
+    return _operation_error_response(
+        request,
+        lambda: _api_operation(request, complete_commission_adjustment, request.user, adjustment_id, _json_body(request)),
+    )
 
 
 def _require_page_permission(request, codename):

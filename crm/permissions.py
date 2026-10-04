@@ -52,8 +52,19 @@ MANAGEABLE_PERMISSIONS = {
           "view_all_sales_orders",
           "change_all_sales_orders",
           "cancel_salesorder",
-    )
-}
+          "register_payment",
+          "ship_salesorder",
+          "deliver_on_site",
+          "confirm_salesorder_receipt",
+          "verify_payment",
+          "review_commission",
+          "view_all_commissions",
+          "complete_commission_adjustment",
+          "view_paymentaccount",
+          "add_paymentaccount",
+          "change_paymentaccount",
+      )
+  }
 
 CATALOG_VIEW_PERMISSIONS = tuple(("crm", f"view_{model}") for model in CATALOG_MODELS)
 CATALOG_CHANGE_PERMISSIONS = tuple(
@@ -120,7 +131,7 @@ ROLE_DEFAULTS = {
     + SALES_CUSTOMER_ORDER_PERMISSIONS
     + (("crm", "view_channel"),),
     ROLE_WAREHOUSE: STAGE2_ROLE_DEFAULTS[ROLE_WAREHOUSE]
-    + (("crm", "view_channel"), ("crm", "view_salesorder"), ("crm", "view_all_sales_orders")),
+    + (("crm", "view_channel"), ("crm", "view_salesorder"), ("crm", "view_all_sales_orders"), ("crm", "add_customer")),
     ROLE_OWNER: STAGE2_ROLE_DEFAULTS[ROLE_OWNER]
     + SALES_CUSTOMER_ORDER_PERMISSIONS
     + (
@@ -135,6 +146,45 @@ ROLE_DEFAULTS = {
     ),
 }
 
+PRE_STAGE4_ROLE_DEFAULTS = {name: tuple(permission_keys) for name, permission_keys in ROLE_DEFAULTS.items()}
+ROLE_DEFAULTS = {
+    ROLE_SALES: PRE_STAGE4_ROLE_DEFAULTS[ROLE_SALES]
+    + (
+        ("crm", "view_paymentaccount"),
+        ("crm", "register_payment"),
+        ("crm", "confirm_salesorder_receipt"),
+        ("crm", "complete_commission_adjustment"),
+    ),
+    ROLE_WAREHOUSE: PRE_STAGE4_ROLE_DEFAULTS[ROLE_WAREHOUSE]
+    + (
+        ("crm", "view_paymentaccount"),
+        ("crm", "verify_payment"),
+        ("crm", "ship_salesorder"),
+        ("crm", "deliver_on_site"),
+        ("crm", "view_all_commissions"),
+    ),
+    ROLE_OWNER: PRE_STAGE4_ROLE_DEFAULTS[ROLE_OWNER]
+    + (
+        ("crm", "view_paymentaccount"),
+        ("crm", "add_paymentaccount"),
+        ("crm", "change_paymentaccount"),
+        ("crm", "verify_payment"),
+        ("crm", "ship_salesorder"),
+        ("crm", "deliver_on_site"),
+        ("crm", "confirm_salesorder_receipt"),
+        ("crm", "register_payment"),
+        ("crm", "review_commission"),
+        ("crm", "view_all_commissions"),
+        ("crm", "complete_commission_adjustment"),
+    ),
+}
+
+PRE_D14_WAREHOUSE_DEFAULTS = STAGE2_ROLE_DEFAULTS[ROLE_WAREHOUSE] + (
+    ("crm", "view_channel"),
+    ("crm", "view_salesorder"),
+    ("crm", "view_all_sales_orders"),
+)
+
 
 def create_fixed_role_groups(sender, **kwargs):
     for name, permission_keys in ROLE_DEFAULTS.items():
@@ -143,10 +193,14 @@ def create_fixed_role_groups(sender, **kwargs):
             previous = set()
         else:
             previous = set(group.permissions.values_list("content_type__app_label", "codename"))
-        if not created and frozenset(previous) not in {
+        recognized_defaults = {
             frozenset(PRE_STAGE2_ROLE_DEFAULTS[name]),
             frozenset(STAGE2_ROLE_DEFAULTS[name]),
-        }:
+            frozenset(PRE_STAGE4_ROLE_DEFAULTS[name]),
+        }
+        if name == ROLE_WAREHOUSE:
+            recognized_defaults.add(frozenset(PRE_D14_WAREHOUSE_DEFAULTS))
+        if not created and frozenset(previous) not in recognized_defaults:
             continue
         permissions = [
             Permission.objects.get(content_type__app_label=app_label, codename=codename)
