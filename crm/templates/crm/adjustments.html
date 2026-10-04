@@ -139,14 +139,17 @@
     }
     return value;
   }
-  async function write(scope, path, body, control) {
+  function operationKeySignature(actorId, scope, keyBody) {
+    return String(actorId) + ':' + scope + ':' + JSON.stringify(canonical(keyBody));
+  }
+  async function write(scope, path, body, control, keyBody=body) {
     if (busyActions.has(scope)) return null;
     busyActions.add(scope);
     const controls = control ? (control.tagName === 'FORM' ? Array.from(control.elements) : [control]) : [];
     const wasDisabled = controls.map(element => element.disabled);
     controls.forEach(element => { element.disabled = true; });
     try {
-      const signature = scope + ':' + JSON.stringify(canonical(body));
+      const signature = operationKeySignature(currentUserId, scope, keyBody);
       const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(signature));
       const storageKey = 'crm-operation:' + Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
       let key = operationKeys.get(signature) || sessionStorage.getItem(storageKey);
@@ -397,6 +400,28 @@
     });
   }
 
+  function countLineDisplay(status, line) {
+    if (status === 'approved') {
+      return {
+        delta: line.approved_delta == null ? '待核算' : String(line.approved_delta),
+        unitCost: line.approved_effective_unit_cost ?? '待核算',
+        costDelta: line.approved_cost_delta ?? '待核算',
+        quantityState: '已生效',
+      };
+    }
+    const stale = line.current_quantity_version !== line.captured_quantity_version;
+    const preview = line.preview || {};
+    return {
+      delta: preview.delta == null ? '待核算' : String(preview.delta),
+      unitCost: preview.effective_unit_cost ?? '待核算',
+      costDelta: preview.cost_delta ?? preview.message ?? '待核算',
+      quantityState: stale ? '数量已变化，需重新核对' : '数量未变化',
+    };
+  }
+  function shouldShowCountApproval(canApprove, submittedBy, currentUserId, canApproveOwn) {
+    return canApprove && (submittedBy !== currentUserId || canApproveOwn);
+  }
+
   async function loadCounts() {
     const host = document.getElementById('count-records');
     if (!host) return;
@@ -422,15 +447,15 @@
         }
         table.append(header);
         for (const line of row.lines || []) {
-          const stale = line.current_quantity_version !== line.captured_quantity_version;
+          const display = countLineDisplay(row.status, line);
           const tr = document.createElement('tr');
           const values = [
             line.warehouse + ' · ' + line.sku,
             String(line.observed_quantity),
-            line.preview?.delta == null ? '待核算' : String(line.preview.delta),
-            line.preview?.effective_unit_cost || '待核算',
-            line.preview?.cost_delta || line.preview?.message || '待核算',
-            stale ? '数量已变化，需重新核对' : '数量未变化',
+            display.delta,
+            display.unitCost,
+            display.costDelta,
+            display.quantityState,
           ];
           for (const value of values) { const cell = document.createElement('td'); cell.textContent = value; tr.append(cell); }
           table.append(tr);
@@ -452,7 +477,7 @@
             });
             box.append(revise);
           }
-          if (canApproveCount && (row.submitted_by !== currentUserId || canApproveOwnCount)) {
+          if (shouldShowCountApproval(canApproveCount, row.submitted_by, currentUserId, canApproveOwnCount)) {
             const approve = document.createElement('button');
             approve.type = 'button'; approve.textContent = '审批最新盘点影响';
             approve.addEventListener('click', async () => {
@@ -486,6 +511,7 @@
   const correctionPreview = document.getElementById('correction-preview');
   const submitCorrection = document.getElementById('submit-correction');
   let correctionToken = null;
+  let correctionInputHash = null;
   function sourcesForKind() {
     return correctionKind.value === 'receipt' ? correctionSources.receipts || [] : correctionSources.openings || [];
   }
@@ -501,7 +527,7 @@
       option.value = String(source.id); option.textContent = source.label; correctionSource.append(option);
     }
     correctionLinesHost.replaceChildren(); supplementalHost.replaceChildren(); correctionPreview.replaceChildren();
-    correctionToken = null; submitCorrection.disabled = true;
+    correctionToken = null; correctionInputHash = null; submitCorrection.disabled = true;
     correctionWarehouseField.hidden = correctionKind.value !== 'receipt';
     correctionWarehouse.required = correctionKind.value === 'receipt';
     correctionWarehouse.disabled = correctionKind.value !== 'receipt';
@@ -539,7 +565,7 @@
   function drawCorrectionSource() {
     const source = selectedSource();
     correctionLinesHost.replaceChildren(); supplementalHost.replaceChildren(); correctionPreview.replaceChildren();
-    correctionToken = null; submitCorrection.disabled = true;
+    correctionToken = null; correctionInputHash = null; submitCorrection.disabled = true;
     if (!source) return;
     if (correctionKind.value === 'receipt') {
       fillSelect(correctionWarehouse, 'warehouse-options', source.input.warehouse_id, source.input.warehouse_label || '');
@@ -634,16 +660,18 @@
   if (correctionForm) {
     correctionKind.addEventListener('change', fillSourceSelect);
     correctionSource.addEventListener('change', drawCorrectionSource);
-    correctionForm.addEventListener('input', () => { correctionToken = null; submitCorrection.disabled = true; });
+    correctionForm.addEventListener('input', () => {
+      correctionToken = null; correctionInputHash = null; submitCorrection.disabled = true;
+    });
     correctionForm.addEventListener('change', event => {
       if (event.target === correctionKind) fillSourceSelect();
       else if (event.target === correctionSource) drawCorrectionSource();
-      correctionToken = null; submitCorrection.disabled = true;
+      correctionToken = null; correctionInputHash = null; submitCorrection.disabled = true;
     });
     fillSourceSelect();
     correctionForm.addEventListener('submit', async event => {
       event.preventDefault();
-      correctionToken = null; submitCorrection.disabled = true;
+      correctionToken = null; correctionInputHash = null; submitCorrection.disabled = true;
       const source = selectedSource();
       if (!source) { show('请先选择来源单据。'); return; }
       const kind = correctionKind.value;
@@ -684,21 +712,22 @@
           return;
         }
         correctionToken = result.preview_token;
+        correctionInputHash = result.input_hash;
         const summary = document.createElement('p');
         summary.textContent = result.approval_required ? '预览完成，需要老板审批。' : '预览完成，可直接生效。';
         correctionPreview.replaceChildren(summary);
         renderChangeSections(result.changes, correctionPreview);
-        submitCorrection.disabled = !correctionToken;
+        submitCorrection.disabled = !correctionToken || !correctionInputHash;
         show('纠错影响已列出，请核对后提交。');
       } catch (error) { show(error.message); }
     });
     submitCorrection.addEventListener('click', async () => {
-      if (!correctionToken) return;
+      if (!correctionToken || !correctionInputHash) return;
       try {
         const saved = await write('correction-submit', '/api/v1/cost-corrections/submit',
-          {preview_token: correctionToken}, correctionForm);
+          {preview_token: correctionToken}, correctionForm, {input_hash: correctionInputHash});
         if (!saved) return;
-        correctionToken = null; submitCorrection.disabled = true;
+        correctionToken = null; correctionInputHash = null; submitCorrection.disabled = true;
         show(saved.approval_required ? '纠错已提交，等待审批。' : '纠错已生效。');
         await loadCorrections();
       } catch (error) { show(error.message); }

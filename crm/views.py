@@ -712,7 +712,7 @@ def adjustments_page(request):
         "can_reject_correction": request.user.is_superuser or request.user.has_perm("crm.reject_costcorrection"),
         "can_view_count": request.user.is_superuser or request.user.has_perm("crm.view_stockcount"),
         "can_view_correction": request.user.is_superuser or request.user.has_perm("crm.view_costcorrection"),
-        "can_approve_own_count": request.user.is_superuser or request.user.groups.filter(name=ROLE_OWNER).exists(),
+        "can_approve_own_count": request.user.groups.filter(name=ROLE_OWNER).exists(),
         "current_user_id": request.user.pk,
         "correction_sources": correction_sources,
     })

@@ -466,7 +466,8 @@ def preview_cost_correction(actor, data):
         response = {
             "status": "ready", "sequence": control.last_sequence, "source_kind": normalized["kind"],
             "source_id": normalized["id"], "source_version": version,
-            "approval_required": impact_required, "impact": {key: value for key, value in impact.items() if value},
+            "approval_required": impact_required, "input_hash": input_hash,
+            "impact": {key: value for key, value in impact.items() if value},
             "changes": differences, "preview_token": token,
         }
         return visible_cost_correction_data(actor, response)

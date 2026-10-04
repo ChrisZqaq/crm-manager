@@ -559,7 +559,8 @@ def _stock_count_json(count):
             "current_quantity_version": balance.quantity_version, "current_balance_version": balance.version,
             "cost_mode": line.cost_mode, "manual_unit_cost": f"{line.manual_unit_cost:.3f}" if line.manual_unit_cost is not None else None,
             "supplemental_unit_cost": f"{line.supplemental_unit_cost:.3f}" if line.supplemental_unit_cost is not None else None,
-            "approved_delta": line.delta, "approved_cost_delta": f"{line.cost_delta:.3f}", "preview": preview,
+            "approved_delta": line.delta, "approved_cost_delta": f"{line.cost_delta:.3f}",
+            "approved_effective_unit_cost": f"{line.effective_unit_cost:.3f}", "preview": preview,
         })
     return {
         "id": count.pk, "status": count.status, "reason": count.reason, "version": count.version,

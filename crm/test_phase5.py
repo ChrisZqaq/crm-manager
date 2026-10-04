@@ -166,6 +166,9 @@ class InventoryAdjustmentPhase5Tests(Phase5Base):
         self.assertIn('id="add-count-line"', page)
         self.assertIn('id="correction-source"', page)
         self.assertIn("renderChangeSections", page)
+        self.assertIn("operationKeySignature(currentUserId, scope, keyBody)", page)
+        self.assertIn("{input_hash: correctionInputHash}", page)
+        self.assertIn("countLineDisplay(row.status, line)", page)
         self.assertIn(f'"id": {receipt.pk}', page)
         self.assertIn("重核此单", page)
         self.assertIn("审批最新盘点影响", page)
@@ -227,6 +230,8 @@ class InventoryAdjustmentPhase5Tests(Phase5Base):
         )
         self.sales = type(self.sales).objects.get(pk=self.sales.pk)
         preview = preview_cost_correction(self.sales, self.correction_data(receipt, purchase_price="11.000"))
+        preview_data = correction_service._load_token(preview["preview_token"], self.sales)
+        self.assertEqual(preview["input_hash"], correction_service._operation_input_hash(preview_data))
         order_change = next(row for row in preview["changes"]["orders"] if row["order_id"] == other_order.pk)
         self.assertNotIn("commission_estimate", order_change["before"])
         self.assertNotIn("commission_estimate", order_change["after"])
@@ -306,6 +311,65 @@ class InventoryAdjustmentPhase5Tests(Phase5Base):
                          (3, Decimal("0.333"), Decimal("1.000")))
         self.assertEqual((balance.on_hand, balance.cost_amount), (6, Decimal("2.000")))
         self.assert_replay()
+
+    def test_approved_count_snapshot_survives_later_purchase(self):
+        _, received = self.preview_and_receive(self.receipt_payload(
+            self.sku, quantity_value=3, price="0.333", freight="0.001",
+        ))
+        receipt = Receipt.objects.get(pk=received["receipt_id"])
+        created = create_stock_count(self.user, {"reason": "Approved snapshot", "lines": [{
+            "warehouse_id": self.warehouse.pk, "sku_id": self.sku.pk,
+            "observed_quantity": 6, "cost_mode": StockCountLine.CostMode.AVERAGE,
+        }]}, uuid4())
+        count = StockCount.objects.get(pk=created["stock_count_id"])
+        self.approve_count(count)
+        line = count.lines.get()
+        first = stock_count_rows(self.owner, count_id=count.pk)[0]["lines"][0]
+        approved_values = (
+            first["approved_delta"], first["approved_effective_unit_cost"], first["approved_cost_delta"],
+        )
+        self.assertEqual(approved_values, (3, "0.333", "1.000"))
+
+        self.receive(quantity_value=1, price="2.000")
+        after_purchase = stock_count_rows(self.owner, count_id=count.pk)[0]["lines"][0]
+        self.assertEqual((after_purchase["approved_delta"], after_purchase["approved_effective_unit_cost"],
+                          after_purchase["approved_cost_delta"]), approved_values)
+        self.assertNotEqual(after_purchase["preview"]["delta"], after_purchase["approved_delta"])
+        self.assertNotEqual(after_purchase["preview"]["cost_delta"], after_purchase["approved_cost_delta"])
+        self.assertNotEqual(after_purchase["current_quantity_version"], after_purchase["captured_quantity_version"])
+
+        preview = preview_cost_correction(self.user, self.correction_data(receipt, purchase_price="0.666"))
+        self.assertTrue(preview["approval_required"])
+        self.assertIn("counts", preview["changes"])
+        correction_result = submit_cost_correction(self.user, uuid4(), preview["preview_token"])
+        self.approve_correction(CostCorrection.objects.get(pk=correction_result["cost_correction_id"]))
+        line.refresh_from_db()
+        after_correction = stock_count_rows(self.owner, count_id=count.pk)[0]["lines"][0]
+        corrected_values = (
+            after_correction["approved_delta"], after_correction["approved_effective_unit_cost"],
+            after_correction["approved_cost_delta"],
+        )
+        self.assertEqual(corrected_values, (line.delta, f"{line.effective_unit_cost:.3f}", f"{line.cost_delta:.3f}"))
+        self.assertNotEqual(corrected_values, approved_values)
+        self.assertNotEqual(after_correction["preview"]["delta"], after_correction["approved_delta"])
+        self.assert_replay()
+
+    def test_non_owner_superuser_page_hides_own_count_approval(self):
+        self.user.is_superuser = True
+        self.user.is_staff = True
+        self.user.save(update_fields=("is_superuser", "is_staff"))
+        self.receive(quantity_value=2, price="1.000")
+        create_stock_count(self.user, {"reason": "Admin own count", "lines": [{
+            "warehouse_id": self.warehouse.pk, "sku_id": self.sku.pk, "observed_quantity": 2,
+        }]}, uuid4())
+        self.client.force_login(self.user)
+
+        response = self.client.get("/adjustments/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context["can_approve_count"])
+        self.assertFalse(response.context["can_approve_own_count"])
+        self.assertContains(response, "shouldShowCountApproval(canApproveCount, row.submitted_by, currentUserId, canApproveOwnCount)")
 
     def test_manual_stock_count_cost_requires_zero_on_hand_and_positive_gain(self):
         self.receive(quantity_value=2, price="0.000")
