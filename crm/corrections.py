@@ -50,7 +50,7 @@ from .operations import (
     quantity,
 )
 from .permissions import ROLE_OWNER
-from .sales import sales_order_queryset_for
+from .sales import sales_order_commission_visible_to, sales_order_queryset_for
 
 
 PREVIEW_SALT = "crm.cost-correction.preview.v1"
@@ -354,6 +354,80 @@ def _result_differences(before, after):
     return {key: value for key, value in changes.items() if value}
 
 
+def visible_cost_correction_data(actor, data):
+    """Filter order details for a correction response without changing its saved approval facts."""
+    order_ids = set()
+
+    def collect(value, order_list=False):
+        if isinstance(value, dict):
+            for key, child in value.items():
+                if key in ("order_id", "sales_order_id"):
+                    try:
+                        order_ids.add(int(child))
+                    except (TypeError, ValueError):
+                        pass
+                collect(child, key in ("orders", "order_ids", "sales_order_ids"))
+        elif isinstance(value, (list, tuple)):
+            for child in value:
+                if order_list and not isinstance(child, (dict, list, tuple)):
+                    try:
+                        order_ids.add(int(child))
+                    except (TypeError, ValueError):
+                        pass
+                else:
+                    collect(child)
+
+    collect(data)
+    orders = {
+        row.pk: row
+        for row in sales_order_queryset_for(actor).filter(pk__in=order_ids).only("pk", "salesperson_id")
+    }
+    commission_order_ids = {
+        order_id for order_id, order in orders.items()
+        if sales_order_commission_visible_to(actor, order)
+    }
+    omit = object()
+
+    def clean(value, order_context=None, order_list=False):
+        if isinstance(value, dict):
+            direct_id = value.get("order_id", value.get("sales_order_id", order_context))
+            if direct_id is not None:
+                try:
+                    direct_id = int(direct_id)
+                except (TypeError, ValueError):
+                    direct_id = None
+            if direct_id is not None and direct_id not in orders:
+                return omit
+            result = {}
+            for key, child in value.items():
+                if key == "commission_estimate" and direct_id not in commission_order_ids:
+                    continue
+                is_order_list = key in ("orders", "order_ids", "sales_order_ids") and isinstance(child, (list, tuple))
+                cleaned = clean(child, direct_id, is_order_list)
+                if cleaned is not omit:
+                    result[key] = cleaned
+            return result
+        if isinstance(value, (list, tuple)):
+            result = []
+            for child in value:
+                if order_list and not isinstance(child, (dict, list, tuple)):
+                    try:
+                        order_id = int(child)
+                    except (TypeError, ValueError):
+                        continue
+                    if order_id in orders:
+                        result.append(child)
+                else:
+                    cleaned = clean(child, order_context)
+                    if cleaned is not omit:
+                        result.append(cleaned)
+            return result
+        return value
+
+    visible = clean(data)
+    return {} if visible is omit else visible
+
+
 def _source_version(kind, document):
     return document.version
 
@@ -389,15 +463,13 @@ def preview_cost_correction(actor, data):
             "reason": normalized["reason"], "supplemental_count_costs": supplemental,
             "input_hash": input_hash, "impact_required": impact_required,
         }, salt=PREVIEW_SALT, compress=True)
-        permitted_order_ids = set(sales_order_queryset_for(actor).values_list("pk", flat=True))
-        differences["orders"] = [row for row in differences.get("orders", []) if row["order_id"] in permitted_order_ids]
-        differences["order_lines"] = [row for row in differences.get("order_lines", []) if row["order_id"] in permitted_order_ids]
-        return {
+        response = {
             "status": "ready", "sequence": control.last_sequence, "source_kind": normalized["kind"],
             "source_id": normalized["id"], "source_version": version,
             "approval_required": impact_required, "impact": {key: value for key, value in impact.items() if value},
             "changes": differences, "preview_token": token,
         }
+        return visible_cost_correction_data(actor, response)
 
 
 def _load_token(token, actor):
@@ -583,8 +655,9 @@ def _persist_result(result, replay, before_result, correction, actor, operation)
             fields.append("quantity_version")
         row.save(update_fields=tuple(fields))
 
+    affected_holds = [(hold_id, state) for hold_id, state in result.holds.items() if state["key"] in affected_keys]
     changed_hold_ids = set()
-    for hold_id, state in result.holds.items():
+    for hold_id, state in affected_holds:
         existing = replay.hold_by_id.get(hold_id) if isinstance(hold_id, int) else None
         if existing is None or any(
             getattr(existing, key) != value if key not in ("balance",) else existing.balance_id != value
@@ -599,7 +672,7 @@ def _persist_result(result, replay, before_result, correction, actor, operation)
         row.pk: row for row in InventoryHold.objects.select_for_update()
         .filter(pk__in=changed_hold_ids).order_by("id")
     }
-    for hold_id, state in result.holds.items():
+    for hold_id, state in affected_holds:
         if isinstance(hold_id, int) and hold_id not in changed_hold_ids:
             continue
         existing = locked_holds.get(hold_id) if isinstance(hold_id, int) else None
@@ -622,8 +695,9 @@ def _persist_result(result, replay, before_result, correction, actor, operation)
                 existing.version += 1
                 existing.save(update_fields=tuple(values) + ("version",))
 
+    affected_damage = [(damage_id, state) for damage_id, state in result.damage.items() if state["key"] in affected_keys]
     changed_damage_ids = set()
-    for damage_id, state in result.damage.items():
+    for damage_id, state in affected_damage:
         existing = replay.damage_by_id.get(damage_id) if isinstance(damage_id, int) else None
         if existing is None or (
             existing.balance_id != balance_rows[state["key"]].pk
@@ -636,7 +710,7 @@ def _persist_result(result, replay, before_result, correction, actor, operation)
         row.pk: row for row in DamagedRecord.objects.select_for_update()
         .filter(pk__in=changed_damage_ids).order_by("id")
     }
-    for damage_id, state in result.damage.items():
+    for damage_id, state in affected_damage:
         if isinstance(damage_id, int) and damage_id not in changed_damage_ids:
             continue
         existing = locked_damage.get(damage_id) if isinstance(damage_id, int) else None
@@ -973,7 +1047,7 @@ def cost_correction_rows(actor, correction_id=None, status=None):
         rows = rows.filter(submitter=actor) | rows.filter(reviewer=actor)
     result = []
     for row in rows.distinct():
-        result.append({
+        item = {
             "id": row.pk, "source_kind": "receipt" if row.receipt_id else "opening",
             "source_id": row.receipt_id or row.opening_batch_id, "status": row.status,
             "reason": row.reason, "version": row.version, "submitter_id": row.submitter_id,
@@ -982,10 +1056,11 @@ def cost_correction_rows(actor, correction_id=None, status=None):
             "preview_sequence": row.preview_sequence, "submitted_sequence": row.submitted_sequence,
             "request_version": row.request_version, "original_input": row.original_input,
             "proposed_input": row.proposed_input, "supplemental_count_costs": row.supplemental_count_costs,
-            "before_after": row.before_after,
+            "before_after": visible_cost_correction_data(actor, row.before_after),
             "can_approve": row.status == CostCorrection.Status.PENDING and actor.has_perm("crm.approve_costcorrection")
                           and (row.submitter_id != actor.pk or _owner(actor)),
             "can_reject": row.status == CostCorrection.Status.PENDING and actor.has_perm("crm.reject_costcorrection")
                          and (row.submitter_id != actor.pk or _owner(actor)),
-        })
+        }
+        result.append(item)
     return result

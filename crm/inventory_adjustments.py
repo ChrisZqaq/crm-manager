@@ -390,6 +390,7 @@ def create_stock_count(actor, data, operation_key, request_id=""):
             balances = _balance_map(keys, lock=True)
             if balances.keys() != keys:
                 raise OperationError("盘点SKU没有库存记录，请先核对商品及库存。", status=409, code="stock_conflict")
+            _validate_count_cost_modes(normalized["lines"], balances)
             count = StockCount.objects.create(reason=normalized["reason"], submitted_by=actor)
             saved = []
             for item in normalized["lines"]:
@@ -440,6 +441,7 @@ def revise_stock_count(actor, count_id, data, request_id=""):
             balances = _balance_map(keys, lock=True)
             if balances.keys() != keys:
                 raise OperationError("盘点SKU没有库存记录，请先核对商品及库存。", status=409, code="stock_conflict")
+            _validate_count_cost_modes(normalized["lines"], balances)
             new_lines = []
             for item in normalized["lines"]:
                 stock_key = (item["warehouse_id"], item["sku_id"])
@@ -495,8 +497,9 @@ def _count_line_preview(line, balance):
     elif balance.on_hand > 0:
         with localcontext() as context:
             context.prec = 50
-            unit_cost = amount(balance.cost_amount / balance.on_hand, "effective_unit_cost")
-        cost = amount(unit_cost * delta, "cost_delta")
+            average_cost = balance.cost_amount / balance.on_hand
+            cost = amount(average_cost * delta, "cost_delta")
+            unit_cost = amount(average_cost, "effective_unit_cost")
     elif line.supplemental_unit_cost is not None:
         unit_cost = line.supplemental_unit_cost
         cost = amount(unit_cost * delta, "cost_delta")
@@ -513,6 +516,18 @@ def _count_line_preview(line, balance):
             fields={"stock_count_line_id": str(line.pk), "observed_quantity": str(line.observed_quantity), "restricted_quantity": str(restricted)},
         )
     return delta, unit_cost, cost
+
+
+def _validate_count_cost_modes(lines, balances):
+    for index, item in enumerate(lines):
+        if item["cost_mode"] != StockCountLine.CostMode.MANUAL:
+            continue
+        balance = balances[(item["warehouse_id"], item["sku_id"])]
+        if balance.on_hand > 0 or item["observed_quantity"] <= 0:
+            raise OperationError(
+                "人工成本仅用于零库存盘盈；已有库存请按移动平均成本盘点。",
+                fields={f"lines[{index}].cost_mode": "已有在库数量时必须使用移动平均；零库存人工成本仅适用于盘盈。"},
+            )
 
 
 def stock_count_rows(actor, count_id=None, status=None):

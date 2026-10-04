@@ -482,8 +482,9 @@ class InventoryReplay:
         elif balance["on_hand"] > 0:
             with localcontext() as context:
                 context.prec = 50
-                unit = amount(balance["cost_amount"] / balance["on_hand"], "effective_unit_cost")
-            cost = amount(unit * delta, "cost_delta")
+                average_cost = balance["cost_amount"] / balance["on_hand"]
+                cost = amount(average_cost * delta, "cost_delta")
+                unit = amount(average_cost, "effective_unit_cost")
         else:
             unit = self.supplemental_count_costs.get(line.pk, line.supplemental_unit_cost)
             if unit is None:

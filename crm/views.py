@@ -29,6 +29,8 @@ from .models import (
     PaymentAccount,
     PaymentRecord,
     ReceiptImage,
+    OpeningBatch,
+    Receipt,
     SalesOrder,
     SalesOrderLine,
     SKU,
@@ -64,6 +66,7 @@ from .corrections import (
     preview_cost_correction,
     reject_cost_correction,
     submit_cost_correction,
+    visible_cost_correction_data,
 )
 from .fulfillment import (
     complete_commission_adjustment,
@@ -390,7 +393,7 @@ def cost_corrections_api(request):
         preview_token = data.pop("preview_token", None)
         return _api_operation(request, submit_cost_correction, request.user, operation_key, preview_token)
     except OperationError as exc:
-        return _api_error(request, exc.status, exc.code, str(exc), exc.fields)
+        return _api_error(request, exc.status, exc.code, str(exc), visible_cost_correction_data(request.user, exc.fields))
 
 
 @require_POST
@@ -401,7 +404,7 @@ def cost_correction_preview_api(request):
     try:
         return JsonResponse(preview_cost_correction(request.user, _json_body(request)))
     except OperationError as exc:
-        return _api_error(request, exc.status, exc.code, str(exc), exc.fields)
+        return _api_error(request, exc.status, exc.code, str(exc), visible_cost_correction_data(request.user, exc.fields))
     except Exception:
         return _api_error(request, 500, "server_error", "操作失败，请联系管理员并提供请求编号。")
 
@@ -428,7 +431,7 @@ def cost_correction_approve_api(request, correction_id):
     try:
         return _api_operation(request, approve_cost_correction, request.user, correction_id, _json_body(request))
     except OperationError as exc:
-        return _api_error(request, exc.status, exc.code, str(exc), exc.fields)
+        return _api_error(request, exc.status, exc.code, str(exc), visible_cost_correction_data(request.user, exc.fields))
 
 
 @require_POST
@@ -439,7 +442,7 @@ def cost_correction_reject_api(request, correction_id):
     try:
         return _api_operation(request, reject_cost_correction, request.user, correction_id, _json_body(request))
     except OperationError as exc:
-        return _api_error(request, exc.status, exc.code, str(exc), exc.fields)
+        return _api_error(request, exc.status, exc.code, str(exc), visible_cost_correction_data(request.user, exc.fields))
 
 
 @require_POST
@@ -664,6 +667,37 @@ def adjustments_page(request):
     )
     if not request.user.is_superuser and not any(request.user.has_perm(f"crm.{item}") for item in operation_permissions):
         raise PermissionDenied
+    can_submit_correction = request.user.is_superuser or request.user.has_perm("crm.submit_costcorrection")
+    correction_sources = {"receipts": [], "openings": []}
+    if can_submit_correction:
+        for receipt in Receipt.objects.select_related("supplier", "warehouse").prefetch_related("lines__sku__product"):
+            correction_sources["receipts"].append({
+                "id": receipt.pk,
+                "label": f"采购单 {receipt.sequence} · {receipt.supplier.name} · {receipt.warehouse.name}",
+                "input": {
+                    "warehouse_id": receipt.warehouse_id, "warehouse_label": receipt.warehouse.name,
+                    "lines": [{
+                        "line_number": line.line_number, "sku_id": line.sku_id,
+                        "sku_label": f"{line.sku.code} · {line.sku.product.name} · {line.sku.unit}",
+                        "quantity": line.quantity, "purchase_price": f"{line.purchase_price:.3f}",
+                        "inbound_freight": f"{line.inbound_freight:.3f}",
+                        "reserved_quantity": line.reserved_quantity, "damaged_quantity": line.damaged_quantity,
+                    } for line in receipt.lines.all()],
+                },
+            })
+        for batch in OpeningBatch.objects.prefetch_related("lines__sku__product", "lines__warehouse"):
+            correction_sources["openings"].append({
+                "id": batch.pk,
+                "label": f"期初批次 {batch.sequence}",
+                "input": {"lines": [{
+                    "line_number": line.line_number, "warehouse_id": line.warehouse_id,
+                    "warehouse_label": line.warehouse.name, "sku_id": line.sku_id,
+                    "sku_label": f"{line.sku.code} · {line.sku.product.name} · {line.sku.unit}",
+                    "quantity": line.quantity, "unit_cost": f"{line.unit_cost:.3f}",
+                    "reserved_quantity": line.reserved_quantity, "hoarded_quantity": line.hoarded_quantity,
+                    "damaged_quantity": line.damaged_quantity,
+                } for line in batch.lines.all()]},
+            })
     return render(request, "crm/adjustments.html", {
         "warehouses": Warehouse.objects.filter(is_active=True).order_by("id"),
         "skus": SKU.objects.filter(is_active=True, product__is_active=True, product__brand__is_active=True)
@@ -673,11 +707,14 @@ def adjustments_page(request):
         "can_resolve_damage": request.user.is_superuser or request.user.has_perm("crm.resolve_damaged_record"),
         "can_add_count": request.user.is_superuser or request.user.has_perm("crm.add_stockcount"),
         "can_approve_count": request.user.is_superuser or request.user.has_perm("crm.approve_stockcount"),
-        "can_submit_correction": request.user.is_superuser or request.user.has_perm("crm.submit_costcorrection"),
+        "can_submit_correction": can_submit_correction,
         "can_approve_correction": request.user.is_superuser or request.user.has_perm("crm.approve_costcorrection"),
         "can_reject_correction": request.user.is_superuser or request.user.has_perm("crm.reject_costcorrection"),
         "can_view_count": request.user.is_superuser or request.user.has_perm("crm.view_stockcount"),
         "can_view_correction": request.user.is_superuser or request.user.has_perm("crm.view_costcorrection"),
+        "can_approve_own_count": request.user.is_superuser or request.user.groups.filter(name=ROLE_OWNER).exists(),
+        "current_user_id": request.user.pk,
+        "correction_sources": correction_sources,
     })
 
 

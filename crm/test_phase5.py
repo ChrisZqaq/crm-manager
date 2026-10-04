@@ -1,5 +1,6 @@
 from concurrent.futures import ThreadPoolExecutor
 from decimal import Decimal
+import json
 from threading import Barrier
 from unittest.mock import patch
 from uuid import uuid4
@@ -9,6 +10,7 @@ from django.db import close_old_connections, connection
 
 from .corrections import (
     approve_cost_correction,
+    cost_correction_rows,
     preview_cost_correction,
     reject_cost_correction,
     submit_cost_correction,
@@ -21,6 +23,7 @@ from .inventory_adjustments import (
     create_inventory_split,
     create_stock_count,
     resolve_damaged_record,
+    stock_count_rows,
 )
 from .inventory_replay import InventoryReplay, run_and_validate
 from .models import (
@@ -141,6 +144,198 @@ class Phase5Base(Phase4Base):
 
 
 class InventoryAdjustmentPhase5Tests(Phase5Base):
+    def test_adjustments_page_renders_structured_chinese_forms(self):
+        permission_names = (
+            "create_inventory_split", "create_inventory_gift", "resolve_damaged_record",
+            "add_stockcount", "submit_costcorrection", "approve_stockcount",
+            "approve_costcorrection", "view_stockcount", "view_costcorrection",
+            "reject_costcorrection",
+        )
+        self.owner.user_permissions.add(*Permission.objects.filter(
+            content_type__app_label="crm", codename__in=permission_names,
+        ))
+        receipt = self.receive(quantity_value=4, price="3.000")
+
+        self.client.force_login(self.owner)
+        response = self.client.get("/adjustments/")
+
+        self.assertEqual(response.status_code, 200)
+        page = response.content.decode()
+        self.assertNotIn("<textarea", page)
+        self.assertIn('id="add-gift-line"', page)
+        self.assertIn('id="add-count-line"', page)
+        self.assertIn('id="correction-source"', page)
+        self.assertIn("renderChangeSections", page)
+        self.assertIn(f'"id": {receipt.pk}', page)
+        self.assertIn("重核此单", page)
+        self.assertIn("审批最新盘点影响", page)
+
+    def test_correction_replay_does_not_touch_unrelated_holds_or_damage(self):
+        source_receipt = self.receive(quantity_value=10, price="10.000")
+        order = self.new_order(lines=[{
+            "sku_id": self.sku.pk, "warehouse_id": self.warehouse.pk,
+            "quantity": 2, "sale_price": "20.000",
+        }])
+        unrelated_sku = self.new_sku(2)
+        unrelated_receipt = self.receive(
+            unrelated_sku, warehouse=self.second_warehouse, quantity_value=4, price="3.000",
+            reserved=1, damaged=1,
+        )
+        unrelated_line = ReceiptLine.objects.get(receipt=unrelated_receipt)
+        unrelated_balance = self.balance_for(unrelated_sku, self.second_warehouse)
+        hold = InventoryHold.objects.get(receipt_line=unrelated_line)
+        damage = DamagedRecord.objects.get(receipt_line=unrelated_line)
+        unrelated_before = (
+            unrelated_balance.pk, unrelated_balance.version, unrelated_balance.quantity_version,
+            unrelated_balance.on_hand, unrelated_balance.reserved, unrelated_balance.damaged,
+            unrelated_balance.cost_amount,
+            hold.balance_id, hold.version, hold.initial_quantity, hold.remaining_quantity,
+            damage.balance_id, damage.version, damage.original_quantity, damage.remaining_quantity,
+        )
+        sequence_before = BusinessControl.objects.get(pk=1).last_sequence
+
+        preview = preview_cost_correction(self.user, self.correction_data(source_receipt, purchase_price="11.000"))
+        submitted = submit_cost_correction(self.user, uuid4(), preview["preview_token"])
+        correction = CostCorrection.objects.get(pk=submitted["cost_correction_id"])
+        self.approve_correction(correction)
+
+        unrelated_balance.refresh_from_db()
+        hold.refresh_from_db()
+        damage.refresh_from_db()
+        self.assertEqual((unrelated_balance.pk, unrelated_balance.version, unrelated_balance.quantity_version,
+                          unrelated_balance.on_hand, unrelated_balance.reserved, unrelated_balance.damaged,
+                          unrelated_balance.cost_amount,
+                          hold.balance_id, hold.version, hold.initial_quantity, hold.remaining_quantity,
+                          damage.balance_id, damage.version, damage.original_quantity, damage.remaining_quantity),
+                         unrelated_before)
+        self.assertEqual(BusinessControl.objects.get(pk=1).last_sequence, sequence_before + 2)
+        self.assertEqual(self.balance_for().cost_amount, Decimal("110.000"))
+        self.assertEqual(SalesOrderLine.objects.get(order=order, active=True).order_cost_amount, Decimal("22.000"))
+        self.assert_replay()
+
+    def test_cost_correction_responses_filter_order_scope_and_commission_permission(self):
+        receipt = self.receive(quantity_value=5, price="10.000")
+        payload = self.order_payload(lines=[{
+            "sku_id": self.sku.pk, "warehouse_id": self.warehouse.pk,
+            "quantity": 2, "sale_price": "20.000",
+        }])
+        _, _, other_order = self.preview_and_confirm(payload, actor=self.sales_two)
+        self.sales.user_permissions.add(
+            Permission.objects.get(codename="submit_costcorrection"),
+            Permission.objects.get(codename="view_all_sales_orders"),
+            Permission.objects.get(codename="view_costcorrection"),
+        )
+        self.sales = type(self.sales).objects.get(pk=self.sales.pk)
+        preview = preview_cost_correction(self.sales, self.correction_data(receipt, purchase_price="11.000"))
+        order_change = next(row for row in preview["changes"]["orders"] if row["order_id"] == other_order.pk)
+        self.assertNotIn("commission_estimate", order_change["before"])
+        self.assertNotIn("commission_estimate", order_change["after"])
+        self.assertIn(other_order.pk, preview["impact"]["orders"])
+
+        submitted = submit_cost_correction(self.sales, uuid4(), preview["preview_token"])
+        correction_id = submitted["cost_correction_id"]
+        detail = cost_correction_rows(self.sales, correction_id=correction_id)[0]["before_after"]
+        stored = CostCorrection.objects.get(pk=correction_id).before_after
+        self.assertIn(other_order.pk, [row["order_id"] for row in stored["changes"]["orders"]])
+        self.assertNotIn("commission_estimate", detail["changes"]["orders"][0]["before"])
+        self.assertNotIn("commission_estimate", detail["changes"]["orders"][0]["after"])
+        self.client.force_login(self.sales)
+        http_detail = self.client.get(f"/api/v1/cost-corrections/{correction_id}").json()["before_after"]
+        http_list = self.client.get("/api/v1/cost-corrections").json()["items"][0]["before_after"]
+        self.assertIn(other_order.pk, http_detail["impact"]["orders"])
+        self.assertNotIn("commission_estimate", http_detail["changes"]["orders"][0]["before"])
+        self.assertNotIn("commission_estimate", http_list["changes"]["orders"][0]["after"])
+
+        self.sales.user_permissions.remove(Permission.objects.get(codename="view_all_sales_orders"))
+        self.sales = type(self.sales).objects.get(pk=self.sales.pk)
+        own_scope_detail = cost_correction_rows(self.sales, correction_id=correction_id)[0]["before_after"]
+        self.assertNotIn(other_order.pk, [row["order_id"] for row in own_scope_detail["changes"].get("orders", [])])
+        self.assertNotIn(other_order.pk, own_scope_detail["impact"]["orders"])
+        own_scope_preview = preview_cost_correction(self.sales, self.correction_data(receipt, purchase_price="12.000"))
+        self.assertNotIn(other_order.pk, [row["order_id"] for row in own_scope_preview["changes"].get("orders", [])])
+        self.assertNotIn(other_order.pk, own_scope_preview["impact"]["orders"])
+        http_detail_after_revoke = self.client.get(f"/api/v1/cost-corrections/{correction_id}").json()["before_after"]
+        http_list_after_revoke = self.client.get("/api/v1/cost-corrections").json()["items"][0]["before_after"]
+        self.assertNotIn(other_order.pk, http_detail_after_revoke["impact"]["orders"])
+        self.assertNotIn(other_order.pk, http_list_after_revoke["impact"]["orders"])
+
+    def test_cost_correction_http_error_fields_follow_order_and_commission_scope(self):
+        self.receive(quantity_value=8, price="5.000")
+        own_order = self.preview_and_confirm(self.order_payload(), actor=self.sales)[2]
+        other_order = self.preview_and_confirm(self.order_payload(), actor=self.sales_two)[2]
+        self.sales.user_permissions.add(
+            Permission.objects.get(codename="submit_costcorrection"),
+            Permission.objects.get(codename="view_costcorrection"),
+        )
+        self.sales = type(self.sales).objects.get(pk=self.sales.pk)
+        self.client.force_login(self.sales)
+        fields = {
+            "orders": [own_order.pk, other_order.pk],
+            "details": [
+                {"order_id": own_order.pk, "commission_estimate": "1.000"},
+                {"order_id": other_order.pk, "commission_estimate": "2.000"},
+            ],
+        }
+        with patch("crm.views.preview_cost_correction", side_effect=OperationError("Invalid preview.", fields=fields)):
+            response = self.client.post(
+                "/api/v1/cost-corrections/preview", data=json.dumps({}), content_type="application/json",
+            )
+
+        self.assertEqual(response.status_code, 400)
+        error_fields = response.json()["error"]["fields"]
+        self.assertEqual(error_fields["orders"], [own_order.pk])
+        self.assertEqual(error_fields["details"], [{"order_id": own_order.pk, "commission_estimate": "1.000"}])
+
+    def test_stock_count_average_rounds_total_cost_once_for_occupancy_gain(self):
+        self.preview_and_receive(self.receipt_payload(
+            self.sku, quantity_value=3, price="0.333", freight="0.001",
+        ))
+        count_result = create_stock_count(self.user, {"reason": "Count six units", "lines": [{
+            "warehouse_id": self.warehouse.pk, "sku_id": self.sku.pk,
+            "observed_quantity": 6, "cost_mode": StockCountLine.CostMode.AVERAGE,
+        }]}, uuid4())
+        count = StockCount.objects.get(pk=count_result["stock_count_id"])
+        line = count.lines.get()
+        row = stock_count_rows(self.owner, count_id=count.pk)[0]["lines"][0]
+        self.assertEqual(row["preview"], {"delta": 3, "effective_unit_cost": "0.333", "cost_delta": "1.000"})
+
+        self.approve_count(count)
+        line.refresh_from_db()
+        balance = self.balance_for()
+        self.assertEqual((line.delta, line.effective_unit_cost, line.cost_delta),
+                         (3, Decimal("0.333"), Decimal("1.000")))
+        self.assertEqual((balance.on_hand, balance.cost_amount), (6, Decimal("2.000")))
+        self.assert_replay()
+
+    def test_manual_stock_count_cost_requires_zero_on_hand_and_positive_gain(self):
+        self.receive(quantity_value=2, price="0.000")
+        payload = {"reason": "Keep true zero average", "lines": [{
+            "warehouse_id": self.warehouse.pk, "sku_id": self.sku.pk,
+            "observed_quantity": 1, "cost_mode": StockCountLine.CostMode.MANUAL,
+            "manual_unit_cost": "1.000",
+        }]}
+        with self.assertRaises(OperationError) as raised:
+            create_stock_count(self.user, payload, uuid4())
+        self.assertIn("lines[0].cost_mode", raised.exception.fields)
+
+        zero_cost_count = create_stock_count(self.user, {"reason": "True zero average", "lines": [{
+            "warehouse_id": self.warehouse.pk, "sku_id": self.sku.pk, "observed_quantity": 3,
+        }]}, uuid4())
+        self.approve_count(StockCount.objects.get(pk=zero_cost_count["stock_count_id"]))
+        self.assertEqual(self.balance_for().cost_amount, Decimal("0.000"))
+
+        self.receive(quantity_value=1, price="0.000")
+        create_inventory_gift(self.user, {"reason": "Clear zero-cost stock", "lines": [{
+            "warehouse_id": self.warehouse.pk, "sku_id": self.sku.pk, "quantity": 4,
+        }]}, uuid4())
+        empty = create_stock_count(self.user, {"reason": "Untraced gain", "lines": [{
+            "warehouse_id": self.warehouse.pk, "sku_id": self.sku.pk, "observed_quantity": 1,
+            "cost_mode": StockCountLine.CostMode.MANUAL, "manual_unit_cost": "4.000",
+        }]}, uuid4())
+        self.approve_count(StockCount.objects.get(pk=empty["stock_count_id"]))
+        self.assertEqual((self.balance_for().on_hand, self.balance_for().cost_amount), (1, Decimal("4.000")))
+        self.assert_replay()
+
     def test_no_impact_correction_applies_directly_and_is_idempotent(self):
         receipt = self.receive(quantity_value=5, price="10.000")
         preview = preview_cost_correction(self.user, self.correction_data(receipt, purchase_price="11.000"))
