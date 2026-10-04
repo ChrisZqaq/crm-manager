@@ -366,7 +366,7 @@ class DamagedRecord(models.Model):
 
 class BusinessOperation(models.Model):
     operation_key = models.UUIDField(unique=True)
-    sequence = models.PositiveBigIntegerField(unique=True)
+    sequence = models.PositiveBigIntegerField(unique=True, null=True, blank=True)
     actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="business_operations")
     action = models.CharField(max_length=40)
     input_hash = models.CharField(max_length=64)
@@ -378,6 +378,9 @@ class BusinessOperation(models.Model):
     hold = models.ForeignKey(InventoryHold, null=True, blank=True, on_delete=models.PROTECT, related_name="operations")
     control = models.ForeignKey(BusinessControl, null=True, blank=True, on_delete=models.PROTECT, related_name="operations")
     sku = models.ForeignKey(SKU, null=True, blank=True, on_delete=models.PROTECT, related_name="low_stock_operations")
+    customer = models.ForeignKey("Customer", null=True, blank=True, on_delete=models.PROTECT, related_name="operations")
+    sales_order = models.ForeignKey("SalesOrder", null=True, blank=True, on_delete=models.PROTECT, related_name="operations")
+    account_profile = models.ForeignKey("AccountProfile", null=True, blank=True, on_delete=models.PROTECT, related_name="operations")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -385,11 +388,14 @@ class BusinessOperation(models.Model):
         constraints = [
             models.CheckConstraint(
                 condition=(
-                    Q(receipt__isnull=False, opening_batch__isnull=True, hold__isnull=True, control__isnull=True, sku__isnull=True)
-                    | Q(receipt__isnull=True, opening_batch__isnull=False, hold__isnull=True, control__isnull=True, sku__isnull=True)
-                    | Q(receipt__isnull=True, opening_batch__isnull=True, hold__isnull=False, control__isnull=True, sku__isnull=True)
-                    | Q(receipt__isnull=True, opening_batch__isnull=True, hold__isnull=True, control__isnull=False, sku__isnull=True)
-                    | Q(receipt__isnull=True, opening_batch__isnull=True, hold__isnull=True, control__isnull=True, sku__isnull=False)
+                      Q(receipt__isnull=False, opening_batch__isnull=True, hold__isnull=True, control__isnull=True, sku__isnull=True, customer__isnull=True, sales_order__isnull=True, account_profile__isnull=True)
+                      | Q(receipt__isnull=True, opening_batch__isnull=False, hold__isnull=True, control__isnull=True, sku__isnull=True, customer__isnull=True, sales_order__isnull=True, account_profile__isnull=True)
+                      | Q(receipt__isnull=True, opening_batch__isnull=True, hold__isnull=False, control__isnull=True, sku__isnull=True, customer__isnull=True, sales_order__isnull=True, account_profile__isnull=True)
+                      | Q(receipt__isnull=True, opening_batch__isnull=True, hold__isnull=True, control__isnull=False, sku__isnull=True, customer__isnull=True, sales_order__isnull=True, account_profile__isnull=True)
+                      | Q(receipt__isnull=True, opening_batch__isnull=True, hold__isnull=True, control__isnull=True, sku__isnull=False, customer__isnull=True, sales_order__isnull=True, account_profile__isnull=True)
+                      | Q(receipt__isnull=True, opening_batch__isnull=True, hold__isnull=True, control__isnull=True, sku__isnull=True, customer__isnull=False, sales_order__isnull=True, account_profile__isnull=True)
+                      | Q(receipt__isnull=True, opening_batch__isnull=True, hold__isnull=True, control__isnull=True, sku__isnull=True, customer__isnull=True, sales_order__isnull=False, account_profile__isnull=True)
+                      | Q(receipt__isnull=True, opening_batch__isnull=True, hold__isnull=True, control__isnull=True, sku__isnull=True, customer__isnull=True, sales_order__isnull=True, account_profile__isnull=False)
                 ),
                 name="crm_operation_one_target",
             )
@@ -402,6 +408,7 @@ class InventoryMovement(models.Model):
     receipt_line = models.ForeignKey(ReceiptLine, null=True, blank=True, on_delete=models.PROTECT, related_name="movements")
     opening_line = models.ForeignKey(OpeningLine, null=True, blank=True, on_delete=models.PROTECT, related_name="movements")
     hold = models.ForeignKey(InventoryHold, null=True, blank=True, on_delete=models.PROTECT, related_name="movements")
+    sales_order = models.ForeignKey("SalesOrder", null=True, blank=True, on_delete=models.PROTECT, related_name="inventory_movements")
     event_kind = models.CharField(max_length=24)
     entry_key = models.CharField(max_length=80)
     on_hand_delta = models.BigIntegerField(default=0)
@@ -419,11 +426,142 @@ class InventoryMovement(models.Model):
             models.UniqueConstraint(fields=("operation", "balance", "event_kind", "entry_key"), name="crm_movement_operation_balance_entry_unique"),
             models.CheckConstraint(
                 condition=(
-                    Q(receipt_line__isnull=False, opening_line__isnull=True, hold__isnull=True)
-                    | Q(receipt_line__isnull=True, opening_line__isnull=False, hold__isnull=True)
-                    | Q(receipt_line__isnull=True, opening_line__isnull=True, hold__isnull=False)
+                      Q(receipt_line__isnull=False, opening_line__isnull=True, hold__isnull=True, sales_order__isnull=True)
+                      | Q(receipt_line__isnull=True, opening_line__isnull=False, hold__isnull=True, sales_order__isnull=True)
+                      | Q(receipt_line__isnull=True, opening_line__isnull=True, hold__isnull=False, sales_order__isnull=True)
+                      | Q(receipt_line__isnull=True, opening_line__isnull=True, hold__isnull=True, sales_order__isnull=False)
                 ),
                 name="crm_movement_one_source",
+            ),
+          ]
+
+
+class Customer(models.Model):
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="crm_customers")
+    name = models.CharField(max_length=200)
+    contact = models.TextField()
+    company = models.CharField(max_length=200, blank=True)
+    aliases = models.JSONField(default=list, blank=True, validators=[validate_aliases])
+    birthday = models.DateField(null=True, blank=True)
+    interests = models.TextField(blank=True)
+    hobbies = models.TextField(blank=True)
+    is_active = models.BooleanField(default=True)
+    version = models.PositiveIntegerField(default=1)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ("id",)
+        permissions = (
+            ("view_all_customers", "查看全部客户"),
+            ("change_all_customers", "维护全部客户"),
+            ("archive_customer", "归档客户"),
+            ("change_customer_owner", "转交客户"),
+        )
+
+    def __str__(self):
+        return self.name
+
+
+class CustomerAddress(models.Model):
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name="addresses")
+    recipient = models.CharField(max_length=120)
+    contact = models.TextField()
+    province = models.CharField(max_length=80)
+    city = models.CharField(max_length=80)
+    detail = models.TextField()
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ("id",)
+
+
+class Channel(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ("id",)
+
+    def __str__(self):
+        return self.name
+
+
+class AccountProfile(models.Model):
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="crm_profile")
+    birthday_reminder_enabled = models.BooleanField(default=True)
+    version = models.PositiveIntegerField(default=1)
+
+
+class SalesOrder(models.Model):
+    class Status(models.TextChoices):
+        AWAITING_PAYMENT = "awaiting_payment", "待付款凭证"
+        CANCELLED = "cancelled", "已取消"
+
+    class DeliveryMode(models.TextChoices):
+        SHIPMENT = "shipment", "快递"
+        ON_SITE = "on_site", "现场"
+
+    salesperson = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="sales_orders")
+    customer = models.ForeignKey(Customer, null=True, blank=True, on_delete=models.PROTECT, related_name="sales_orders")
+    channel = models.ForeignKey(Channel, on_delete=models.PROTECT, related_name="sales_orders")
+    status = models.CharField(max_length=24, choices=Status.choices, default=Status.AWAITING_PAYMENT)
+    delivery_mode = models.CharField(max_length=16, choices=DeliveryMode.choices)
+    customer_name_snapshot = models.CharField(max_length=200, blank=True)
+    recipient_snapshot = models.CharField(max_length=120, blank=True)
+    contact_snapshot = models.TextField(blank=True)
+    province_snapshot = models.CharField(max_length=80, blank=True)
+    city_snapshot = models.CharField(max_length=80, blank=True)
+    detail_snapshot = models.TextField(blank=True)
+    remarks = models.TextField(blank=True)
+    revenue_amount = models.DecimalField(max_digits=20, decimal_places=3, default=0)
+    cost_amount = models.DecimalField(max_digits=20, decimal_places=3, default=0)
+    margin_amount = models.DecimalField(max_digits=20, decimal_places=3, default=0)
+    commission_estimate = models.DecimalField(max_digits=20, decimal_places=3, default=0)
+    version = models.PositiveIntegerField(default=1)
+    payment_version = models.PositiveIntegerField(default=1)
+    amount_version = models.PositiveIntegerField(default=1)
+    last_sequence = models.PositiveBigIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    cancelled_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ("-id",)
+        permissions = (
+            ("view_all_sales_orders", "查看全部销售订单"),
+            ("change_all_sales_orders", "维护全部销售订单"),
+            ("cancel_salesorder", "取消未交付销售订单"),
+        )
+        constraints = [
+            models.CheckConstraint(condition=Q(status__in=("awaiting_payment", "cancelled")), name="crm_order_stage3_status"),
+            models.CheckConstraint(condition=Q(delivery_mode__in=("shipment", "on_site")), name="crm_order_delivery_mode"),
+            models.CheckConstraint(condition=Q(revenue_amount__gte=0, cost_amount__gte=0), name="crm_order_totals_nonnegative"),
+        ]
+
+
+class SalesOrderLine(models.Model):
+    order = models.ForeignKey(SalesOrder, on_delete=models.PROTECT, related_name="lines")
+    line_number = models.PositiveIntegerField()
+    sku = models.ForeignKey(SKU, on_delete=models.PROTECT, related_name="sales_order_lines")
+    warehouse = models.ForeignKey(Warehouse, on_delete=models.PROTECT, related_name="sales_order_lines")
+    quantity = models.PositiveBigIntegerField()
+    unit_price = models.DecimalField(max_digits=20, decimal_places=3)
+    revenue_amount = models.DecimalField(max_digits=20, decimal_places=3)
+    unit_cost_snapshot = models.DecimalField(max_digits=20, decimal_places=3)
+    order_cost_amount = models.DecimalField(max_digits=20, decimal_places=3)
+    outbound_freight = models.DecimalField(max_digits=20, decimal_places=3, default=0)
+    cost_mode = models.CharField(max_length=24, default="average_snapshot")
+    active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ("line_number", "id")
+        constraints = [
+            models.UniqueConstraint(fields=("order", "line_number"), name="crm_order_line_number_unique"),
+            models.CheckConstraint(condition=Q(quantity__gt=0), name="crm_order_line_positive_quantity"),
+            models.CheckConstraint(
+                condition=Q(unit_price__gte=0, revenue_amount__gte=0, unit_cost_snapshot__gte=0, order_cost_amount__gte=0, outbound_freight__gte=0),
+                name="crm_order_line_amounts_nonnegative",
             ),
         ]
 

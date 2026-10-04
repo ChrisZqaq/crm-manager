@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="zh-Hans">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>{% if order %}修改订单{% else %}新建订单{% endif %} · CRM</title></head>
+<body>
+  <header><h1>{% if order %}修改订单 {{ order.last_sequence }}{% else %}新建订单{% endif %}</h1><nav><a href="{% url 'orders' %}">返回订单</a></nav></header>
+  <form hidden>{% csrf_token %}</form>
+  <form id="order-form">
+      <label>客户（现场客户可留空） <select id="customer"><option value="">现场客户 / 不关联客户</option></select></label>
+      <label>查找客户 <input id="customer-query" type="search" placeholder="姓名、公司或联系方式"><button id="search-customers" type="button">查找</button></label>
+    <label>渠道 <select id="channel" required></select></label>
+    <label>交付方式 <select id="delivery"><option value="shipment">快递</option><option value="on_site">现场</option></select></label>
+    <label>使用客户地址 <select id="saved-address"><option value="">手工填写</option></select></label>
+    <fieldset><legend>收件信息（快递必填；现场可不填）</legend>
+      <label>收件人 <input id="recipient" maxlength="120"></label><label>联系方式 <textarea id="contact"></textarea></label>
+      <label>省份 <select id="province"><option value="">请选择省份</option></select></label><label>城市 <select id="city"><option value="">请选择城市</option></select></label><label>详细地址 <textarea id="detail"></textarea></label>
+    </fieldset>
+    <label>备注 <textarea id="remarks"></textarea></label>
+      <fieldset><legend>商品明细</legend>
+        <label>查找SKU <input id="sku-query" type="search" placeholder="SKU编码、条码或商品名"><button id="search-skus" type="button">查找</button></label>
+        <label>查找仓库 <input id="warehouse-query" type="search" placeholder="仓库名称"><button id="search-warehouses" type="button">查找</button></label>
+        <div id="lines"></div><button id="add-line" type="button">添加商品</button>
+      </fieldset>
+    <button id="preview" type="submit">预览成本与占货</button>
+  </form>
+  <section id="preview-result" hidden><h2>订单预览</h2><pre id="summary"></pre><button id="confirm" type="button">确认并占货</button></section>
+  <p id="status" role="status"></p>
+  {{ initial|json_script:"order-initial" }}
+  <script>
+    function csrfToken(){return document.cookie.split('; ').find(x=>x.startsWith('csrftoken='))?.split('=')[1]||'';}
+    async function api(url,method='GET',body){const response=await fetch(url,{method,credentials:'same-origin',headers:body?{'Content-Type':'application/json','X-CSRFToken':csrfToken()}: {},body:body?JSON.stringify(body):undefined});const data=await response.json();if(!response.ok)throw new Error(data.error?.message||'请求失败');return data;}
+    const initial=JSON.parse(document.getElementById('order-initial').textContent||'null');
+    const customerSelect=document.getElementById('customer'),savedAddress=document.getElementById('saved-address'),channelSelect=document.getElementById('channel');
+    const province=document.getElementById('province'),city=document.getElementById('city'),lines=document.getElementById('lines'),status=document.getElementById('status');
+      let customers=[],regions=[],skus=[],warehouses=[],previewToken=null,operationKey=null;
+      const customerCache=new Map(),skuCache=new Map(),warehouseCache=new Map();
+      function option(select,value,label){const node=document.createElement('option');node.value=String(value);node.textContent=label;select.append(node);}
+      function customerOptions(selectedId=customerSelect.value){customers=customers.filter((item,index,array)=>array.findIndex(other=>other.id===item.id)===index);const selected=customerCache.get(String(selectedId));if(selected&&!customers.some(item=>item.id===selected.id))customers.push(selected);customerSelect.innerHTML='';option(customerSelect,'','现场客户 / 不关联客户');for(const item of customers)option(customerSelect,item.id,item.name);customerSelect.value=selectedId||'';}
+      function skuOptions(select,selectedId='',fallbackLabel=''){select.innerHTML='';option(select,'','请选择SKU');for(const item of skus)option(select,item.id,`${item.code} · ${item.unit}`);const selected=skuCache.get(String(selectedId));if(selected&&!skus.some(item=>item.id===selected.id))option(select,selected.id,`${selected.code} · ${selected.unit}`);else if(selectedId&&!skus.some(item=>String(item.id)===String(selectedId)))option(select,selectedId,fallbackLabel||`SKU ${selectedId}（历史明细）`);select.value=selectedId||'';}
+      function warehouseOptions(select,selectedId='',fallbackLabel=''){select.innerHTML='';option(select,'','请选择仓库');for(const item of warehouses)option(select,item.id,item.name);const selected=warehouseCache.get(String(selectedId));if(selected&&!warehouses.some(item=>item.id===selected.id))option(select,selected.id,selected.name);else if(selectedId&&!warehouses.some(item=>String(item.id)===String(selectedId)))option(select,selectedId,fallbackLabel||`仓库 ${selectedId}（历史明细）`);select.value=selectedId||'';}
+      function resetCities(selected=''){const row=regions.find(item=>item.province===province.value);city.innerHTML='<option value="">请选择城市</option>';for(const item of row?.cities||[])option(city,item.name,item.name);city.value=selected;}
+    function customerAddresses(){const item=customers.find(row=>String(row.id)===customerSelect.value);savedAddress.innerHTML='<option value="">手工填写</option>';for(const address of item?.addresses||[])option(savedAddress,address.id,`${address.recipient} · ${address.province}${address.city} ${address.detail}`);}
+    function addLine(value={}){
+      const row=document.createElement('fieldset');row.className='order-line';
+      row.innerHTML='<legend>商品</legend><label>SKU <select data-field="sku" required></select></label><label>仓库 <select data-field="warehouse" required></select></label><label>数量 <input data-field="quantity" type="number" min="1" step="1" required></label><label>单价 <input data-field="sale_price" inputmode="decimal" required></label><button type="button" data-remove>移除商品</button>';
+        const skuSelect=row.querySelector('[data-field="sku"]'),warehouseSelect=row.querySelector('[data-field="warehouse"]');
+        if(value.sku_id&&value.sku_code)skuCache.set(String(value.sku_id),{id:value.sku_id,code:value.sku_code,unit:value.unit||''});
+        if(value.warehouse_id&&value.warehouse)warehouseCache.set(String(value.warehouse_id),{id:value.warehouse_id,name:value.warehouse});
+        skuOptions(skuSelect,value.sku_id||'',value.sku_code||'');warehouseOptions(warehouseSelect,value.warehouse_id||'',value.warehouse||'');
+      skuSelect.value=value.sku_id||'';warehouseSelect.value=value.warehouse_id||'';row.querySelector('[data-field="quantity"]').value=value.quantity||1;row.querySelector('[data-field="sale_price"]').value=value.unit_price||'';
+      if(value.line_id)row.dataset.lineId=value.line_id;row.querySelector('[data-remove]').addEventListener('click',()=>row.remove());lines.append(row);
+      }
+      async function searchCustomers(){const query=document.getElementById('customer-query').value.trim(),selectedId=customerSelect.value;const result=await api(`/api/v1/customers?${new URLSearchParams({page_size:'200',q:query})}`);customers=result.items;for(const item of customers)customerCache.set(String(item.id),item);customerOptions(selectedId);}
+      async function searchSkus(){const query=document.getElementById('sku-query').value.trim(),selected=[...lines.querySelectorAll('[data-field="sku"]')].map(select=>[select,select.value,select.selectedOptions[0]?.textContent||'']);const result=await api(`/api/v1/skus?${new URLSearchParams({page_size:'200',q:query})}`);skus=result.items;for(const item of skus)skuCache.set(String(item.id),item);for(const [select,id,label] of selected)skuOptions(select,id,label);}
+      async function searchWarehouses(){const query=document.getElementById('warehouse-query').value.trim(),selected=[...lines.querySelectorAll('[data-field="warehouse"]')].map(select=>[select,select.value,select.selectedOptions[0]?.textContent||'']);const result=await api(`/api/v1/warehouses?${new URLSearchParams({page_size:'200',q:query})}`);warehouses=result.items;for(const item of warehouses)warehouseCache.set(String(item.id),item);for(const [select,id,label] of selected)warehouseOptions(select,id,label);}
+      function buildPayload(){
+      const addressId=savedAddress.value;
+      return {customer_id:customerSelect.value||null,customer_address_id:addressId||null,channel_id:channelSelect.value,delivery_mode:document.getElementById('delivery').value,
+        address_snapshot:addressId?{}:{recipient:document.getElementById('recipient').value,contact:document.getElementById('contact').value,province:province.value,city:city.value,detail:document.getElementById('detail').value},
+        remarks:document.getElementById('remarks').value,lines:[...lines.querySelectorAll('.order-line')].map(row=>({...(row.dataset.lineId?{line_id:Number(row.dataset.lineId)}:{}),sku_id:row.querySelector('[data-field="sku"]').value,warehouse_id:row.querySelector('[data-field="warehouse"]').value,quantity:row.querySelector('[data-field="quantity"]').value,sale_price:row.querySelector('[data-field="sale_price"]').value})),
+        ...(initial?{order_id:initial.id,expected_version:initial.version}:{})};
+    }
+    async function start(){
+      try{
+        const [regionData,channelData,customerData,skuData,warehouseData]=await Promise.all([
+          api('/api/v1/regions'),api('/api/v1/channels'),api('/api/v1/customers?page_size=200'),api('/api/v1/skus?page_size=200'),api('/api/v1/warehouses?page_size=200')
+        ]);
+          regions=regionData.items;customers=customerData.items;skus=skuData.items;warehouses=warehouseData.items;
+          for(const item of customers)customerCache.set(String(item.id),item);for(const item of skus)skuCache.set(String(item.id),item);for(const item of warehouses)warehouseCache.set(String(item.id),item);
+          if(initial?.customer_id&&!customers.some(item=>item.id===initial.customer_id)){const historical={id:initial.customer_id,name:initial.customer_name||'已归档客户',addresses:[]};customers.push(historical);customerCache.set(String(historical.id),historical);}
+        if(initial?.channel_id&&!channelData.items.some(item=>item.id===initial.channel_id))channelData.items.push({id:initial.channel_id,name:initial.channel+'（历史渠道）'});
+        option(channelSelect,'','请选择渠道');for(const item of channelData.items)option(channelSelect,item.id,item.name);
+          customerOptions(initial?.customer_id||'');
+        for(const item of regions)option(province,item.province,item.province);
+        if(initial){customerSelect.value=initial.customer_id||'';channelSelect.value=initial.channel_id;document.getElementById('delivery').value=initial.delivery_mode;document.getElementById('recipient').value=initial.recipient;document.getElementById('contact').value=initial.contact;document.getElementById('remarks').value=initial.remarks;province.value=initial.province;resetCities(initial.city);document.getElementById('detail').value=initial.detail;for(const line of initial.lines)addLine(line);}
+        else {resetCities();addLine();}
+        customerAddresses();
+      }catch(error){status.textContent=error.message;document.getElementById('preview').disabled=true;}
+    }
+      document.getElementById('add-line').addEventListener('click',()=>addLine());
+      document.getElementById('search-customers').addEventListener('click',()=>searchCustomers().catch(error=>{status.textContent=error.message;}));
+      document.getElementById('search-skus').addEventListener('click',()=>searchSkus().catch(error=>{status.textContent=error.message;}));
+      document.getElementById('search-warehouses').addEventListener('click',()=>searchWarehouses().catch(error=>{status.textContent=error.message;}));
+    customerSelect.addEventListener('change',()=>{savedAddress.value='';customerAddresses();});
+    province.addEventListener('change',()=>resetCities());
+    savedAddress.addEventListener('change',()=>{const item=customers.find(row=>String(row.id)===customerSelect.value),address=item?.addresses?.find(row=>String(row.id)===savedAddress.value);if(address){document.getElementById('recipient').value=address.recipient;document.getElementById('contact').value=address.contact;province.value=address.province;resetCities(address.city);document.getElementById('detail').value=address.detail;}});
+    for(const field of ['recipient','contact','detail'])document.getElementById(field).addEventListener('input',()=>{savedAddress.value='';});
+    document.getElementById('order-form').addEventListener('input',()=>{previewToken=null;document.getElementById('preview-result').hidden=true;});
+    document.getElementById('order-form').addEventListener('change',()=>{previewToken=null;document.getElementById('preview-result').hidden=true;});
+    document.getElementById('order-form').addEventListener('submit',async event=>{
+      event.preventDefault();status.textContent='';try{const payload=buildPayload(),url=initial?`/api/v1/orders/${initial.id}/amend/preview`:'/api/v1/orders/preview';const preview=await api(url,'POST',payload);previewToken=preview.preview_token;operationKey=crypto.randomUUID();document.getElementById('summary').textContent=`收入：${preview.revenue_amount}\n成本：${preview.cost_amount}\n毛利：${preview.margin_amount}\n提成预估：${preview.commission_estimate}\n\n${preview.lines.map(line=>`${line.code} × ${line.quantity} · 单位成本 ${line.unit_cost_snapshot} · 成本 ${line.order_cost_amount}`).join('\n')}`;document.getElementById('preview-result').hidden=false;}
+      catch(error){status.textContent=error.message;}
+    });
+    document.getElementById('confirm').addEventListener('click',async()=>{if(!previewToken)return;try{const data=await api(initial?`/api/v1/orders/${initial.id}/amend`:'/api/v1/orders','POST',{operation_key:operationKey,preview_token:previewToken});location.href=`/orders/${data.order_id}/`;}catch(error){status.textContent=error.message;}});
+    start();
+  </script>
+</body>
+</html>

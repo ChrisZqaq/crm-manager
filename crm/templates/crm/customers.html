@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="zh-Hans">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>客户 · CRM</title></head>
+<body>
+  <header>
+    <h1>客户</h1>
+    <nav><a href="{% url 'orders' %}">销售订单</a>{% if perms.crm.add_customer or request.user.is_superuser %} · <a href="{% url 'customer-new' %}">新建客户</a>{% endif %}</nav>
+  </header>
+  <form hidden>{% csrf_token %}</form>
+  <label>搜索 <input id="query" type="search" maxlength="120"></label>
+  <label><input id="include-archived" type="checkbox"> 包含已归档</label>
+  <label id="birthday-setting"><input id="birthday-enabled" type="checkbox" checked> 显示今天生日提醒</label>
+  <a id="birthday-link" href="{% url 'birthdays' %}">今天生日</a>
+  <p id="status" role="status"></p>
+  <table>
+    <thead><tr><th>客户</th><th>联系方式</th><th>公司</th><th>生日</th><th>负责人</th><th>状态</th><th>操作</th></tr></thead>
+    <tbody id="customers"></tbody>
+  </table>
+  <button id="previous" type="button">上一页</button><span id="page"></span><button id="next" type="button">下一页</button>
+  <script>
+    function csrfToken() { return document.cookie.split('; ').find(x => x.startsWith('csrftoken='))?.split('=')[1] || ''; }
+    async function api(url, method='GET', body) {
+      const response = await fetch(url, {method, credentials:'same-origin', headers: body ? {'Content-Type':'application/json','X-CSRFToken':csrfToken()} : {}, body: body ? JSON.stringify(body) : undefined});
+      const data = await response.json(); if (!response.ok) throw new Error(data.error?.message || '请求失败'); return data;
+    }
+    const body = document.getElementById('customers'), status = document.getElementById('status');
+    const query = document.getElementById('query'), archived = document.getElementById('include-archived');
+    const reminder = document.getElementById('birthday-enabled'), birthdayLink = document.getElementById('birthday-link');
+    let page = 1, pageCount = 1, canArchive = {{ perms.crm.archive_customer|yesno:'true,false' }} || {{ request.user.is_superuser|yesno:'true,false' }};
+    function esc(value) { return String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+    async function load() {
+      const params = new URLSearchParams({page:String(page),page_size:'50',include_archived:String(archived.checked),q:query.value.trim()});
+      try {
+        const data = await api(`/api/v1/customers?${params}`);
+        body.innerHTML = data.items.map(item => `<tr><td><a href="/customers/${item.id}/edit/">${esc(item.name)}</a>${item.birthday_today ? ' 🎂' : ''}</td><td>${esc(item.contact)}</td><td>${esc(item.company || '—')}</td><td>${esc(item.birthday || '—')}</td><td>${esc(item.owner_name)}</td><td>${item.is_active ? '正常' : '已归档'}</td><td>${item.is_active && canArchive ? `<button type="button" data-archive="${item.id}" data-version="${item.version}">归档</button>` : '—'}</td></tr>`).join('') || '<tr><td colspan="7">暂无客户。</td></tr>';
+        document.getElementById('page').textContent = `${data.page} / ${Math.max(1,Math.ceil(data.total/data.page_size))}`;
+        pageCount = Math.max(1,Math.ceil(data.total/data.page_size));
+        document.getElementById('previous').disabled = data.page <= 1; document.getElementById('next').disabled = data.page >= pageCount;
+        reminder.checked = data.birthday_reminder_enabled; birthdayLink.hidden = !reminder.checked;
+        status.textContent = '';
+      } catch (error) { status.textContent = error.message; }
+    }
+    body.addEventListener('click', async event => {
+      const button = event.target.closest('[data-archive]'); if (!button) return;
+      if (!confirm('归档该客户？历史订单会保留。')) return;
+      try { await api(`/api/v1/customers/${button.dataset.archive}/archive`,'POST',{expected_version:Number(button.dataset.version),operation_key:crypto.randomUUID()}); await load(); }
+      catch(error) { status.textContent = error.message; }
+    });
+    query.addEventListener('input', () => { page=1; load(); }); archived.addEventListener('change', () => { page=1; load(); });
+    document.getElementById('previous').addEventListener('click',()=>{page=Math.max(1,page-1);load();});
+    document.getElementById('next').addEventListener('click',()=>{page=Math.min(pageCount,page+1);load();});
+    reminder.addEventListener('change',async()=>{
+      try { const current=await api('/api/v1/me/preferences'); await api('/api/v1/me/preferences','PATCH',{birthday_reminder_enabled:reminder.checked,expected_version:current.version,operation_key:crypto.randomUUID()}); birthdayLink.hidden=!reminder.checked; }
+      catch(error) { status.textContent=error.message; reminder.checked=!reminder.checked; }
+    });
+    load();
+  </script>
+</body>
+</html>

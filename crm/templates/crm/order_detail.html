@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="zh-Hans">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>订单 {{ order.last_sequence }} · CRM</title></head>
+<body>
+  <header><h1>订单 {{ order.last_sequence }}</h1><nav><a href="{% url 'orders' %}">返回订单</a></nav></header>
+  <p>状态：{{ order.get_status_display }}；交付方式：{{ order.get_delivery_mode_display }}；销售：{{ order.salesperson.get_username }}；渠道：{{ order.channel.name }}</p>
+  <p>客户：{{ order.customer_name_snapshot|default:"现场客户" }}；收件人：{{ order.recipient_snapshot|default:"—" }}；联系方式：{{ order.contact_snapshot|default:"—" }}</p>
+  <p>地址：{{ order.province_snapshot }} {{ order.city_snapshot }} {{ order.detail_snapshot }}</p>
+  <p>收入 {{ order.revenue_amount }} · 成本 {{ order.cost_amount }} · 毛利 {{ order.margin_amount }} · 提成预估 {{ order.commission_estimate }}</p>
+  <p>备注：{{ order.remarks|default:"—" }}</p>
+  <table><thead><tr><th>SKU</th><th>仓库</th><th>数量</th><th>单价</th><th>收入</th><th>成本单价快照</th><th>成本合计</th></tr></thead><tbody>
+    {% for line in initial.lines %}<tr><td>{{ line.sku_code }}</td><td>{{ line.warehouse }}</td><td>{{ line.quantity }}</td><td>{{ line.unit_price }}</td><td>{{ line.revenue_amount }}</td><td>{{ line.unit_cost_snapshot }}</td><td>{{ line.order_cost_amount }}</td></tr>{% empty %}<tr><td colspan="7">暂无明细。</td></tr>{% endfor %}
+  </tbody></table>
+  {% if order.status == "awaiting_payment" %}
+    {% if perms.crm.change_salesorder or request.user.is_superuser %}<p><a href="{% url 'order-edit' order.pk %}">修改订单</a></p>{% endif %}
+    {% if perms.crm.cancel_salesorder or request.user.is_superuser %}<button id="cancel" type="button">取消订单并释放占货</button>{% endif %}
+  {% endif %}
+  <p id="status" role="status"></p>
+  {{ initial|json_script:"order-initial" }}
+  <form hidden>{% csrf_token %}</form>
+  <script>
+    function csrfToken(){return document.cookie.split('; ').find(x=>x.startsWith('csrftoken='))?.split('=')[1]||'';}
+    const initial=JSON.parse(document.getElementById('order-initial').textContent),button=document.getElementById('cancel');
+    if(button)button.addEventListener('click',async()=>{if(!confirm('取消该订单并释放占用库存？'))return;try{const response=await fetch(`/api/v1/orders/${initial.id}/cancel`,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-CSRFToken':csrfToken()},body:JSON.stringify({expected_version:initial.version,operation_key:crypto.randomUUID()})});const data=await response.json();if(!response.ok)throw new Error(data.error?.message||'请求失败');location.reload();}catch(error){document.getElementById('status').textContent=error.message;}});
+  </script>
+</body>
+</html>

@@ -13,7 +13,7 @@ from .forms import (
     SKUAdminForm,
     WarehouseAdminForm,
 )
-from .models import Brand, BusinessControl, PermissionChange, Product, SKU, Supplier, Warehouse
+from .models import Brand, BusinessControl, Channel, PermissionChange, Product, SKU, Supplier, Warehouse
 from .permissions import ROLE_NAMES
 
 
@@ -29,6 +29,13 @@ class NoAdminHistory:
 
 
 class ArchiveAdmin(NoAdminHistory, admin.ModelAdmin):
+    def changeform_view(self, request, object_id=None, form_url="", extra_context=None):
+        if request.method == "POST":
+            with transaction.atomic():
+                BusinessControl.objects.select_for_update().get(pk=1)
+                return super().changeform_view(request, object_id, form_url, extra_context)
+        return super().changeform_view(request, object_id, form_url, extra_context)
+
     def has_delete_permission(self, request, obj=None):
         return False
 
@@ -60,13 +67,6 @@ class SKUAdmin(ArchiveAdmin):
         if obj:
             fields.append("code")
         return fields
-
-    def changeform_view(self, request, object_id=None, form_url="", extra_context=None):
-        if request.method == "POST":
-            with transaction.atomic():
-                BusinessControl.objects.select_for_update().get(pk=1)
-                return super().changeform_view(request, object_id, form_url, extra_context)
-        return super().changeform_view(request, object_id, form_url, extra_context)
 
 
 @admin.register(Warehouse)
@@ -232,3 +232,10 @@ class PermissionChangeAdmin(NoAdminHistory, admin.ModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return False
+
+
+@admin.register(Channel)
+class ChannelAdmin(ArchiveAdmin):
+    list_display = ("name", "is_active")
+    list_filter = ("is_active",)
+    search_fields = ("name",)

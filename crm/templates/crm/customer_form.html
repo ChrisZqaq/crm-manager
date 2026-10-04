@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="zh-Hans">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>{% if customer %}编辑客户{% else %}新建客户{% endif %} · CRM</title></head>
+<body>
+  <header><h1>{% if customer %}编辑客户{% else %}新建客户{% endif %}</h1><nav><a href="{% url 'customers' %}">返回客户</a></nav></header>
+  <form hidden>{% csrf_token %}</form>
+  <form id="customer-form">
+    {% csrf_token %}
+    <label>客户姓名 <input id="name" maxlength="200" required></label>
+    <label>联系方式 <textarea id="contact" required></textarea></label>
+    <label>公司 <input id="company" maxlength="200"></label>
+    <label>别名（每行一个） <textarea id="aliases"></textarea></label>
+    <label>生日 <input id="birthday" type="date"></label>
+    <label>兴趣 <textarea id="interests"></textarea></label>
+    <label>爱好 <textarea id="hobbies"></textarea></label>
+    {% if customer and can_transfer %}
+      <fieldset><legend>转交负责人</legend>
+        <label>销售人员 <select id="owner_id">{% for person in salespeople %}<option value="{{ person.pk }}" {% if person.pk == customer.owner_id %}selected{% endif %}>{{ person.get_username }}</option>{% endfor %}</select></label>
+        <button id="transfer" type="button">转交客户</button>
+      </fieldset>
+    {% elif not customer and can_select_owner %}
+      <label>负责人 <select id="owner_id" required><option value="">请选择</option>{% for person in salespeople %}<option value="{{ person.pk }}">{{ person.get_username }}</option>{% endfor %}</select></label>
+    {% endif %}
+    <fieldset><legend>收货地址（至少一个）</legend><div id="addresses"></div><button id="add-address" type="button">添加地址</button></fieldset>
+    <button type="submit">保存客户</button>
+  </form>
+  <p id="status" role="status"></p>
+  {{ initial|json_script:"customer-initial" }}
+  <script>
+    function csrfToken() { return document.cookie.split('; ').find(x => x.startsWith('csrftoken='))?.split('=')[1] || ''; }
+    async function api(url, method='GET', body) {
+      const response=await fetch(url,{method,credentials:'same-origin',headers:body?{'Content-Type':'application/json','X-CSRFToken':csrfToken()}: {},body:body?JSON.stringify(body):undefined});
+      const data=await response.json();if(!response.ok)throw new Error(data.error?.message||'请求失败');return data;
+    }
+    const initial=JSON.parse(document.getElementById('customer-initial').textContent||'null');
+    const addresses=document.getElementById('addresses'),status=document.getElementById('status');let regions=[];
+    for(const field of ['name','contact','company','birthday','interests','hobbies'])document.getElementById(field).value=initial?.[field]||'';
+    document.getElementById('aliases').value=(initial?.aliases||[]).join('\n');
+    function addAddress(value={}) {
+      const card=document.createElement('fieldset');card.className='address';
+      card.innerHTML='<legend>地址</legend><label>收件人 <input data-field="recipient" required></label><label>联系方式 <textarea data-field="contact" required></textarea></label><label>省份 <select data-field="province" required></select></label><label>城市 <select data-field="city" required></select></label><label>详细地址 <textarea data-field="detail" required></textarea></label><button type="button" data-remove>移除此地址</button>';
+      const province=card.querySelector('[data-field="province"]'),city=card.querySelector('[data-field="city"]');
+      province.innerHTML='<option value="">请选择省份</option>'+regions.map(item=>`<option value="${item.province}">${item.province}</option>`).join('');
+      function updateCities(selected='') { const item=regions.find(row=>row.province===province.value);city.innerHTML='<option value="">请选择城市</option>'+(item?.cities||[]).map(row=>`<option value="${row.name}">${row.name}</option>`).join('');city.value=selected; }
+      province.value=value.province||'';updateCities(value.city||'');province.addEventListener('change',()=>updateCities());
+      for(const field of ['recipient','contact','detail'])card.querySelector(`[data-field="${field}"]`).value=value[field]||'';
+      if(value.id)card.dataset.id=value.id;
+      card.querySelector('[data-remove]').addEventListener('click',()=>card.remove());addresses.append(card);
+    }
+    async function start() {
+      try { regions=(await api('/api/v1/regions')).items;for(const item of initial?.addresses||[])addAddress(item);if(!initial?.addresses?.length)addAddress(); }
+      catch(error){status.textContent=error.message;}
+    }
+    document.getElementById('add-address').addEventListener('click',()=>addAddress());
+    document.getElementById('customer-form').addEventListener('submit',async event=>{
+      event.preventDefault();
+      const addressRows=[...addresses.querySelectorAll('.address')].map(card=>({...(card.dataset.id?{id:Number(card.dataset.id)}:{}),recipient:card.querySelector('[data-field="recipient"]').value,contact:card.querySelector('[data-field="contact"]').value,province:card.querySelector('[data-field="province"]').value,city:card.querySelector('[data-field="city"]').value,detail:card.querySelector('[data-field="detail"]').value}));
+      const data={name:document.getElementById('name').value,contact:document.getElementById('contact').value,company:document.getElementById('company').value,aliases:document.getElementById('aliases').value.split(/[\n;；]/).map(x=>x.trim()).filter(Boolean),birthday:document.getElementById('birthday').value||null,interests:document.getElementById('interests').value,hobbies:document.getElementById('hobbies').value,addresses:addressRows,operation_key:crypto.randomUUID()};
+      const owner=document.getElementById('owner_id');if(owner&&!initial)data.owner_id=owner.value;
+      if(initial){data.expected_version=initial.version;try{await api(`/api/v1/customers/${initial.id}`,'PATCH',data);location.href='/customers/';}catch(error){status.textContent=error.message;}}
+      else {try{await api('/api/v1/customers','POST',data);location.href='/customers/';}catch(error){status.textContent=error.message;}}
+    });
+    const transfer=document.getElementById('transfer');if(transfer)transfer.addEventListener('click',async()=>{const current=document.getElementById('owner_id').value;try{await api(`/api/v1/customers/${initial.id}/transfer`,'POST',{owner_id:current,expected_version:initial.version,operation_key:crypto.randomUUID()});location.reload();}catch(error){status.textContent=error.message;}});
+    start();
+  </script>
+</body>
+</html>
