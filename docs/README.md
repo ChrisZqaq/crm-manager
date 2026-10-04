@@ -12,6 +12,7 @@
 - [开发计划](DEVELOPMENT_PLAN.md)：文档确认门槛及确认后的实施顺序。
 - [阶段1本地开发说明](DEVELOPMENT_PLAN.md#阶段1本地运行)：固定依赖、启动本地PostgreSQL、迁移及自测命令。
 - [会话协作](COORDINATION.md)：负责人、GPT-6 luna开发及测试的阶段交接规则。
+- [协作开发方法](PROJECT_WORKING_METHOD.md)：需求主持、最小实现、分阶段验收、多会话交接及优化建议。
 - [成本执行规格](COST_ENGINE.md)：顺序锁、必要历史输入、纠错回放及原子写回。
 - [API合同](API_CONTRACT.md)：字段、读写动作、权限、错误及导出合同。
 - [关键验收](ACCEPTANCE.md)：手算结果、并发、回滚、权限及上线验证。
