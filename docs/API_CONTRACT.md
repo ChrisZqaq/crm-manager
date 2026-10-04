@@ -1,6 +1,6 @@
 # 第一版网页与API合同
 
-状态：2026-10-05阶段1—4已通过负责人验收，固定应用`bf6f53e`。第3.1—3.2节为当前已实现接口；阶段5库存调整/历史纠错和阶段6报表尚未实现。本地验收不代表上线。
+状态：2026-10-05阶段1—4已通过负责人验收；阶段5应用`e527524`已完成开发自测，待独立测试和负责人复核；阶段6报表尚未实现。本地验收不代表上线。
 
 ## 1. 公共格式和权限
 
@@ -94,11 +94,23 @@
 | POST `/api/v1/orders/{id}/review-commission` | 仅传版本及操作标识；订单已完成且当前付款版本核对通过后，老板复核当前提成金额。重审保留首次计入时间，按新旧正式金额记一条差额。需`review_commission`。响应中的`approved_amount`、`first_earned_at`、`adjustment_id`及`delta`仅在当前请求者可查看提成时返回，否则完全省略；幂等重放也按当前权限过滤。 |
 | POST `/api/v1/commission-adjustments/{id}/complete` | 所属订单销售负责人传版本及操作标识，登记线下差额处理完成；不执行转账。需`complete_commission_adjustment`及本人身份。 |
 
-订单预览有效期10分钟。预览到提交期间受协调业务序号或相关SKU、仓库、客户地址、渠道、余额及订单版本变化时返回409，旧占货保持不变，须重新预览。订单写操作先锁`BusinessControl`，再按动作锁订单、收款及仓库ID／SKU ID排序的余额；重复仓库SKU先合并数量后校验。实际出库按移动加权平均成本扣减库存并释放占货，与交付、运费和流水写入同一事务；同一请求重放不重复履约。历史成本纠错仍未实现。
+订单预览有效期10分钟。预览到提交期间受协调业务序号或相关SKU、仓库、客户地址、渠道、余额及订单版本变化时返回409，旧占货保持不变，须重新预览。订单写操作先锁`BusinessControl`，再按动作锁订单、收款及仓库ID／SKU ID排序的余额；重复仓库SKU先合并数量后校验。实际出库按移动加权平均成本扣减库存并释放占货，与交付、运费和流水写入同一事务；同一请求重放不重复履约。
 
 订单查看和维护是独立范围：列表／详情要求订单查看权限及本人归属或`view_all_sales_orders`；修改、取消及收款登记按本人归属或`change_all_sales_orders`范围，再叠加各自动作权限。提成字段在列表、详情、页面、订单修改预览与复核响应中按当前请求者权限过滤；未授权字段直接省略，不用`null`或零值代替。
 
 交付运费字段省略时沿用已保存分摊（下单初始为0），明确提交的0才清零；已知费用由人员填写，未知仍允许0并后补，不引入运费是否已知的额外状态。交付成功前不能独立确认一个尚未保存运费的新金额版本。
+
+### 3.3 阶段5已实现接口（待独立验收）
+
+| 路径／方法 | 输入、行为与权限 |
+| --- | --- |
+| POST `/api/v1/splits` | `source_warehouse_id`、`source_sku_id`、`source_quantity`、`target_warehouse_id`、`target_sku_id`、`target_quantity`、`reason`；SKU必须不同，可同仓或跨仓，来源按可售量校验，扣减成本全部转入目标，单事务且幂等。 |
+| POST `/api/v1/gifts` | `reason`、`lines[{warehouse_id,sku_id,quantity}]`；按各行可售量和移动平均成本扣库存，不形成收入或提成；单事务且幂等。 |
+| GET `/api/v1/damaged-records`、POST `/api/v1/damaged-records/{id}/resolve` | 查询待处理破损；处理传`kind=exchange/refund`、`quantity`、`expected_version`、`operation_key`。退款另传`actual_refund`和`unreturned_freight`，记录实际退款与库存成本差额，不重复退款。 |
+| GET／POST `/api/v1/stock-counts`、POST `/api/v1/stock-counts/{id}/approve` | 创建传`reason`及实盘`lines`，可用移动平均或`manual_unit_cost`；审批传`expected_version`及逐行余额版本。实物数量变化使数量锚点过期；普通人员不能审批本人记录，老板例外仍执行库存校验。 |
+| GET `/api/v1/cost-corrections`、POST `/api/v1/cost-corrections/preview`、`/submit`、`/{id}/approve`、`/{id}/reject` | 纠错目标为`receipt_id`或`opening_batch_id`之一；采购仓库变更作用于整单，明细使用稳定行号。可传`supplemental_count_costs[{count_line_id,unit_cost}]`补齐需要的历史盘盈成本。预览在REPEATABLE READ快照中生成令牌；提交／审批复核版本、业务序号及当前权限，变化后要求重预览。 |
+
+阶段5库存和成本写操作均先锁`BusinessControl`并在PostgreSQL事务内校验；成本纠错按序回放来源及后续业务，当前受限数量必须合法，历史实际库存不得为负。接受与否以独立测试和负责人复核为准。
 
 ## 4. 图片与报表
 

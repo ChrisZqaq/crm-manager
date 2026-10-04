@@ -136,7 +136,7 @@ erDiagram
 
 ## 8. 总审状态
 
-本稿保留当前模型和后续目标模型。2026-10-04阶段4应用`73666ea`及迁移0009实现了付款、履约、正式提成复核模型；PostgreSQL全量76项回归、系统检查、迁移漂移检查及编译通过，独立复测与负责人审查待进行。阶段5纠错与阶段6报表仍是后续目标。进度及验证记录在[开发计划](DEVELOPMENT_PLAN.md)，未确认及未解决问题见[问题记录](ISSUE_LOG.md)。
+本稿是已批准的第一版数据模型基线。2026-10-05阶段5应用`e527524`及迁移0010—0012实现拆箱、赠送、破损处理、盘点及成本纠错模型；PostgreSQL全量101项、系统检查、迁移漂移检查及编译通过，独立测试和负责人复核待进行。阶段6报表仍未开始。进度及验证记录在[开发计划](DEVELOPMENT_PLAN.md)，未确认及未解决问题见[问题记录](ISSUE_LOG.md)。
 
 ## 9. 字段、约束与历史记录补全（技术总审稿）
 
@@ -154,8 +154,8 @@ erDiagram
 | business_operation | sequence可空且唯一；operation_key UUID唯一；actor_id、action、input_hash、payload JSON、created_at；具体target外键一项 | 库存／客户／订单写操作目标恰一非空，包含customer、sales_order、account_profile；业务事件序号在BusinessControl锁内分配，纯个人提醒偏好sequence为空，不消耗业务序号 |
 | inventory_movement补全 | operation_id、balance_id、event_kind、entry_key、on_hand_delta及四类受限delta、cost_delta、cost_revision=1；具体来源外键 | operation＋balance＋event_kind＋entry_key唯一；entry_key为该次输入中稳定行ID／拆箱端，实际来源外键恰一；来源FK含锁定记录，不能用任意表名字符串代替 |
 | inventory_hold补全 | initial_quantity、remaining_quantity、type、reason、creator_id、version | 0≤remaining≤initial；释放按具体记录，余额对应数量等于所有未释放记录合计；预留可写普通原因，囤货必须原因 |
-| opening_line补全 | unit_cost、cost_amount、reserved、hoarded、damaged、hoard_reason | quantity≥0，cost_amount=round3(quantity×unit_cost)；受限不重叠；通过确认创建对应hold和damaged记录，不只写余额 |
-| receipt_line补全 | 稳定行ID；quantity、purchase_price、inbound_freight、cost_amount、reserved、damaged | quantity>0，金额非负；reserved＋damaged≤quantity；确认生成受限明细；同SKU多行累计检查，不重复设置冲突阈值 |
+| opening_line补全 | unit_cost、cost_amount、reserved、hoarded、damaged、hoard_reason | 新建期初服务校验受限数量不超过实盘数量，cost_amount=round3(quantity×unit_cost)；通过确认创建对应hold和damaged记录，不只写余额。纠正历史来源时保留之后释放／处理事件，约束最终重放状态合法，不以当前来源字段重建过去时点限制 |
+| receipt_line补全 | 稳定行ID；quantity、purchase_price、inbound_freight、cost_amount、reserved、damaged | 新建采购服务校验quantity>0、金额非负及reserved＋damaged≤quantity；确认生成受限明细；同SKU多行累计检查，不重复设置冲突阈值。历史纠错不设来源行限制合计的数据库CHECK，以容纳后续释放／处理事件；仍校验历史实物不为负和最终余额限制合法 |
 | damaged_record补全 | balance_id、receipt_line/opening_line二选一、original_quantity、remaining_quantity、version | 来源明确，remaining不超过原数量；余额破损数为当前剩余明细合计；原来源更正不得使已处理数量无依据 |
 | damaged_resolution补全 | record_id、kind、quantity、refund_amount可空、deducted_cost、difference、unreturned_freight、operator_id、confirmed_at | exchange退款字段为空；refund实退必填、quantity≤未处理量；difference=扣减成本－退款；不重复相加运费损失 |
 | sales_order补全 | delivery_mode=shipment/on_site；status为awaiting_payment/ready_to_ship/shipped/completed/cancelled；customer_name及收件省市地址快照；payment_version、amount_version、version；shipped_at、completed_at | 快递必填完整收件，现场散客可空；订单版本用于并发修改及履约；付款状态独立 |
