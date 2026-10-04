@@ -1,7 +1,7 @@
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
-from django.db.models import Q
+from django.db.models import F, Q
 
 
 def validate_aliases(value):
@@ -242,6 +242,7 @@ class Receipt(models.Model):
 
 class OpeningBatch(models.Model):
     sequence = models.PositiveBigIntegerField(unique=True)
+    version = models.PositiveIntegerField(default=1)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="opening_batches_created")
     confirmed_at = models.DateTimeField(auto_now_add=True)
 
@@ -267,15 +268,11 @@ class ReceiptLine(models.Model):
         constraints = [
             models.UniqueConstraint(fields=("receipt", "line_number"), name="crm_receipt_line_number_unique"),
             models.CheckConstraint(condition=Q(quantity__gt=0), name="crm_receipt_line_positive_quantity"),
-            models.CheckConstraint(
-                condition=Q(purchase_price__gte=0, inbound_freight__gte=0),
-                name="crm_receipt_line_costs_nonnegative",
-            ),
-            models.CheckConstraint(
-                condition=Q(reserved_quantity__lte=models.F("quantity") - models.F("damaged_quantity")),
-                name="crm_receipt_line_restrictions_fit",
-            ),
-        ]
+              models.CheckConstraint(
+                  condition=Q(purchase_price__gte=0, inbound_freight__gte=0),
+                  name="crm_receipt_line_costs_nonnegative",
+              ),
+          ]
 
 
 class OpeningLine(models.Model):
@@ -295,12 +292,8 @@ class OpeningLine(models.Model):
     class Meta:
         ordering = ("line_number",)
         constraints = [
-            models.UniqueConstraint(fields=("batch", "line_number"), name="crm_opening_line_number_unique"),
-            models.CheckConstraint(
-                condition=Q(reserved_quantity__lte=models.F("quantity") - models.F("hoarded_quantity") - models.F("damaged_quantity")),
-                name="crm_opening_line_restrictions_fit",
-            ),
-            models.CheckConstraint(condition=Q(unit_cost__gte=0), name="crm_opening_line_cost_nonnegative"),
+              models.UniqueConstraint(fields=("batch", "line_number"), name="crm_opening_line_number_unique"),
+              models.CheckConstraint(condition=Q(unit_cost__gte=0), name="crm_opening_line_cost_nonnegative"),
         ]
 
 
@@ -327,7 +320,7 @@ class InventoryHold(models.Model):
             ("release_inventory_hold", "释放指定预留或囤货"),
         )
         constraints = [
-            models.CheckConstraint(condition=Q(initial_quantity__gt=0), name="crm_hold_positive_initial"),
+              models.CheckConstraint(condition=Q(initial_quantity__gte=0), name="crm_hold_initial_nonnegative"),
             models.CheckConstraint(condition=Q(remaining_quantity__lte=models.F("initial_quantity")), name="crm_hold_remaining_within_initial"),
             models.CheckConstraint(
                 condition=Q(receipt_line__isnull=True) | Q(opening_line__isnull=True),
@@ -347,19 +340,100 @@ class DamagedRecord(models.Model):
     original_quantity = models.PositiveBigIntegerField()
     remaining_quantity = models.PositiveBigIntegerField()
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="damaged_records_created")
+    version = models.PositiveIntegerField(default=1)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ("-id",)
         constraints = [
-            models.CheckConstraint(condition=Q(original_quantity__gt=0), name="crm_damage_positive_original"),
+              models.CheckConstraint(condition=Q(original_quantity__gte=0), name="crm_damage_nonnegative_original"),
             models.CheckConstraint(
                 condition=(Q(receipt_line__isnull=False, opening_line__isnull=True) | Q(receipt_line__isnull=True, opening_line__isnull=False)),
                 name="crm_damage_one_source_line",
             ),
+              models.CheckConstraint(
+                  condition=Q(remaining_quantity__lte=models.F("original_quantity")),
+                  name="crm_damage_remaining_within_original",
+              ),
+          ]
+
+
+class SplitRecord(models.Model):
+    source_warehouse = models.ForeignKey(Warehouse, on_delete=models.PROTECT, related_name="split_sources")
+    source_sku = models.ForeignKey(SKU, on_delete=models.PROTECT, related_name="split_sources")
+    source_quantity = models.PositiveBigIntegerField()
+    target_warehouse = models.ForeignKey(Warehouse, on_delete=models.PROTECT, related_name="split_targets")
+    target_sku = models.ForeignKey(SKU, on_delete=models.PROTECT, related_name="split_targets")
+    target_quantity = models.PositiveBigIntegerField()
+    transferred_cost = models.DecimalField(max_digits=20, decimal_places=3, default=0)
+    reason = models.TextField()
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="inventory_splits_created")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("-id",)
+        permissions = (("create_inventory_split", "登记拆箱转换"),)
+        constraints = [
+            models.CheckConstraint(condition=Q(source_quantity__gt=0, target_quantity__gt=0), name="crm_split_quantities_positive"),
+            models.CheckConstraint(condition=~Q(source_sku=F("target_sku")), name="crm_split_sku_must_change"),
+            models.CheckConstraint(condition=Q(transferred_cost__gte=0), name="crm_split_cost_nonnegative"),
+        ]
+
+
+class GiftRecord(models.Model):
+    reason = models.TextField()
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="inventory_gifts_created")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("-id",)
+        permissions = (("create_inventory_gift", "登记赠送出库"),)
+
+
+class GiftLine(models.Model):
+    gift = models.ForeignKey(GiftRecord, on_delete=models.PROTECT, related_name="lines")
+    line_number = models.PositiveIntegerField()
+    warehouse = models.ForeignKey(Warehouse, on_delete=models.PROTECT, related_name="gift_lines")
+    sku = models.ForeignKey(SKU, on_delete=models.PROTECT, related_name="gift_lines")
+    quantity = models.PositiveBigIntegerField()
+    cost_amount = models.DecimalField(max_digits=20, decimal_places=3, default=0)
+
+    class Meta:
+        ordering = ("line_number",)
+        constraints = [
+            models.UniqueConstraint(fields=("gift", "line_number"), name="crm_gift_line_number_unique"),
+            models.UniqueConstraint(fields=("gift", "warehouse", "sku"), name="crm_gift_key_unique"),
+            models.CheckConstraint(condition=Q(quantity__gt=0), name="crm_gift_line_quantity_positive"),
+            models.CheckConstraint(condition=Q(cost_amount__gte=0), name="crm_gift_line_cost_nonnegative"),
+        ]
+
+
+class DamageResolution(models.Model):
+    class Kind(models.TextChoices):
+        EXCHANGE = "exchange", "换货"
+        REFUND = "refund", "退款"
+
+    damaged_record = models.ForeignKey(DamagedRecord, on_delete=models.PROTECT, related_name="resolutions")
+    kind = models.CharField(max_length=8, choices=Kind.choices)
+    quantity = models.PositiveBigIntegerField()
+    refund_amount = models.DecimalField(max_digits=20, decimal_places=3, null=True, blank=True)
+    deducted_cost = models.DecimalField(max_digits=20, decimal_places=3, default=0)
+    difference = models.DecimalField(max_digits=20, decimal_places=3, default=0)
+    unreturned_freight = models.DecimalField(max_digits=20, decimal_places=3, default=0)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="damage_resolutions_created")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("-id",)
+        permissions = (("resolve_damaged_record", "处理破损库存"),)
+        constraints = [
+            models.CheckConstraint(condition=Q(quantity__gt=0), name="crm_damage_resolution_quantity_positive"),
+            models.CheckConstraint(condition=Q(kind__in=("exchange", "refund")), name="crm_damage_resolution_kind_valid"),
+            models.CheckConstraint(condition=Q(deducted_cost__gte=0, unreturned_freight__gte=0), name="crm_damage_resolution_costs_nonnegative"),
             models.CheckConstraint(
-                condition=Q(remaining_quantity__lte=models.F("original_quantity")),
-                name="crm_damage_remaining_within_original",
+                condition=(Q(kind="exchange", refund_amount__isnull=True, difference=0, unreturned_freight=0)
+                           | Q(kind="refund", refund_amount__gte=0, difference=F("deducted_cost") - F("refund_amount"))),
+                name="crm_damage_resolution_amounts_valid",
             ),
         ]
 
@@ -381,6 +455,11 @@ class BusinessOperation(models.Model):
     customer = models.ForeignKey("Customer", null=True, blank=True, on_delete=models.PROTECT, related_name="operations")
     sales_order = models.ForeignKey("SalesOrder", null=True, blank=True, on_delete=models.PROTECT, related_name="operations")
     account_profile = models.ForeignKey("AccountProfile", null=True, blank=True, on_delete=models.PROTECT, related_name="operations")
+    split_record = models.ForeignKey(SplitRecord, null=True, blank=True, on_delete=models.PROTECT, related_name="operations")
+    gift = models.ForeignKey(GiftRecord, null=True, blank=True, on_delete=models.PROTECT, related_name="operations")
+    damage_resolution = models.ForeignKey(DamageResolution, null=True, blank=True, on_delete=models.PROTECT, related_name="operations")
+    stock_count = models.ForeignKey("StockCount", null=True, blank=True, on_delete=models.PROTECT, related_name="operations")
+    cost_correction = models.ForeignKey("CostCorrection", null=True, blank=True, on_delete=models.PROTECT, related_name="operations")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -388,14 +467,19 @@ class BusinessOperation(models.Model):
         constraints = [
             models.CheckConstraint(
                 condition=(
-                      Q(receipt__isnull=False, opening_batch__isnull=True, hold__isnull=True, control__isnull=True, sku__isnull=True, customer__isnull=True, sales_order__isnull=True, account_profile__isnull=True)
-                      | Q(receipt__isnull=True, opening_batch__isnull=False, hold__isnull=True, control__isnull=True, sku__isnull=True, customer__isnull=True, sales_order__isnull=True, account_profile__isnull=True)
-                      | Q(receipt__isnull=True, opening_batch__isnull=True, hold__isnull=False, control__isnull=True, sku__isnull=True, customer__isnull=True, sales_order__isnull=True, account_profile__isnull=True)
-                      | Q(receipt__isnull=True, opening_batch__isnull=True, hold__isnull=True, control__isnull=False, sku__isnull=True, customer__isnull=True, sales_order__isnull=True, account_profile__isnull=True)
-                      | Q(receipt__isnull=True, opening_batch__isnull=True, hold__isnull=True, control__isnull=True, sku__isnull=False, customer__isnull=True, sales_order__isnull=True, account_profile__isnull=True)
-                      | Q(receipt__isnull=True, opening_batch__isnull=True, hold__isnull=True, control__isnull=True, sku__isnull=True, customer__isnull=False, sales_order__isnull=True, account_profile__isnull=True)
-                      | Q(receipt__isnull=True, opening_batch__isnull=True, hold__isnull=True, control__isnull=True, sku__isnull=True, customer__isnull=True, sales_order__isnull=False, account_profile__isnull=True)
-                      | Q(receipt__isnull=True, opening_batch__isnull=True, hold__isnull=True, control__isnull=True, sku__isnull=True, customer__isnull=True, sales_order__isnull=True, account_profile__isnull=False)
+                        Q(receipt__isnull=False, opening_batch__isnull=True, hold__isnull=True, control__isnull=True, sku__isnull=True, customer__isnull=True, sales_order__isnull=True, account_profile__isnull=True, split_record__isnull=True, gift__isnull=True, damage_resolution__isnull=True, stock_count__isnull=True, cost_correction__isnull=True)
+                        | Q(receipt__isnull=True, opening_batch__isnull=False, hold__isnull=True, control__isnull=True, sku__isnull=True, customer__isnull=True, sales_order__isnull=True, account_profile__isnull=True, split_record__isnull=True, gift__isnull=True, damage_resolution__isnull=True, stock_count__isnull=True, cost_correction__isnull=True)
+                        | Q(receipt__isnull=True, opening_batch__isnull=True, hold__isnull=False, control__isnull=True, sku__isnull=True, customer__isnull=True, sales_order__isnull=True, account_profile__isnull=True, split_record__isnull=True, gift__isnull=True, damage_resolution__isnull=True, stock_count__isnull=True, cost_correction__isnull=True)
+                        | Q(receipt__isnull=True, opening_batch__isnull=True, hold__isnull=True, control__isnull=False, sku__isnull=True, customer__isnull=True, sales_order__isnull=True, account_profile__isnull=True, split_record__isnull=True, gift__isnull=True, damage_resolution__isnull=True, stock_count__isnull=True, cost_correction__isnull=True)
+                        | Q(receipt__isnull=True, opening_batch__isnull=True, hold__isnull=True, control__isnull=True, sku__isnull=False, customer__isnull=True, sales_order__isnull=True, account_profile__isnull=True, split_record__isnull=True, gift__isnull=True, damage_resolution__isnull=True, stock_count__isnull=True, cost_correction__isnull=True)
+                        | Q(receipt__isnull=True, opening_batch__isnull=True, hold__isnull=True, control__isnull=True, sku__isnull=True, customer__isnull=False, sales_order__isnull=True, account_profile__isnull=True, split_record__isnull=True, gift__isnull=True, damage_resolution__isnull=True, stock_count__isnull=True, cost_correction__isnull=True)
+                        | Q(receipt__isnull=True, opening_batch__isnull=True, hold__isnull=True, control__isnull=True, sku__isnull=True, customer__isnull=True, sales_order__isnull=False, account_profile__isnull=True, split_record__isnull=True, gift__isnull=True, damage_resolution__isnull=True, stock_count__isnull=True, cost_correction__isnull=True)
+                        | Q(receipt__isnull=True, opening_batch__isnull=True, hold__isnull=True, control__isnull=True, sku__isnull=True, customer__isnull=True, sales_order__isnull=True, account_profile__isnull=False, split_record__isnull=True, gift__isnull=True, damage_resolution__isnull=True, stock_count__isnull=True, cost_correction__isnull=True)
+                        | Q(receipt__isnull=True, opening_batch__isnull=True, hold__isnull=True, control__isnull=True, sku__isnull=True, customer__isnull=True, sales_order__isnull=True, account_profile__isnull=True, split_record__isnull=False, gift__isnull=True, damage_resolution__isnull=True, stock_count__isnull=True, cost_correction__isnull=True)
+                        | Q(receipt__isnull=True, opening_batch__isnull=True, hold__isnull=True, control__isnull=True, sku__isnull=True, customer__isnull=True, sales_order__isnull=True, account_profile__isnull=True, split_record__isnull=True, gift__isnull=False, damage_resolution__isnull=True, stock_count__isnull=True, cost_correction__isnull=True)
+                        | Q(receipt__isnull=True, opening_batch__isnull=True, hold__isnull=True, control__isnull=True, sku__isnull=True, customer__isnull=True, sales_order__isnull=True, account_profile__isnull=True, split_record__isnull=True, gift__isnull=True, damage_resolution__isnull=False, stock_count__isnull=True, cost_correction__isnull=True)
+                        | Q(receipt__isnull=True, opening_batch__isnull=True, hold__isnull=True, control__isnull=True, sku__isnull=True, customer__isnull=True, sales_order__isnull=True, account_profile__isnull=True, split_record__isnull=True, gift__isnull=True, damage_resolution__isnull=True, stock_count__isnull=False, cost_correction__isnull=True)
+                        | Q(receipt__isnull=True, opening_batch__isnull=True, hold__isnull=True, control__isnull=True, sku__isnull=True, customer__isnull=True, sales_order__isnull=True, account_profile__isnull=True, split_record__isnull=True, gift__isnull=True, damage_resolution__isnull=True, stock_count__isnull=True, cost_correction__isnull=False)
                 ),
                 name="crm_operation_one_target",
             )
@@ -409,6 +493,10 @@ class InventoryMovement(models.Model):
     opening_line = models.ForeignKey(OpeningLine, null=True, blank=True, on_delete=models.PROTECT, related_name="movements")
     hold = models.ForeignKey(InventoryHold, null=True, blank=True, on_delete=models.PROTECT, related_name="movements")
     sales_order = models.ForeignKey("SalesOrder", null=True, blank=True, on_delete=models.PROTECT, related_name="inventory_movements")
+    split_record = models.ForeignKey(SplitRecord, null=True, blank=True, on_delete=models.PROTECT, related_name="movements")
+    gift_line = models.ForeignKey(GiftLine, null=True, blank=True, on_delete=models.PROTECT, related_name="movements")
+    damage_resolution = models.ForeignKey(DamageResolution, null=True, blank=True, on_delete=models.PROTECT, related_name="movements")
+    stock_count_line = models.ForeignKey("StockCountLine", null=True, blank=True, on_delete=models.PROTECT, related_name="movements")
     event_kind = models.CharField(max_length=24)
     entry_key = models.CharField(max_length=80)
     on_hand_delta = models.BigIntegerField(default=0)
@@ -426,10 +514,14 @@ class InventoryMovement(models.Model):
             models.UniqueConstraint(fields=("operation", "balance", "event_kind", "entry_key"), name="crm_movement_operation_balance_entry_unique"),
             models.CheckConstraint(
                 condition=(
-                      Q(receipt_line__isnull=False, opening_line__isnull=True, hold__isnull=True, sales_order__isnull=True)
-                      | Q(receipt_line__isnull=True, opening_line__isnull=False, hold__isnull=True, sales_order__isnull=True)
-                      | Q(receipt_line__isnull=True, opening_line__isnull=True, hold__isnull=False, sales_order__isnull=True)
-                      | Q(receipt_line__isnull=True, opening_line__isnull=True, hold__isnull=True, sales_order__isnull=False)
+                        Q(receipt_line__isnull=False, opening_line__isnull=True, hold__isnull=True, sales_order__isnull=True, split_record__isnull=True, gift_line__isnull=True, damage_resolution__isnull=True, stock_count_line__isnull=True)
+                        | Q(receipt_line__isnull=True, opening_line__isnull=False, hold__isnull=True, sales_order__isnull=True, split_record__isnull=True, gift_line__isnull=True, damage_resolution__isnull=True, stock_count_line__isnull=True)
+                        | Q(receipt_line__isnull=True, opening_line__isnull=True, hold__isnull=False, sales_order__isnull=True, split_record__isnull=True, gift_line__isnull=True, damage_resolution__isnull=True, stock_count_line__isnull=True)
+                        | Q(receipt_line__isnull=True, opening_line__isnull=True, hold__isnull=True, sales_order__isnull=False, split_record__isnull=True, gift_line__isnull=True, damage_resolution__isnull=True, stock_count_line__isnull=True)
+                        | Q(receipt_line__isnull=True, opening_line__isnull=True, hold__isnull=True, sales_order__isnull=True, split_record__isnull=False, gift_line__isnull=True, damage_resolution__isnull=True, stock_count_line__isnull=True)
+                        | Q(receipt_line__isnull=True, opening_line__isnull=True, hold__isnull=True, sales_order__isnull=True, split_record__isnull=True, gift_line__isnull=False, damage_resolution__isnull=True, stock_count_line__isnull=True)
+                        | Q(receipt_line__isnull=True, opening_line__isnull=True, hold__isnull=True, sales_order__isnull=True, split_record__isnull=True, gift_line__isnull=True, damage_resolution__isnull=False, stock_count_line__isnull=True)
+                        | Q(receipt_line__isnull=True, opening_line__isnull=True, hold__isnull=True, sales_order__isnull=True, split_record__isnull=True, gift_line__isnull=True, damage_resolution__isnull=True, stock_count_line__isnull=False)
                 ),
                 name="crm_movement_one_source",
             ),
@@ -682,6 +774,7 @@ class CommissionAdjustment(models.Model):
     class Kind(models.TextChoices):
         INITIAL = "initial", "首次核定"
         REREVIEW = "rereview", "重审差额"
+        COST_CORRECTION = "cost_correction", "成本纠错差额"
 
     approval_operation = models.ForeignKey("BusinessOperation", on_delete=models.PROTECT, related_name="commission_adjustments")
     order = models.ForeignKey(SalesOrder, on_delete=models.PROTECT, related_name="commission_adjustments")
@@ -699,11 +792,121 @@ class CommissionAdjustment(models.Model):
         constraints = [
             models.UniqueConstraint(fields=("approval_operation", "order"), name="crm_commission_adjustment_operation_order_unique"),
             models.CheckConstraint(condition=Q(delta=models.F("new_amount") - models.F("old_amount")), name="crm_commission_adjustment_delta_valid"),
-            models.CheckConstraint(condition=Q(kind__in=("initial", "rereview")), name="crm_commission_adjustment_kind_valid"),
+              models.CheckConstraint(condition=Q(kind__in=("initial", "rereview", "cost_correction")), name="crm_commission_adjustment_kind_valid"),
             models.CheckConstraint(
                 condition=Q(completed_by__isnull=True, completed_at__isnull=True)
                 | Q(completed_by__isnull=False, completed_at__isnull=False),
-                name="crm_commission_adjustment_completion_pair",
+                  name="crm_commission_adjustment_completion_pair",
+              ),
+          ]
+
+
+class StockCount(models.Model):
+    class Status(models.TextChoices):
+        PENDING = "pending", "待审批"
+        APPROVED = "approved", "已批准"
+
+    status = models.CharField(max_length=12, choices=Status.choices, default=Status.PENDING)
+    reason = models.TextField()
+    submitted_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="stock_counts_submitted")
+    approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="stock_counts_approved")
+    submitted_at = models.DateTimeField(auto_now_add=True)
+    approved_at = models.DateTimeField(null=True, blank=True)
+    version = models.PositiveIntegerField(default=1)
+
+    class Meta:
+        ordering = ("-id",)
+        permissions = (("approve_stockcount", "审批库存盘点调整"),)
+        constraints = [
+            models.CheckConstraint(condition=Q(status__in=("pending", "approved")), name="crm_stock_count_status_valid"),
+            models.CheckConstraint(
+                condition=Q(status="pending", approved_by__isnull=True, approved_at__isnull=True)
+                | Q(status="approved", approved_by__isnull=False, approved_at__isnull=False),
+                name="crm_stock_count_approval_pair",
+            ),
+        ]
+
+
+class StockCountLine(models.Model):
+    class CostMode(models.TextChoices):
+        AVERAGE = "average", "移动平均"
+        MANUAL = "manual", "人工输入"
+
+    stock_count = models.ForeignKey(StockCount, on_delete=models.PROTECT, related_name="lines")
+    balance = models.ForeignKey(InventoryBalance, on_delete=models.PROTECT, related_name="stock_count_lines")
+    warehouse = models.ForeignKey(Warehouse, on_delete=models.PROTECT, related_name="stock_count_lines")
+    sku = models.ForeignKey(SKU, on_delete=models.PROTECT, related_name="stock_count_lines")
+    observed_quantity = models.BigIntegerField()
+    captured_quantity_version = models.PositiveIntegerField()
+    basis_cost_version = models.PositiveIntegerField()
+    delta = models.BigIntegerField(default=0)
+    cost_mode = models.CharField(max_length=8, choices=CostMode.choices)
+    manual_unit_cost = models.DecimalField(max_digits=20, decimal_places=3, null=True, blank=True)
+    supplemental_unit_cost = models.DecimalField(max_digits=20, decimal_places=3, null=True, blank=True)
+    supplement_approval = models.ForeignKey("CostCorrection", null=True, blank=True, on_delete=models.PROTECT, related_name="supplemented_count_lines")
+    effective_unit_cost = models.DecimalField(max_digits=20, decimal_places=3, default=0)
+    cost_delta = models.DecimalField(max_digits=20, decimal_places=3, default=0)
+
+    class Meta:
+        ordering = ("stock_count_id", "warehouse_id", "sku_id")
+        constraints = [
+            models.UniqueConstraint(fields=("stock_count", "warehouse", "sku"), name="crm_stock_count_key_unique"),
+            models.CheckConstraint(condition=Q(observed_quantity__gte=0), name="crm_stock_count_observed_nonnegative"),
+            models.CheckConstraint(condition=Q(cost_mode__in=("average", "manual")), name="crm_stock_count_cost_mode_valid"),
+            models.CheckConstraint(
+                condition=(Q(cost_mode="average", manual_unit_cost__isnull=True)
+                           | Q(cost_mode="manual", manual_unit_cost__gte=0)),
+                name="crm_stock_count_manual_cost_valid",
+            ),
+            models.CheckConstraint(
+                condition=Q(supplemental_unit_cost__isnull=True) | Q(supplemental_unit_cost__gte=0),
+                name="crm_stock_count_supplemental_cost_nonnegative",
+            ),
+            models.CheckConstraint(condition=Q(effective_unit_cost__gte=0), name="crm_stock_count_effective_cost_nonnegative"),
+        ]
+
+
+class CostCorrection(models.Model):
+    class Status(models.TextChoices):
+        PENDING = "pending", "待审批"
+        APPLIED = "applied", "已生效"
+        REJECTED = "rejected", "已拒绝"
+
+    receipt = models.ForeignKey(Receipt, null=True, blank=True, on_delete=models.PROTECT, related_name="cost_corrections")
+    opening_batch = models.ForeignKey(OpeningBatch, null=True, blank=True, on_delete=models.PROTECT, related_name="cost_corrections")
+    status = models.CharField(max_length=12, choices=Status.choices, default=Status.PENDING)
+    reason = models.TextField()
+    original_input = models.JSONField(default=dict)
+    proposed_input = models.JSONField(default=dict)
+    supplemental_count_costs = models.JSONField(default=list)
+    before_after = models.JSONField(default=dict)
+    preview_sequence = models.PositiveBigIntegerField()
+    submitted_sequence = models.PositiveBigIntegerField(default=0)
+    request_version = models.PositiveIntegerField()
+    submitter = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="cost_corrections_submitted")
+    reviewer = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="cost_corrections_reviewed")
+    submitted_at = models.DateTimeField(auto_now_add=True)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    version = models.PositiveIntegerField(default=1)
+
+    class Meta:
+        ordering = ("-id",)
+        permissions = (
+            ("submit_costcorrection", "提交采购或期初纠错"),
+            ("approve_costcorrection", "审批采购或期初纠错"),
+            ("reject_costcorrection", "拒绝采购或期初纠错"),
+        )
+        constraints = [
+            models.CheckConstraint(
+                condition=(Q(receipt__isnull=False, opening_batch__isnull=True)
+                           | Q(receipt__isnull=True, opening_batch__isnull=False)),
+                name="crm_cost_correction_one_source",
+            ),
+            models.CheckConstraint(condition=Q(status__in=("pending", "applied", "rejected")), name="crm_cost_correction_status_valid"),
+            models.CheckConstraint(
+                condition=Q(status="pending", reviewer__isnull=True, reviewed_at__isnull=True)
+                | Q(status__in=("applied", "rejected"), reviewer__isnull=False, reviewed_at__isnull=False),
+                name="crm_cost_correction_review_pair",
             ),
         ]
 

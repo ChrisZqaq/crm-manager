@@ -911,6 +911,7 @@ def damaged_rows():
             "sku_code": item.balance.sku.code,
             "original_quantity": item.original_quantity,
             "remaining_quantity": item.remaining_quantity,
+            "version": item.version,
         }
         for item in rows
     ]

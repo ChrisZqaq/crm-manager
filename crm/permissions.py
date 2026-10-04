@@ -37,7 +37,17 @@ MANAGEABLE_PERMISSIONS = {
     for codename in (
         "view_inventorybalance",
         "view_inventoryhold",
-        "view_damagedrecord",
+            "view_damagedrecord",
+          "view_stockcount",
+          "view_costcorrection",
+          "approve_stockcount",
+          "add_stockcount",
+          "create_inventory_split",
+          "create_inventory_gift",
+          "resolve_damaged_record",
+          "submit_costcorrection",
+          "approve_costcorrection",
+          "reject_costcorrection",
         "view_receipt",
         "confirm_receipt",
         "confirm_opening",
@@ -185,6 +195,27 @@ PRE_D14_WAREHOUSE_DEFAULTS = STAGE2_ROLE_DEFAULTS[ROLE_WAREHOUSE] + (
     ("crm", "view_all_sales_orders"),
 )
 
+PRE_STAGE5_ROLE_DEFAULTS = {name: tuple(permission_keys) for name, permission_keys in ROLE_DEFAULTS.items()}
+STAGE5_WAREHOUSE_PERMISSIONS = (
+    ("crm", "view_stockcount"),
+    ("crm", "view_costcorrection"),
+    ("crm", "create_inventory_split"),
+    ("crm", "create_inventory_gift"),
+    ("crm", "resolve_damaged_record"),
+    ("crm", "add_stockcount"),
+    ("crm", "submit_costcorrection"),
+)
+STAGE5_OWNER_PERMISSIONS = (
+    ("crm", "approve_stockcount"),
+    ("crm", "approve_costcorrection"),
+    ("crm", "reject_costcorrection"),
+)
+ROLE_DEFAULTS = {
+    ROLE_SALES: ROLE_DEFAULTS[ROLE_SALES],
+    ROLE_WAREHOUSE: ROLE_DEFAULTS[ROLE_WAREHOUSE] + STAGE5_WAREHOUSE_PERMISSIONS,
+    ROLE_OWNER: ROLE_DEFAULTS[ROLE_OWNER] + STAGE5_WAREHOUSE_PERMISSIONS + STAGE5_OWNER_PERMISSIONS,
+}
+
 
 def create_fixed_role_groups(sender, **kwargs):
     for name, permission_keys in ROLE_DEFAULTS.items():
@@ -196,7 +227,8 @@ def create_fixed_role_groups(sender, **kwargs):
         recognized_defaults = {
             frozenset(PRE_STAGE2_ROLE_DEFAULTS[name]),
             frozenset(STAGE2_ROLE_DEFAULTS[name]),
-            frozenset(PRE_STAGE4_ROLE_DEFAULTS[name]),
+          frozenset(PRE_STAGE4_ROLE_DEFAULTS[name]),
+          frozenset(PRE_STAGE5_ROLE_DEFAULTS[name]),
         }
         if name == ROLE_WAREHOUSE:
             recognized_defaults.add(frozenset(PRE_D14_WAREHOUSE_DEFAULTS))

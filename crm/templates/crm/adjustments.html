@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="zh-Hans">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>库存调整与纠错 · CRM</title></head>
+<body>
+  <header>
+    <h1>库存调整与纠错</h1>
+    <nav><a href="{% url 'inventory' %}">库存</a> · <a href="{% url 'holds' %}">限制记录</a> · <a href="{% url 'receiving' %}">采购入库</a> · <a href="{% url 'opening' %}">期初盘点</a></nav>
+  </header>
+  <p id="status" role="status"></p>
+
+  {% if can_split %}
+  <section>
+    <h2>拆箱转换</h2>
+    <form id="split-form">
+      {% csrf_token %}
+      <label>来源仓库 <select id="split-source-warehouse" required><option value="">请选择</option>{% for row in warehouses %}<option value="{{ row.id }}">{{ row.name }}</option>{% endfor %}</select></label>
+      <label>来源SKU <select id="split-source-sku" required><option value="">请选择</option>{% for row in skus %}<option value="{{ row.id }}">{{ row.code }} · {{ row.product.name }} · {{ row.unit }}</option>{% endfor %}</select></label>
+      <label>来源数量 <input id="split-source-quantity" type="number" min="1" step="1" required></label>
+      <label>目标仓库 <select id="split-target-warehouse" required><option value="">请选择</option>{% for row in warehouses %}<option value="{{ row.id }}">{{ row.name }}</option>{% endfor %}</select></label>
+      <label>目标SKU <select id="split-target-sku" required><option value="">请选择</option>{% for row in skus %}<option value="{{ row.id }}">{{ row.code }} · {{ row.product.name }} · {{ row.unit }}</option>{% endfor %}</select></label>
+      <label>目标数量 <input id="split-target-quantity" type="number" min="1" step="1" required></label>
+      <label>原因 <input id="split-reason" maxlength="2000" required></label>
+      <button type="submit">一次提交拆箱</button>
+    </form>
+  </section>
+  {% endif %}
+
+  {% if can_gift %}
+  <section>
+    <h2>赠送出库</h2>
+    <p>每行写一个仓库SKU；quantity为赠送数量。</p>
+    <form id="gift-form">
+      {% csrf_token %}
+      <label>原因 <input id="gift-reason" maxlength="2000" required></label>
+      <label>明细JSON <textarea id="gift-lines" rows="5" required>[{"warehouse_id": 1, "sku_id": 1, "quantity": 1}]</textarea></label>
+      <button type="submit">登记赠送</button>
+    </form>
+  </section>
+  {% endif %}
+
+  {% if can_resolve_damage %}
+  <section>
+    <h2>待处理破损</h2>
+    <button type="button" id="reload-damage">刷新破损记录</button>
+    <div id="damage-records"></div>
+  </section>
+  {% endif %}
+
+  {% if can_add_count %}
+  <section>
+    <h2>登记或重核盘点</h2>
+    <p>数量先按在库实物填写。人工成本方式填写manual_unit_cost；移动平均方式无需填写成本。</p>
+    <form id="count-form">
+      {% csrf_token %}
+      <label>原因 <input id="count-reason" maxlength="2000" required></label>
+      <label>明细JSON <textarea id="count-lines" rows="6" required>[{"warehouse_id": 1, "sku_id": 1, "observed_quantity": 0, "cost_mode": "average"}]</textarea></label>
+      <button type="submit">提交盘点</button>
+    </form>
+  </section>
+  {% endif %}
+
+  {% if can_view_count %}
+  <section>
+    <h2>盘点记录</h2>
+    <div id="count-records"></div>
+  </section>
+  {% endif %}
+
+  {% if can_submit_correction %}
+  <section>
+    <h2>采购／期初纠错预览</h2>
+    <p>receipt_id与opening_batch_id二选一。采购改仓使用warehouse_id，影响整张采购单；明细用固定line_number。</p>
+    <form id="correction-form">
+      {% csrf_token %}
+      <label>来源类型 <select id="correction-kind"><option value="receipt">采购单</option><option value="opening">期初批次</option></select></label>
+      <label>来源单据ID <input id="correction-id" type="number" min="1" required></label>
+      <label>采购新仓库ID（期初留空） <input id="correction-warehouse-id" type="number" min="1"></label>
+      <label>原因 <input id="correction-reason" maxlength="2000" required></label>
+      <label>修正明细JSON <textarea id="correction-lines" rows="6" required>[{"line_number": 1, "quantity": 1, "purchase_price": "0.000", "inbound_freight": "0.000"}]</textarea></label>
+      <label>历史盘盈补充成本JSON（没有则留空） <textarea id="supplemental-costs" rows="3">[]</textarea></label>
+      <button type="submit">预览全部影响</button>
+      <button type="button" id="submit-correction" disabled>提交纠错</button>
+    </form>
+    <pre id="correction-preview"></pre>
+  </section>
+  {% endif %}
+
+  {% if can_view_correction %}
+  <section>
+    <h2>纠错审批记录</h2>
+    <div id="correction-records"></div>
+  </section>
+  {% endif %}
+
+  <script>
+    const csrf = () => document.cookie.split('; ').find(v => v.startsWith('csrftoken='))?.split('=')[1] || '';
+    const statusNode = document.getElementById('status');
+    async function api(path, method='GET', body=null) {
+      const options = {method, credentials: 'same-origin', headers: {}};
+      if (body !== null) {
+        options.headers['Content-Type'] = 'application/json';
+        options.headers['X-CSRFToken'] = csrf();
+        options.body = JSON.stringify(body);
+      }
+      const response = await fetch(path, options);
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error?.message || JSON.stringify(data));
+      return data;
+    }
+    const parse = id => JSON.parse(document.getElementById(id).value);
+    const show = value => { statusNode.textContent = typeof value === 'string' ? value : JSON.stringify(value, null, 2); };
+
+    const splitForm = document.getElementById('split-form');
+    if (splitForm) splitForm.addEventListener('submit', async event => {
+      event.preventDefault();
+      try {
+        const result = await api('/api/v1/splits', 'POST', {
+          source_warehouse_id: document.getElementById('split-source-warehouse').value,
+          source_sku_id: document.getElementById('split-source-sku').value,
+          source_quantity: document.getElementById('split-source-quantity').value,
+          target_warehouse_id: document.getElementById('split-target-warehouse').value,
+          target_sku_id: document.getElementById('split-target-sku').value,
+          target_quantity: document.getElementById('split-target-quantity').value,
+          reason: document.getElementById('split-reason').value, operation_key: crypto.randomUUID(),
+        });
+        show(result); splitForm.reset();
+      } catch (error) { show(error.message); }
+    });
+
+    const giftForm = document.getElementById('gift-form');
+    if (giftForm) giftForm.addEventListener('submit', async event => {
+      event.preventDefault();
+      try {
+        const result = await api('/api/v1/gifts', 'POST', {reason: document.getElementById('gift-reason').value, lines: parse('gift-lines'), operation_key: crypto.randomUUID()});
+        show(result); giftForm.reset();
+      } catch (error) { show(error.message); }
+    });
+
+    async function loadDamage() {
+      const host = document.getElementById('damage-records');
+      if (!host) return;
+      try {
+        const result = await api('/api/v1/damaged-records');
+        host.replaceChildren();
+        for (const row of result.items || []) {
+          if (!row.remaining_quantity) continue;
+          const box = document.createElement('article');
+          box.innerHTML = `<p>${row.warehouse} · ${row.sku_code} · 待处理 ${row.remaining_quantity} · 版本 ${row.version}</p>
+            <label>处理数量 <input class="damage-quantity" type="number" min="1" max="${row.remaining_quantity}" value="${row.remaining_quantity}"></label>
+            <label>退款金额 <input class="damage-refund" type="number" min="0" step="0.001" value="0.000"></label>
+            <label>未退运费 <input class="damage-freight" type="number" min="0" step="0.001" value="0.000"></label>
+            <button type="button" class="damage-exchange">确认换货已到</button><button type="button" class="damage-refund-button">确认退款</button>`;
+          for (const [selector, kind] of [['.damage-exchange', 'exchange'], ['.damage-refund-button', 'refund']]) {
+            box.querySelector(selector).addEventListener('click', async () => {
+              try {
+                const body = {kind, quantity: box.querySelector('.damage-quantity').value, expected_version: row.version, operation_key: crypto.randomUUID()};
+                if (kind === 'refund') {
+                  body.actual_refund = box.querySelector('.damage-refund').value;
+                  body.unreturned_freight = box.querySelector('.damage-freight').value;
+                }
+                show(await api(`/api/v1/damaged-records/${row.id}/resolve`, 'POST', body));
+                await loadDamage();
+              } catch (error) { show(error.message); }
+            });
+          }
+          host.appendChild(box);
+        }
+        if (!host.childElementCount) host.textContent = '暂无待处理破损记录。';
+      } catch (error) { show(error.message); }
+    }
+    document.getElementById('reload-damage')?.addEventListener('click', loadDamage);
+
+    const countForm = document.getElementById('count-form');
+    if (countForm) countForm.addEventListener('submit', async event => {
+      event.preventDefault();
+      try {
+        show(await api('/api/v1/stock-counts', 'POST', {reason: document.getElementById('count-reason').value, lines: parse('count-lines'), operation_key: crypto.randomUUID()}));
+        await loadCounts();
+      } catch (error) { show(error.message); }
+    });
+
+    async function loadCounts() {
+      const host = document.getElementById('count-records');
+      if (!host) return;
+      try {
+        const result = await api('/api/v1/stock-counts');
+        host.replaceChildren();
+        for (const row of result.items || []) {
+          const box = document.createElement('article');
+          const description = document.createElement('pre');
+          description.textContent = JSON.stringify(row, null, 2);
+          box.appendChild(description);
+          {% if can_approve_count %}
+          if (row.status === 'pending') {
+            const button = document.createElement('button'); button.textContent = '按此版本审批';
+            button.addEventListener('click', async () => {
+              try {
+                const balance_versions = Object.fromEntries(row.lines.map(line => [String(line.id), line.current_balance_version]));
+                show(await api(`/api/v1/stock-counts/${row.id}/approve`, 'POST', {expected_version: row.version, balance_versions, operation_key: crypto.randomUUID()}));
+                await loadCounts();
+              } catch (error) { show(error.message); await loadCounts(); }
+            });
+            box.appendChild(button);
+          }
+          {% endif %}
+          host.appendChild(box);
+        }
+        if (!host.childElementCount) host.textContent = '暂无盘点记录。';
+      } catch (error) { show(error.message); }
+    }
+
+    let correctionToken = null;
+    const correctionForm = document.getElementById('correction-form');
+    if (correctionForm) {
+      correctionForm.addEventListener('submit', async event => {
+        event.preventDefault(); correctionToken = null;
+        document.getElementById('submit-correction').disabled = true;
+        const kind = document.getElementById('correction-kind').value;
+        const body = {reason: document.getElementById('correction-reason').value, lines: parse('correction-lines'), supplemental_count_costs: parse('supplemental-costs')};
+        body[kind === 'receipt' ? 'receipt_id' : 'opening_batch_id'] = document.getElementById('correction-id').value;
+        if (kind === 'receipt' && document.getElementById('correction-warehouse-id').value) body.warehouse_id = document.getElementById('correction-warehouse-id').value;
+        try {
+          const result = await api('/api/v1/cost-corrections/preview', 'POST', body);
+          document.getElementById('correction-preview').textContent = JSON.stringify(result, null, 2);
+          if (result.preview_token) { correctionToken = result.preview_token; document.getElementById('submit-correction').disabled = false; }
+          show(result.status === 'count_cost_required' ? '预览缺少历史盘盈成本，请补齐后再次预览。' : `预览完成；${result.approval_required ? '需要审批' : '可直接生效'}。`);
+        } catch (error) { show(error.message); }
+      });
+      document.getElementById('submit-correction').addEventListener('click', async () => {
+        if (!correctionToken) return;
+        try {
+          show(await api('/api/v1/cost-corrections/submit', 'POST', {preview_token: correctionToken, operation_key: crypto.randomUUID()}));
+          correctionToken = null; document.getElementById('submit-correction').disabled = true;
+          await loadCorrections();
+        } catch (error) { show(error.message); }
+      });
+    }
+
+    async function loadCorrections() {
+      const host = document.getElementById('correction-records');
+      if (!host) return;
+      try {
+        const result = await api('/api/v1/cost-corrections');
+        host.replaceChildren();
+        for (const row of result.items || []) {
+          const box = document.createElement('article');
+          const description = document.createElement('pre'); description.textContent = JSON.stringify(row, null, 2); box.appendChild(description);
+          {% if can_approve_correction %}
+          if (row.can_approve) {
+            const button = document.createElement('button'); button.textContent = '审批并生效';
+            button.addEventListener('click', async () => {
+              try { show(await api(`/api/v1/cost-corrections/${row.id}/approve`, 'POST', {expected_version: row.version, operation_key: crypto.randomUUID()})); await loadCorrections(); }
+              catch (error) { show(error.message); await loadCorrections(); }
+            }); box.appendChild(button);
+          }
+          {% endif %}
+          {% if can_reject_correction %}
+          if (row.can_reject) {
+            const button = document.createElement('button'); button.textContent = '拒绝';
+            button.addEventListener('click', async () => {
+              try { show(await api(`/api/v1/cost-corrections/${row.id}/reject`, 'POST', {expected_version: row.version, operation_key: crypto.randomUUID()})); await loadCorrections(); }
+              catch (error) { show(error.message); }
+            }); box.appendChild(button);
+          }
+          {% endif %}
+          host.appendChild(box);
+        }
+        if (!host.childElementCount) host.textContent = '暂无纠错审批记录。';
+      } catch (error) { show(error.message); }
+    }
+    document.getElementById('correction-kind')?.addEventListener('change', event => {
+      document.getElementById('correction-warehouse-id').disabled = event.target.value !== 'receipt';
+    });
+    loadDamage(); loadCounts(); loadCorrections();
+  </script>
+</body>
+</html>

@@ -49,6 +49,22 @@ from .operations import (
     preview_receipt,
 )
 from .opening import confirm_opening, preview_opening
+from .inventory_adjustments import (
+    approve_stock_count,
+    create_inventory_gift,
+    create_inventory_split,
+    create_stock_count,
+    resolve_damaged_record,
+    revise_stock_count,
+    stock_count_rows,
+)
+from .corrections import (
+    approve_cost_correction,
+    cost_correction_rows,
+    preview_cost_correction,
+    reject_cost_correction,
+    submit_cost_correction,
+)
 from .fulfillment import (
     complete_commission_adjustment,
     deliver_on_site,
@@ -259,6 +275,171 @@ def damaged_records_api(request):
     if error:
         return error
     return _api_list_response(request, damaged_rows())
+
+
+@require_POST
+def inventory_split_api(request):
+    error = _require_api_access(request, (("crm", "create_inventory_split"),))
+    if error:
+        return error
+    try:
+        data = _json_body(request)
+        operation_key = data.pop("operation_key", None)
+        return _api_operation(request, create_inventory_split, request.user, data, operation_key)
+    except OperationError as exc:
+        return _api_error(request, exc.status, exc.code, str(exc), exc.fields)
+
+
+@require_POST
+def inventory_gift_api(request):
+    error = _require_api_access(request, (("crm", "create_inventory_gift"),))
+    if error:
+        return error
+    try:
+        data = _json_body(request)
+        operation_key = data.pop("operation_key", None)
+        return _api_operation(request, create_inventory_gift, request.user, data, operation_key)
+    except OperationError as exc:
+        return _api_error(request, exc.status, exc.code, str(exc), exc.fields)
+
+
+@require_POST
+def damage_resolution_api(request, damaged_record_id):
+    error = _require_api_access(request, (("crm", "resolve_damaged_record"),))
+    if error:
+        return error
+    try:
+        return _api_operation(request, resolve_damaged_record, request.user, damaged_record_id, _json_body(request))
+    except OperationError as exc:
+        return _api_error(request, exc.status, exc.code, str(exc), exc.fields)
+
+
+@require_http_methods(["GET", "POST"])
+def stock_counts_api(request):
+    if request.method == "GET":
+        error = _require_api_access(request, (("crm", "view_stockcount"),))
+        if error:
+            return error
+        try:
+            return _api_list_response(request, stock_count_rows(request.user, status=request.GET.get("status")))
+        except OperationError as exc:
+            return _api_error(request, exc.status, exc.code, str(exc), exc.fields)
+    error = _require_api_access(request, (("crm", "add_stockcount"),))
+    if error:
+        return error
+    try:
+        data = _json_body(request)
+        operation_key = data.pop("operation_key", None)
+        return _api_operation(request, create_stock_count, request.user, data, operation_key)
+    except OperationError as exc:
+        return _api_error(request, exc.status, exc.code, str(exc), exc.fields)
+
+
+@require_safe
+def stock_count_detail_api(request, count_id):
+    error = _require_api_access(request, (("crm", "view_stockcount"),))
+    if error:
+        return error
+    try:
+        rows = stock_count_rows(request.user, count_id=count_id)
+    except OperationError as exc:
+        return _api_error(request, exc.status, exc.code, str(exc), exc.fields)
+    if not rows:
+        return _api_error(request, 404, "not_found", "盘点记录不存在。")
+    return JsonResponse(rows[0])
+
+
+@require_http_methods(["PATCH"])
+def stock_count_update_api(request, count_id):
+    error = _require_api_access(request, (("crm", "add_stockcount"),))
+    if error:
+        return error
+    try:
+        return _api_operation(request, revise_stock_count, request.user, count_id, _json_body(request))
+    except OperationError as exc:
+        return _api_error(request, exc.status, exc.code, str(exc), exc.fields)
+
+
+@require_POST
+def stock_count_approve_api(request, count_id):
+    error = _require_api_access(request, (("crm", "approve_stockcount"),))
+    if error:
+        return error
+    try:
+        return _api_operation(request, approve_stock_count, request.user, count_id, _json_body(request))
+    except OperationError as exc:
+        return _api_error(request, exc.status, exc.code, str(exc), exc.fields)
+
+
+@require_http_methods(["GET", "POST"])
+def cost_corrections_api(request):
+    if request.method == "GET":
+        error = _require_api_access(request, (("crm", "view_costcorrection"),))
+        if error:
+            return error
+        try:
+            return _api_list_response(request, cost_correction_rows(request.user, status=request.GET.get("status")))
+        except OperationError as exc:
+            return _api_error(request, exc.status, exc.code, str(exc), exc.fields)
+    error = _require_api_access(request, (("crm", "submit_costcorrection"),))
+    if error:
+        return error
+    try:
+        data = _json_body(request)
+        operation_key = data.pop("operation_key", None)
+        preview_token = data.pop("preview_token", None)
+        return _api_operation(request, submit_cost_correction, request.user, operation_key, preview_token)
+    except OperationError as exc:
+        return _api_error(request, exc.status, exc.code, str(exc), exc.fields)
+
+
+@require_POST
+def cost_correction_preview_api(request):
+    error = _require_api_access(request, (("crm", "submit_costcorrection"),))
+    if error:
+        return error
+    try:
+        return JsonResponse(preview_cost_correction(request.user, _json_body(request)))
+    except OperationError as exc:
+        return _api_error(request, exc.status, exc.code, str(exc), exc.fields)
+    except Exception:
+        return _api_error(request, 500, "server_error", "操作失败，请联系管理员并提供请求编号。")
+
+
+@require_safe
+def cost_correction_detail_api(request, correction_id):
+    error = _require_api_access(request, (("crm", "view_costcorrection"),))
+    if error:
+        return error
+    try:
+        rows = cost_correction_rows(request.user, correction_id=correction_id)
+    except OperationError as exc:
+        return _api_error(request, exc.status, exc.code, str(exc), exc.fields)
+    if not rows:
+        return _api_error(request, 404, "not_found", "纠错记录不存在。")
+    return JsonResponse(rows[0])
+
+
+@require_POST
+def cost_correction_approve_api(request, correction_id):
+    error = _require_api_access(request, (("crm", "approve_costcorrection"),))
+    if error:
+        return error
+    try:
+        return _api_operation(request, approve_cost_correction, request.user, correction_id, _json_body(request))
+    except OperationError as exc:
+        return _api_error(request, exc.status, exc.code, str(exc), exc.fields)
+
+
+@require_POST
+def cost_correction_reject_api(request, correction_id):
+    error = _require_api_access(request, (("crm", "reject_costcorrection"),))
+    if error:
+        return error
+    try:
+        return _api_operation(request, reject_cost_correction, request.user, correction_id, _json_body(request))
+    except OperationError as exc:
+        return _api_error(request, exc.status, exc.code, str(exc), exc.fields)
 
 
 @require_POST
@@ -473,6 +654,31 @@ def holds_page(request):
         warehouse__is_active=True, sku__is_active=True
     ).order_by("id")
     return render(request, "crm/holds.html", {"holds": hold_rows(), "balances": balances})
+
+
+def adjustments_page(request):
+    operation_permissions = (
+        "create_inventory_split", "create_inventory_gift", "resolve_damaged_record",
+        "add_stockcount", "submit_costcorrection", "approve_stockcount",
+        "approve_costcorrection", "view_stockcount", "view_costcorrection",
+    )
+    if not request.user.is_superuser and not any(request.user.has_perm(f"crm.{item}") for item in operation_permissions):
+        raise PermissionDenied
+    return render(request, "crm/adjustments.html", {
+        "warehouses": Warehouse.objects.filter(is_active=True).order_by("id"),
+        "skus": SKU.objects.filter(is_active=True, product__is_active=True, product__brand__is_active=True)
+        .select_related("product__brand").order_by("id"),
+        "can_split": request.user.is_superuser or request.user.has_perm("crm.create_inventory_split"),
+        "can_gift": request.user.is_superuser or request.user.has_perm("crm.create_inventory_gift"),
+        "can_resolve_damage": request.user.is_superuser or request.user.has_perm("crm.resolve_damaged_record"),
+        "can_add_count": request.user.is_superuser or request.user.has_perm("crm.add_stockcount"),
+        "can_approve_count": request.user.is_superuser or request.user.has_perm("crm.approve_stockcount"),
+        "can_submit_correction": request.user.is_superuser or request.user.has_perm("crm.submit_costcorrection"),
+        "can_approve_correction": request.user.is_superuser or request.user.has_perm("crm.approve_costcorrection"),
+        "can_reject_correction": request.user.is_superuser or request.user.has_perm("crm.reject_costcorrection"),
+        "can_view_count": request.user.is_superuser or request.user.has_perm("crm.view_stockcount"),
+        "can_view_correction": request.user.is_superuser or request.user.has_perm("crm.view_costcorrection"),
+    })
 
 
 def _customer_data(customer, *, birthday_today=False):
