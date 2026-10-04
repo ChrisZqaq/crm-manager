@@ -518,6 +518,7 @@ def _sales_order_data(order, actor):
         "channel_id": order.channel_id,
         "channel": order.channel.name,
         "status": order.status,
+        "status_label": order.get_status_display(),
         "delivery_mode": order.delivery_mode,
         "recipient": order.recipient_snapshot,
         "contact": order.contact_snapshot,
@@ -981,7 +982,7 @@ def birthdays_page(request):
 @require_safe
 def orders_page(request):
     _require_page_permission(request, "view_salesorder")
-    return render(request, "crm/orders.html")
+    return render(request, "crm/orders.html", {"status_options": SalesOrder.Status.choices})
 
 
 @login_required

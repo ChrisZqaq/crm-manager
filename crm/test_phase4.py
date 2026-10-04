@@ -41,7 +41,7 @@ from .models import (
 )
 from .operations import OperationError, confirm_receipt, preview_receipt
 from .permissions import ROLE_OWNER, ROLE_SALES, ROLE_WAREHOUSE
-from .sales import confirm_sales_order, create_customer, preview_sales_order
+from .sales import cancel_sales_order, confirm_sales_order, create_customer, preview_sales_order
 from .test_phase3 import Phase3Base
 
 
@@ -1075,3 +1075,86 @@ class D15PermissionBoundaryTests(Phase4Base):
         order.refresh_from_db()
         seller_page = seller_client.get(f"/orders/{order.pk}/")
         self.assertContains(seller_page, "标记线下处理完成")
+
+
+class OrderListStatusTests(Phase4Base):
+    def test_model_status_labels_and_each_status_filter_preserve_order_scope(self):
+        self.balance.on_hand = 100
+        self.balance.cost_amount = Decimal("100.000")
+        self.balance.save(update_fields=("on_hand", "cost_amount"))
+
+        awaiting = self.new_order()
+        ready = self.new_order()
+        self.register(ready)
+        ready.refresh_from_db()
+
+        shipped = self.new_order(delivery_mode=SalesOrder.DeliveryMode.SHIPMENT)
+        self.register(shipped)
+        shipped.refresh_from_db()
+        ship_sales_order(self.user, shipped.pk, self.shipment_data(shipped))
+        shipped.refresh_from_db()
+
+        completed = self.new_order()
+        self.register(completed)
+        completed.refresh_from_db()
+        deliver_on_site(self.user, completed.pk, {
+            "operation_key": str(uuid4()),
+            "expected_version": completed.version,
+            "outbound_freights": [],
+        })
+        completed.refresh_from_db()
+
+        cancelled = self.new_order()
+        cancel_sales_order(self.sales, cancelled.pk, {
+            "operation_key": str(uuid4()),
+            "expected_version": cancelled.version,
+        })
+        cancelled.refresh_from_db()
+        other_awaiting = self.preview_and_confirm(self.order_payload(), actor=self.sales_two)[2]
+
+        orders_by_status = {
+            SalesOrder.Status.AWAITING_PAYMENT: {awaiting.pk, other_awaiting.pk},
+            SalesOrder.Status.READY_TO_SHIP: {ready.pk},
+            SalesOrder.Status.SHIPPED: {shipped.pk},
+            SalesOrder.Status.COMPLETED: {completed.pk},
+            SalesOrder.Status.CANCELLED: {cancelled.pk},
+        }
+        expected_labels = {
+            order.pk: order.get_status_display()
+            for order in (awaiting, ready, shipped, completed, cancelled, other_awaiting)
+        }
+
+        viewer = self.User.objects.create_user(username="all-orders-viewer", password="test-only-password")
+        viewer.groups.add(Group.objects.get(name=ROLE_SALES))
+        viewer.user_permissions.add(
+            Permission.objects.get(content_type__app_label="crm", codename="view_all_sales_orders")
+        )
+        viewer_client = Client()
+        viewer_client.force_login(viewer)
+        listing = viewer_client.get("/api/v1/orders").json()
+        listed_by_id = {item["id"]: item for item in listing["items"]}
+        self.assertEqual(set(listed_by_id), set(expected_labels))
+        for order_id, label in expected_labels.items():
+            self.assertEqual(listed_by_id[order_id]["status_label"], label)
+            self.assertNotIn("commission_estimate", listed_by_id[order_id])
+
+        for status, expected_ids in orders_by_status.items():
+            with self.subTest(status=status):
+                filtered = viewer_client.get("/api/v1/orders", {"status": status})
+                self.assertEqual(filtered.status_code, 200, filtered.content)
+                data = filtered.json()
+                self.assertEqual(data["total"], len(expected_ids))
+                self.assertEqual({item["id"] for item in data["items"]}, expected_ids)
+                self.assertTrue(all(item["status"] == status for item in data["items"]))
+
+        own_client = Client()
+        own_client.force_login(self.sales)
+        own_listing = own_client.get("/api/v1/orders").json()
+        self.assertEqual({item["id"] for item in own_listing["items"]}, {
+            awaiting.pk, ready.pk, shipped.pk, completed.pk, cancelled.pk,
+        })
+
+        page = viewer_client.get("/orders/")
+        self.assertEqual(list(page.context["status_options"]), list(SalesOrder.Status.choices))
+        for status, label in SalesOrder.Status.choices:
+            self.assertContains(page, f'<option value="{status}">{label}</option>')
