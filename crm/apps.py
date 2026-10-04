@@ -7,7 +7,13 @@ class CrmConfig(AppConfig):
     name = 'crm'
 
     def ready(self):
-        from .permissions import create_fixed_role_groups
+        from .permissions import create_fixed_role_groups, ensure_business_control
+
+        post_migrate.connect(
+            ensure_business_control,
+            sender=self,
+            dispatch_uid="crm.ensure_business_control",
+        )
 
         post_migrate.connect(
             create_fixed_role_groups,

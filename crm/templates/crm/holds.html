@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="zh-Hans">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>预留与囤货 · CRM</title></head>
+<body>
+  <header><h1>预留与囤货</h1><nav><a href="{% url 'inventory' %}">库存</a> · <a href="{% url 'receiving' %}">采购入库</a> · <a href="{% url 'opening' %}">期初盘点</a></nav></header>
+  <p>解锁按具体记录办理，只能释放该记录的剩余数量；此处不指定销售订单，也不自动到期。</p>
+  {% if perms.crm.create_inventory_hold or request.user.is_superuser %}
+  <form id="hold-create">
+    {% csrf_token %}
+    <label>仓库与SKU
+      <select id="balance" required><option value="">请选择</option>{% for balance in balances %}<option value="{{ balance.id }}" data-warehouse="{{ balance.warehouse_id }}" data-sku="{{ balance.sku_id }}">{{ balance.warehouse.name }} · {{ balance.sku.code }} · {{ balance.sku.unit }}</option>{% endfor %}</select>
+    </label>
+    <label>类型 <select id="type"><option value="customer_reservation">客户预留</option><option value="hoard">囤货</option></select></label>
+    <label>数量 <input id="quantity" type="number" min="1" step="1" required></label>
+    <label>原因 <input id="reason" maxlength="2000"></label>
+    <button type="submit">创建限制记录</button>
+  </form>
+  {% endif %}
+  <p id="status" role="status"></p>
+  <table>
+    <thead><tr><th>仓库</th><th>SKU</th><th>类型</th><th>原数量</th><th>剩余数量</th><th>原因</th><th>版本</th><th>解锁</th></tr></thead>
+    <tbody>
+      {% for hold in holds %}
+      <tr>
+        <td>{{ hold.warehouse }}</td><td>{{ hold.sku_code }}</td><td>{{ hold.type_label }}</td><td>{{ hold.initial_quantity }}</td><td>{{ hold.remaining_quantity }}</td><td>{{ hold.reason|default:"—" }}</td><td>{{ hold.version }}</td>
+        <td>
+          {% if perms.crm.release_inventory_hold or request.user.is_superuser %}
+            {% if hold.remaining_quantity %}<form class="release" data-id="{{ hold.id }}" data-version="{{ hold.version }}"><label>数量 <input class="release-quantity" type="number" min="1" max="{{ hold.remaining_quantity }}" step="1" value="{{ hold.remaining_quantity }}" required></label><button type="submit">解锁</button></form>{% else %}已全部解锁{% endif %}
+          {% else %}—{% endif %}
+        </td>
+      </tr>
+      {% empty %}<tr><td colspan="8">暂无预留或囤货记录。</td></tr>{% endfor %}
+    </tbody>
+  </table>
+  <script>
+    function csrfToken() { return document.cookie.split('; ').find(x => x.startsWith('csrftoken='))?.split('=')[1] || ''; }
+    async function send(url, body) {
+      const response = await fetch(url, {method: 'POST', credentials: 'same-origin', headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrfToken()}, body: JSON.stringify(body)});
+      const data = await response.json(); if (!response.ok) throw new Error(JSON.stringify(data)); return data;
+    }
+    const status = document.getElementById('status');
+    const create = document.getElementById('hold-create');
+    if (create) create.addEventListener('submit', async event => {
+      event.preventDefault();
+      const option = document.getElementById('balance').selectedOptions[0];
+      try {
+        await send('/api/v1/holds', {warehouse_id: option.dataset.warehouse, sku_id: option.dataset.sku, type: document.getElementById('type').value, quantity: document.getElementById('quantity').value, reason: document.getElementById('reason').value, operation_key: crypto.randomUUID()});
+        location.reload();
+      } catch (error) { status.textContent = error.message; }
+    });
+    document.querySelectorAll('.release').forEach(form => form.addEventListener('submit', async event => {
+      event.preventDefault();
+      try {
+        await send(`/api/v1/holds/${form.dataset.id}/release`, {quantity: form.querySelector('.release-quantity').value, expected_version: form.dataset.version, operation_key: crypto.randomUUID()});
+        location.reload();
+      } catch (error) { status.textContent = error.message; }
+    }));
+  </script>
+</body>
+</html>

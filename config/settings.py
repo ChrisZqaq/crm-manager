@@ -84,6 +84,33 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+MEDIA_ROOT = BASE_DIR / ".local/private-media"
 LOGIN_URL = "/accounts/login/"
 LOGIN_REDIRECT_URL = "/catalog/"
 LOGOUT_REDIRECT_URL = "/accounts/login/"
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "business": {
+            "format": "%(asctime)s %(levelname)s %(message)s",
+            "datefmt": "%Y-%m-%dT%H:%M:%S%z",
+        },
+    },
+    "handlers": {
+        "business_file": {
+            "class": "crm.logging.BoundedRotatingFileHandler",
+            "filename": BASE_DIR / ".local/logs/business.log",
+            "max_bytes": 10 * 1024 * 1024,
+            "backup_count": 9,
+            "retention_days": 7,
+            "encoding": "utf-8",
+            "formatter": "business",
+            "level": "INFO",
+        },
+    },
+    "loggers": {
+        "crm.business": {"handlers": ["business_file"], "level": "INFO", "propagate": False},
+    },
+}

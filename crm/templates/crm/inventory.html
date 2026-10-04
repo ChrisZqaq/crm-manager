@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="zh-Hans">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>库存与成本 · CRM</title></head>
+<body>
+  <header>
+    <h1>库存与成本</h1>
+    <span>{{ request.user.get_username }}</span>
+    <nav><a href="{% url 'catalog-search' %}">商品</a> · <a href="{% url 'holds' %}">限制记录</a> · <a href="{% url 'receiving' %}">采购入库</a> · <a href="{% url 'opening' %}">期初盘点</a> · <a href="{% url 'admin:index' %}">管理后台</a></nav>
+    <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button type="submit">退出登录</button></form>
+  </header>
+
+  {% if error %}<p role="alert">{{ error }}</p>{% endif %}
+  <form method="get">
+    <label>仓库ID <input name="warehouse_id" value="{{ request.GET.warehouse_id }}"></label>
+    <label>SKU ID <input name="sku_id" value="{{ request.GET.sku_id }}"></label>
+    <label>IP ID <input name="brand_id" value="{{ request.GET.brand_id }}"></label>
+    <label>低库存
+      <select name="low_stock"><option value="">全部</option><option value="true" {% if request.GET.low_stock == "true" %}selected{% endif %}>仅低库存</option><option value="false" {% if request.GET.low_stock == "false" %}selected{% endif %}>排除低库存</option></select>
+    </label>
+    <button type="submit">筛选</button>
+  </form>
+  <p>仅显示已有库存记录。全局提醒：{% if control.low_stock_enabled %}开启{% else %}关闭{% endif %}；默认阈值 {{ control.default_threshold }}。</p>
+
+  {% if perms.crm.manage_global_low_stock or request.user.is_superuser %}
+  <form id="global-settings" data-api="/api/v1/settings/low-stock">
+    {% csrf_token %}
+    <label><input id="global-enabled" type="checkbox" {% if control.low_stock_enabled %}checked{% endif %}> 全局低库存提醒</label>
+    <label>默认阈值 <input id="global-threshold" type="number" min="0" step="1" value="{{ control.default_threshold }}" required></label>
+    <button type="submit">保存全局设置</button>
+  </form>
+  {% endif %}
+
+  <p id="status" role="status"></p>
+  <table>
+    <thead><tr><th>仓库</th><th>SKU</th><th>产品</th><th>单位</th><th>在库</th><th>占用</th><th>预留</th><th>囤货</th><th>破损</th><th>可售</th><th>库存金额</th><th>平均成本</th><th>低库存</th><th>SKU提醒设置</th></tr></thead>
+    <tbody>
+      {% for item in items %}
+      <tr>
+        <td>{{ item.warehouse }}</td><td>{{ item.code }}</td><td>{{ item.brand }} / {{ item.product }}</td><td>{{ item.unit }}</td>
+        <td>{{ item.on_hand }}</td><td>{{ item.occupied }}</td><td>{{ item.reserved }}</td><td>{{ item.hoarded }}</td><td>{{ item.damaged }}</td><td>{{ item.available }}</td>
+        <td>{{ item.cost_amount }}</td><td>{{ item.average_cost|default:"—" }}</td>
+        <td>{% if item.low_stock %}是（≤{{ item.effective_low_stock_threshold }}）{% else %}否{% endif %}</td>
+        <td>
+          {% if perms.crm.manage_sku_low_stock or request.user.is_superuser %}
+          <form class="sku-settings" data-sku="{{ item.sku_id }}">
+            <label><input class="sku-enabled" type="checkbox" {% if item.low_stock_enabled %}checked{% endif %}> 開启</label>
+            <label>专用阈值 <input class="sku-threshold" type="number" min="0" step="1" value="{{ item.low_stock_threshold|default_if_none:'' }}" placeholder="继承全局"></label>
+            <button type="submit">保存</button>
+          </form>
+          {% else %}{{ item.effective_low_stock_threshold }}{% endif %}
+        </td>
+      </tr>
+      {% empty %}<tr><td colspan="14">没有匹配的库存记录。</td></tr>{% endfor %}
+    </tbody>
+  </table>
+  {% if has_previous %}<a href="?warehouse_id={{ request.GET.warehouse_id|urlencode }}&sku_id={{ request.GET.sku_id|urlencode }}&brand_id={{ request.GET.brand_id|urlencode }}&low_stock={{ request.GET.low_stock|urlencode }}&page={{ page|add:"-1" }}">上一页</a>{% endif %}
+  {% if has_next %}<a href="?warehouse_id={{ request.GET.warehouse_id|urlencode }}&sku_id={{ request.GET.sku_id|urlencode }}&brand_id={{ request.GET.brand_id|urlencode }}&low_stock={{ request.GET.low_stock|urlencode }}&page={{ page|add:1 }}">下一页</a>{% endif %}
+
+  <script>
+    function csrfToken() { return document.cookie.split('; ').find(x => x.startsWith('csrftoken='))?.split('=')[1] || ''; }
+    async function sendJson(url, method, body) {
+      const response = await fetch(url, {method, credentials: 'same-origin', headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrfToken()}, body: JSON.stringify(body)});
+      const result = await response.json();
+      if (!response.ok) throw new Error(JSON.stringify(result));
+      return result;
+    }
+    const status = document.getElementById('status');
+    const globalForm = document.getElementById('global-settings');
+    if (globalForm) globalForm.addEventListener('submit', async event => {
+      event.preventDefault();
+      try {
+        await sendJson(globalForm.dataset.api, 'PATCH', {enabled: document.getElementById('global-enabled').checked, threshold: Number(document.getElementById('global-threshold').value), operation_key: crypto.randomUUID()});
+        status.textContent = '全局低库存设置已保存。';
+      } catch (error) { status.textContent = error.message; }
+    });
+    document.querySelectorAll('.sku-settings').forEach(form => form.addEventListener('submit', async event => {
+      event.preventDefault();
+      const threshold = form.querySelector('.sku-threshold').value;
+      try {
+        await sendJson(`/api/v1/skus/${form.dataset.sku}/low-stock`, 'PATCH', {enabled: form.querySelector('.sku-enabled').checked, threshold: threshold === '' ? null : Number(threshold), operation_key: crypto.randomUUID()});
+        status.textContent = 'SKU低库存设置已保存。';
+      } catch (error) { status.textContent = error.message; }
+    }));
+  </script>
+</body>
+</html>

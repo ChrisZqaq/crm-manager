@@ -104,10 +104,13 @@ class SKU(models.Model):
     unit = models.CharField("售卖单位", max_length=80)
     barcode = models.CharField("包装条码", max_length=255, blank=True, db_index=True)
     aliases = models.JSONField("规格别名", default=list, blank=True, validators=[validate_aliases])
+    low_stock_threshold = models.PositiveBigIntegerField("低库存阈值", null=True, blank=True)
+    low_stock_enabled = models.BooleanField("启用低库存提醒", default=True)
     is_active = models.BooleanField("启用", default=True)
 
     class Meta:
         ordering = ("id",)
+        permissions = (("manage_sku_low_stock", "管理SKU低库存提醒"),)
 
     def clean(self):
         self.code = self.code.strip()
@@ -158,6 +161,283 @@ class Warehouse(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class Supplier(models.Model):
+    name = models.CharField("供应商名称", max_length=255, unique=True)
+    is_active = models.BooleanField("启用", default=True)
+
+    class Meta:
+        ordering = ("id",)
+
+    def clean(self):
+        self.name = self.name.strip()
+        if not self.name:
+            raise ValidationError({"name": "供应商名称不能为空。"})
+
+    def __str__(self):
+        return self.name
+
+
+class BusinessControl(models.Model):
+    last_sequence = models.PositiveBigIntegerField(default=0)
+    low_stock_enabled = models.BooleanField(default=True)
+    default_threshold = models.PositiveBigIntegerField(default=5)
+    opening_completed = models.BooleanField(default=False)
+
+    class Meta:
+        permissions = (("manage_global_low_stock", "管理全局低库存提醒"),)
+
+
+class InventoryBalance(models.Model):
+    warehouse = models.ForeignKey(Warehouse, on_delete=models.PROTECT, related_name="inventory_balances")
+    sku = models.ForeignKey(SKU, on_delete=models.PROTECT, related_name="inventory_balances")
+    on_hand = models.BigIntegerField(default=0)
+    occupied = models.BigIntegerField(default=0)
+    reserved = models.BigIntegerField(default=0)
+    hoarded = models.BigIntegerField(default=0)
+    damaged = models.BigIntegerField(default=0)
+    cost_amount = models.DecimalField(max_digits=20, decimal_places=3, default=0)
+    version = models.PositiveIntegerField(default=1)
+    quantity_version = models.PositiveIntegerField(default=1)
+
+    class Meta:
+        ordering = ("warehouse_id", "sku_id")
+        constraints = [
+            models.UniqueConstraint(fields=("warehouse", "sku"), name="crm_balance_warehouse_sku_unique"),
+            models.CheckConstraint(
+                condition=Q(on_hand__gte=0, occupied__gte=0, reserved__gte=0, hoarded__gte=0, damaged__gte=0),
+                name="crm_balance_quantities_nonnegative",
+            ),
+            models.CheckConstraint(
+                condition=Q(occupied__lte=models.F("on_hand") - models.F("reserved") - models.F("hoarded") - models.F("damaged")),
+                name="crm_balance_restricted_within_stock",
+            ),
+            models.CheckConstraint(
+                condition=~Q(on_hand=0) | Q(cost_amount=0),
+                name="crm_balance_empty_cost_zero",
+            ),
+            models.CheckConstraint(condition=Q(cost_amount__gte=0), name="crm_balance_cost_nonnegative"),
+        ]
+
+
+class Receipt(models.Model):
+    warehouse = models.ForeignKey(Warehouse, on_delete=models.PROTECT, related_name="receipts")
+    supplier = models.ForeignKey(Supplier, on_delete=models.PROTECT, related_name="receipts")
+    sequence = models.PositiveBigIntegerField(unique=True)
+    version = models.PositiveIntegerField(default=1)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="receipts_created")
+    confirmed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("-sequence",)
+        permissions = (("confirm_receipt", "确认采购入库"),)
+
+
+class OpeningBatch(models.Model):
+    sequence = models.PositiveBigIntegerField(unique=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="opening_batches_created")
+    confirmed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("-sequence",)
+        permissions = (("confirm_opening", "确认期初盘点"),)
+
+
+class ReceiptLine(models.Model):
+    receipt = models.ForeignKey(Receipt, on_delete=models.PROTECT, related_name="lines")
+    line_number = models.PositiveIntegerField()
+    sku = models.ForeignKey(SKU, on_delete=models.PROTECT, related_name="receipt_lines")
+    quantity = models.PositiveBigIntegerField()
+    purchase_price = models.DecimalField(max_digits=20, decimal_places=3)
+    inbound_freight = models.DecimalField(max_digits=20, decimal_places=3, default=0)
+    cost_amount = models.DecimalField(max_digits=20, decimal_places=3)
+    reserved_quantity = models.PositiveBigIntegerField(default=0)
+    damaged_quantity = models.PositiveBigIntegerField(default=0)
+    low_stock_threshold = models.PositiveBigIntegerField(null=True, blank=True)
+
+    class Meta:
+        ordering = ("line_number",)
+        constraints = [
+            models.UniqueConstraint(fields=("receipt", "line_number"), name="crm_receipt_line_number_unique"),
+            models.CheckConstraint(condition=Q(quantity__gt=0), name="crm_receipt_line_positive_quantity"),
+            models.CheckConstraint(
+                condition=Q(purchase_price__gte=0, inbound_freight__gte=0),
+                name="crm_receipt_line_costs_nonnegative",
+            ),
+            models.CheckConstraint(
+                condition=Q(reserved_quantity__lte=models.F("quantity") - models.F("damaged_quantity")),
+                name="crm_receipt_line_restrictions_fit",
+            ),
+        ]
+
+
+class OpeningLine(models.Model):
+    batch = models.ForeignKey(OpeningBatch, on_delete=models.PROTECT, related_name="lines")
+    line_number = models.PositiveIntegerField()
+    warehouse = models.ForeignKey(Warehouse, on_delete=models.PROTECT, related_name="opening_lines")
+    sku = models.ForeignKey(SKU, on_delete=models.PROTECT, related_name="opening_lines")
+    quantity = models.PositiveBigIntegerField()
+    unit_cost = models.DecimalField(max_digits=20, decimal_places=3)
+    cost_amount = models.DecimalField(max_digits=20, decimal_places=3)
+    reserved_quantity = models.PositiveBigIntegerField(default=0)
+    hoarded_quantity = models.PositiveBigIntegerField(default=0)
+    hoard_reason = models.TextField(blank=True)
+    damaged_quantity = models.PositiveBigIntegerField(default=0)
+    note = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ("line_number",)
+        constraints = [
+            models.UniqueConstraint(fields=("batch", "line_number"), name="crm_opening_line_number_unique"),
+            models.CheckConstraint(
+                condition=Q(reserved_quantity__lte=models.F("quantity") - models.F("hoarded_quantity") - models.F("damaged_quantity")),
+                name="crm_opening_line_restrictions_fit",
+            ),
+            models.CheckConstraint(condition=Q(unit_cost__gte=0), name="crm_opening_line_cost_nonnegative"),
+        ]
+
+
+class InventoryHold(models.Model):
+    class Type(models.TextChoices):
+        CUSTOMER_RESERVATION = "customer_reservation", "客户预留"
+        HOARD = "hoard", "囤货"
+
+    balance = models.ForeignKey(InventoryBalance, on_delete=models.PROTECT, related_name="holds")
+    receipt_line = models.ForeignKey(ReceiptLine, null=True, blank=True, on_delete=models.PROTECT, related_name="holds")
+    opening_line = models.ForeignKey(OpeningLine, null=True, blank=True, on_delete=models.PROTECT, related_name="holds")
+    type = models.CharField(max_length=24, choices=Type.choices)
+    initial_quantity = models.PositiveBigIntegerField()
+    remaining_quantity = models.PositiveBigIntegerField()
+    reason = models.TextField(blank=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="inventory_holds_created")
+    version = models.PositiveIntegerField(default=1)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("-id",)
+        permissions = (
+            ("create_inventory_hold", "创建预留或囤货"),
+            ("release_inventory_hold", "释放指定预留或囤货"),
+        )
+        constraints = [
+            models.CheckConstraint(condition=Q(initial_quantity__gt=0), name="crm_hold_positive_initial"),
+            models.CheckConstraint(condition=Q(remaining_quantity__lte=models.F("initial_quantity")), name="crm_hold_remaining_within_initial"),
+            models.CheckConstraint(
+                condition=Q(receipt_line__isnull=True) | Q(opening_line__isnull=True),
+                name="crm_hold_at_most_one_source_line",
+            ),
+            models.CheckConstraint(
+                condition=~Q(type="hoard") | Q(reason__gt=""),
+                name="crm_hoard_reason_required",
+            ),
+        ]
+
+
+class DamagedRecord(models.Model):
+    balance = models.ForeignKey(InventoryBalance, on_delete=models.PROTECT, related_name="damaged_records")
+    receipt_line = models.ForeignKey(ReceiptLine, null=True, blank=True, on_delete=models.PROTECT, related_name="damaged_records")
+    opening_line = models.ForeignKey(OpeningLine, null=True, blank=True, on_delete=models.PROTECT, related_name="damaged_records")
+    original_quantity = models.PositiveBigIntegerField()
+    remaining_quantity = models.PositiveBigIntegerField()
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="damaged_records_created")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("-id",)
+        constraints = [
+            models.CheckConstraint(condition=Q(original_quantity__gt=0), name="crm_damage_positive_original"),
+            models.CheckConstraint(
+                condition=(Q(receipt_line__isnull=False, opening_line__isnull=True) | Q(receipt_line__isnull=True, opening_line__isnull=False)),
+                name="crm_damage_one_source_line",
+            ),
+            models.CheckConstraint(
+                condition=Q(remaining_quantity__lte=models.F("original_quantity")),
+                name="crm_damage_remaining_within_original",
+            ),
+        ]
+
+
+class BusinessOperation(models.Model):
+    operation_key = models.UUIDField(unique=True)
+    sequence = models.PositiveBigIntegerField(unique=True)
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="business_operations")
+    action = models.CharField(max_length=40)
+    input_hash = models.CharField(max_length=64)
+    payload = models.JSONField(default=dict)
+    schema_version = models.PositiveSmallIntegerField(default=1)
+    result = models.JSONField(default=dict)
+    receipt = models.ForeignKey(Receipt, null=True, blank=True, on_delete=models.PROTECT, related_name="operations")
+    opening_batch = models.ForeignKey(OpeningBatch, null=True, blank=True, on_delete=models.PROTECT, related_name="operations")
+    hold = models.ForeignKey(InventoryHold, null=True, blank=True, on_delete=models.PROTECT, related_name="operations")
+    control = models.ForeignKey(BusinessControl, null=True, blank=True, on_delete=models.PROTECT, related_name="operations")
+    sku = models.ForeignKey(SKU, null=True, blank=True, on_delete=models.PROTECT, related_name="low_stock_operations")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("sequence",)
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    Q(receipt__isnull=False, opening_batch__isnull=True, hold__isnull=True, control__isnull=True, sku__isnull=True)
+                    | Q(receipt__isnull=True, opening_batch__isnull=False, hold__isnull=True, control__isnull=True, sku__isnull=True)
+                    | Q(receipt__isnull=True, opening_batch__isnull=True, hold__isnull=False, control__isnull=True, sku__isnull=True)
+                    | Q(receipt__isnull=True, opening_batch__isnull=True, hold__isnull=True, control__isnull=False, sku__isnull=True)
+                    | Q(receipt__isnull=True, opening_batch__isnull=True, hold__isnull=True, control__isnull=True, sku__isnull=False)
+                ),
+                name="crm_operation_one_target",
+            )
+        ]
+
+
+class InventoryMovement(models.Model):
+    operation = models.ForeignKey(BusinessOperation, on_delete=models.PROTECT, related_name="movements")
+    balance = models.ForeignKey(InventoryBalance, on_delete=models.PROTECT, related_name="movements")
+    receipt_line = models.ForeignKey(ReceiptLine, null=True, blank=True, on_delete=models.PROTECT, related_name="movements")
+    opening_line = models.ForeignKey(OpeningLine, null=True, blank=True, on_delete=models.PROTECT, related_name="movements")
+    hold = models.ForeignKey(InventoryHold, null=True, blank=True, on_delete=models.PROTECT, related_name="movements")
+    event_kind = models.CharField(max_length=24)
+    entry_key = models.CharField(max_length=80)
+    on_hand_delta = models.BigIntegerField(default=0)
+    occupied_delta = models.BigIntegerField(default=0)
+    reserved_delta = models.BigIntegerField(default=0)
+    hoarded_delta = models.BigIntegerField(default=0)
+    damaged_delta = models.BigIntegerField(default=0)
+    cost_delta = models.DecimalField(max_digits=20, decimal_places=3, default=0)
+    cost_revision = models.PositiveIntegerField(default=1)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("operation__sequence", "id")
+        constraints = [
+            models.UniqueConstraint(fields=("operation", "balance", "event_kind", "entry_key"), name="crm_movement_operation_balance_entry_unique"),
+            models.CheckConstraint(
+                condition=(
+                    Q(receipt_line__isnull=False, opening_line__isnull=True, hold__isnull=True)
+                    | Q(receipt_line__isnull=True, opening_line__isnull=False, hold__isnull=True)
+                    | Q(receipt_line__isnull=True, opening_line__isnull=True, hold__isnull=False)
+                ),
+                name="crm_movement_one_source",
+            ),
+        ]
+
+
+def receipt_image_upload_to(instance, filename):
+    from uuid import uuid4
+
+    return f"receipt-images/{uuid4().hex}.image"
+
+
+class ReceiptImage(models.Model):
+    file = models.FileField(upload_to=receipt_image_upload_to)
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="receipt_images")
+    receipt = models.ForeignKey(Receipt, null=True, blank=True, on_delete=models.PROTECT, related_name="images")
+    image_format = models.CharField(max_length=8)
+    size = models.PositiveBigIntegerField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("id",)
 
 
 class PermissionChange(models.Model):

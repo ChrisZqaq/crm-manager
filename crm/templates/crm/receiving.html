@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="zh-Hans">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>采购入库 · CRM</title></head>
+<body>
+  <header>
+    <h1>采购入库</h1>
+    <nav><a href="{% url 'inventory' %}">库存</a> · <a href="{% url 'holds' %}">限制记录</a> · <a href="{% url 'catalog-search' %}">商品</a> · <a href="{% url 'admin:crm_supplier_changelist' %}">供应商档案</a></nav>
+  </header>
+  {% if not warehouses %}<p role="alert">请先在管理后台新增并启用仓库。</p>{% endif %}
+  {% if not suppliers %}<p role="alert">请先在管理后台新增并启用供应商。</p>{% endif %}
+  {% if not skus %}<p role="alert">请先在管理后台新增并启用SKU。</p>{% endif %}
+  <form id="receipt-form">
+    {% csrf_token %}
+    <label>仓库
+      <select id="warehouse" required><option value="">请选择</option>{% for item in warehouses %}<option value="{{ item.id }}">{{ item.name }}</option>{% endfor %}</select>
+    </label>
+    <label>供应商
+      <select id="supplier" required><option value="">请选择</option>{% for item in suppliers %}<option value="{{ item.id }}">{{ item.name }}</option>{% endfor %}</select>
+    </label>
+    <h2>入库明细</h2>
+    <table>
+      <thead><tr><th>SKU</th><th>实收数量</th><th>采购单价</th><th>分摊运费</th><th>客户预留</th><th>破损</th><th>低库存阈值（留空继承）</th><th></th></tr></thead>
+      <tbody id="lines">
+        <tr class="line">
+          <td><select class="sku" required><option value="">请选择</option>{% for sku in skus %}<option value="{{ sku.id }}">{{ sku.code }} · {{ sku.product.brand.name }} / {{ sku.product.name }} · {{ sku.unit }}</option>{% endfor %}</select></td>
+          <td><input class="quantity" type="number" min="1" step="1" required></td>
+          <td><input class="price" type="number" min="0" step="0.001" required></td>
+          <td><input class="freight" type="number" min="0" step="0.001" value="0" required></td>
+          <td><input class="reserved" type="number" min="0" step="1" value="0" required></td>
+          <td><input class="damaged" type="number" min="0" step="1" value="0" required></td>
+          <td><input class="threshold" type="number" min="0" step="1" placeholder="继承全局"></td>
+          <td><button class="remove" type="button">删除行</button></td>
+        </tr>
+      </tbody>
+    </table>
+    <button id="add-line" type="button">添加SKU</button>
+    <p><label>入库凭证（JPEG/PNG/WebP，最多20张，每张10MB）<input id="images" type="file" accept="image/jpeg,image/png,image/webp" multiple></label></p>
+    <p id="image-status" role="status"></p>
+    <button type="submit">预览核对</button>
+  </form>
+  <section>
+    <h2>预览</h2>
+    <pre id="result" aria-live="polite"></pre>
+    <button id="confirm" type="button" hidden>确认入库</button>
+  </section>
+  <p id="status" role="status"></p>
+  <script>
+    function csrfToken() { return document.cookie.split('; ').find(x => x.startsWith('csrftoken='))?.split('=')[1] || ''; }
+    async function readResponse(response) {
+      const result = await response.json();
+      if (!response.ok) throw new Error(JSON.stringify(result));
+      return result;
+    }
+    const lineTemplate = document.querySelector('.line').cloneNode(true);
+    const lines = document.getElementById('lines');
+    let previewToken = null;
+    let imageIds = [];
+    const resultBox = document.getElementById('result');
+    const status = document.getElementById('status');
+    document.getElementById('add-line').addEventListener('click', () => {
+      const row = lineTemplate.cloneNode(true);
+      row.querySelector('.sku').value = '';
+      row.querySelector('.quantity').value = '';
+      row.querySelector('.price').value = '';
+      lines.appendChild(row);
+    });
+    lines.addEventListener('click', event => {
+      if (event.target.matches('.remove') && lines.querySelectorAll('.line').length > 1) event.target.closest('tr').remove();
+    });
+    document.getElementById('images').addEventListener('change', async event => {
+      const files = [...event.target.files];
+      if (files.length + imageIds.length > 20) { status.textContent = '每张入库单最多20张图片。'; event.target.value = ''; return; }
+      for (const file of files) {
+        const form = new FormData(); form.append('file', file);
+        try {
+          const response = await fetch('/api/v1/images', {method: 'POST', credentials: 'same-origin', headers: {'X-CSRFToken': csrfToken()}, body: form});
+          const uploaded = await readResponse(response); imageIds.push(Number(uploaded.image_id));
+        } catch (error) { status.textContent = error.message; }
+      }
+      document.getElementById('image-status').textContent = imageIds.length ? `已暂存${imageIds.length}张图片` : '';
+      event.target.value = '';
+    });
+    document.getElementById('receipt-form').addEventListener('submit', async event => {
+      event.preventDefault(); previewToken = null; document.getElementById('confirm').hidden = true;
+      const data = {
+        warehouse_id: document.getElementById('warehouse').value,
+        supplier_id: document.getElementById('supplier').value,
+        image_ids: imageIds,
+        lines: [...lines.querySelectorAll('.line')].map(row => ({
+          sku_id: row.querySelector('.sku').value,
+          quantity: row.querySelector('.quantity').value,
+          purchase_price: row.querySelector('.price').value,
+          inbound_freight: row.querySelector('.freight').value || '0',
+          reserved_quantity: row.querySelector('.reserved').value || '0',
+          damaged_quantity: row.querySelector('.damaged').value || '0',
+          low_stock_threshold: row.querySelector('.threshold').value || null,
+        })),
+      };
+      try {
+        const response = await fetch('/api/v1/receipts/preview', {method: 'POST', credentials: 'same-origin', headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrfToken()}, body: JSON.stringify(data)});
+        const result = await readResponse(response);
+        previewToken = result.preview_token;
+        resultBox.textContent = JSON.stringify(result, null, 2);
+        document.getElementById('confirm').hidden = !previewToken;
+        status.textContent = '请核对仓库、供应商、数量、价格、运费与限制数量。';
+      } catch (error) { resultBox.textContent = error.message; status.textContent = '预览未通过。'; }
+    });
+    document.getElementById('confirm').addEventListener('click', async () => {
+      if (!previewToken) return;
+      try {
+        const response = await fetch('/api/v1/receipts/confirm', {method: 'POST', credentials: 'same-origin', headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrfToken()}, body: JSON.stringify({preview_token: previewToken, operation_key: crypto.randomUUID()})});
+        const result = await readResponse(response);
+        resultBox.textContent = JSON.stringify(result, null, 2); previewToken = null; imageIds = [];
+        document.getElementById('confirm').hidden = true;
+        status.textContent = '入库已确认。';
+      } catch (error) { resultBox.textContent = error.message; status.textContent = '入库未确认，请重新预览。'; }
+    });
+  </script>
+</body>
+</html>

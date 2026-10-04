@@ -12,7 +12,7 @@ from .forms import (
     SKUAdminForm,
     WarehouseAdminForm,
 )
-from .models import Brand, PermissionChange, Product, SKU, Warehouse
+from .models import Brand, PermissionChange, Product, SKU, Supplier, Warehouse
 from .permissions import ROLE_NAMES
 
 
@@ -67,6 +67,13 @@ class WarehouseAdmin(ArchiveAdmin):
     list_display = ("name", "address", "is_active")
     list_filter = ("is_active",)
     search_fields = ("name", "address")
+
+
+@admin.register(Supplier)
+class SupplierAdmin(ArchiveAdmin):
+    list_display = ("name", "is_active")
+    list_filter = ("is_active",)
+    search_fields = ("name",)
 
 
 User = get_user_model()

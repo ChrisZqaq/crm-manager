@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="zh-Hans">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>期初盘点 · CRM</title></head>
+<body>
+  <header><h1>期初盘点</h1><nav><a href="{% url 'inventory' %}">库存</a> · <a href="{% url 'receiving' %}">采购入库</a> · <a href="{% url 'catalog-search' %}">商品</a> · <a href="{% url 'admin:index' %}">管理后台</a></nav></header>
+  {% if opening_completed %}
+    <p role="status">正式期初已确认，入口已关闭。后续库存通过采购入库管理；期初纠错按已批准流程处理。</p>
+  {% else %}
+    <p>上传标准模板的两张工作表。预览不会写入商品、仓库或库存；确认时才会整批提交。</p>
+    <form id="opening-form">
+      {% csrf_token %}
+      <label>期初工作簿（.xlsx）<input id="file" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required></label>
+      <p>如预览要求人工映射，在下方填写 JSON 后，用同一文件再次预览。产品键、仓库键和候选 ID 会显示在预览结果中；新 IP 的 SKU 前缀必须由负责人填写。</p>
+      <label>人工映射及重复条码确认
+        <textarea id="mappings" rows="8" cols="90">{}</textarea>
+      </label>
+      <p>结构示例：<code>{"brand_prefixes":{"IP名称":"前缀"},"products":{"产品键":产品ID},"warehouses":{"仓库键":仓库ID},"confirmed_duplicate_barcodes":["条码"]}</code></p>
+      <button type="submit">校验并预览</button>
+    </form>
+    <section>
+      <h2>预览结果</h2>
+      <pre id="result" aria-live="polite"></pre>
+      <button id="confirm" type="button" hidden>确认整批期初入账</button>
+    </section>
+    <p id="status" role="status"></p>
+  {% endif %}
+  <script>
+    function csrfToken() { return document.cookie.split('; ').find(x => x.startsWith('csrftoken='))?.split('=')[1] || ''; }
+    async function readResponse(response) {
+      const result = await response.json();
+      if (!response.ok) throw new Error(JSON.stringify(result));
+      return result;
+    }
+    const form = document.getElementById('opening-form');
+    if (form) {
+      let previewToken = null;
+      const resultBox = document.getElementById('result');
+      const status = document.getElementById('status');
+      const confirm = document.getElementById('confirm');
+      form.addEventListener('submit', async event => {
+        event.preventDefault(); previewToken = null; confirm.hidden = true;
+        const file = document.getElementById('file').files[0];
+        if (!file) return;
+        const formData = new FormData(); formData.append('file', file); formData.append('mappings', document.getElementById('mappings').value);
+        try {
+          const response = await fetch('/api/v1/opening/preview', {method: 'POST', credentials: 'same-origin', headers: {'X-CSRFToken': csrfToken()}, body: formData});
+          const result = await readResponse(response);
+          resultBox.textContent = JSON.stringify(result, null, 2);
+          previewToken = result.ready ? result.preview_token : null;
+          confirm.hidden = !previewToken;
+          status.textContent = result.ready ? '请核对整批摘要后确认。' : '需要处理预览中列出的映射或条码确认，再重新预览。';
+        } catch (error) { resultBox.textContent = error.message; status.textContent = '校验未通过。'; }
+      });
+      confirm.addEventListener('click', async () => {
+        if (!previewToken) return;
+        try {
+          const response = await fetch('/api/v1/opening/confirm', {method: 'POST', credentials: 'same-origin', headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrfToken()}, body: JSON.stringify({preview_token: previewToken, operation_key: crypto.randomUUID()})});
+          const result = await readResponse(response);
+          resultBox.textContent = JSON.stringify(result, null, 2); previewToken = null; confirm.hidden = true;
+          status.textContent = '整批期初已确认，导入口已关闭。';
+        } catch (error) { resultBox.textContent = error.message; status.textContent = '期初未确认，请重新预览。'; }
+      });
+    }
+  </script>
+</body>
+</html>
