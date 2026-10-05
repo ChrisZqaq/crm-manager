@@ -582,6 +582,83 @@ class InventoryAdjustmentPhase5Tests(Phase5Base):
         self.assertEqual(approved["status"], StockCount.Status.APPROVED)
         run_and_validate()
 
+    def test_stock_count_recheck_uses_patch_and_approves_only_rechecked_impact(self):
+        second_sku = self.new_sku(2)
+        self.receive_lines(self.warehouse, [(self.sku, 5, "1.000"), (second_sku, 3, "2.000")])
+        created = create_stock_count(self.user, {"reason": "Recheck changed item", "lines": [
+            {"warehouse_id": self.warehouse.pk, "sku_id": self.sku.pk, "observed_quantity": 5},
+            {"warehouse_id": self.warehouse.pk, "sku_id": second_sku.pk, "observed_quantity": 3},
+        ]}, uuid4())
+        count = StockCount.objects.get(pk=created["stock_count_id"])
+        first_line = count.lines.get(sku=self.sku)
+        second_line = count.lines.get(sku=second_sku)
+        first_quantity_version = first_line.captured_quantity_version
+        second_quantity_version = second_line.captured_quantity_version
+        create_inventory_gift(self.user, {"reason": "One item after count", "lines": [{
+            "warehouse_id": self.warehouse.pk, "sku_id": self.sku.pk, "quantity": 1,
+        }]}, uuid4())
+
+        path = f"/api/v1/stock-counts/{count.pk}/update"
+        self.client.force_login(self.user)
+        patch_body = {
+            "operation_key": str(uuid4()),
+            "expected_version": count.version,
+            "reason": count.reason,
+            "lines": [{
+                "warehouse_id": self.warehouse.pk,
+                "sku_id": self.sku.pk,
+                "observed_quantity": 3,
+                "cost_mode": "average",
+            }, {
+                "warehouse_id": self.warehouse.pk,
+                "sku_id": second_sku.pk,
+                "observed_quantity": 3,
+                "cost_mode": "average",
+            }],
+        }
+        wrong_method = self.client.post(path, data=json.dumps(patch_body), content_type="application/json")
+        self.assertEqual(wrong_method.status_code, 405)
+        count.refresh_from_db()
+        self.assertEqual(count.version, 1)
+        self.assertEqual(count.lines.count(), 2)
+        self.assertFalse(BusinessOperation.objects.filter(action="stock_count_resubmit").exists())
+
+        revised = self.client.patch(path, data=json.dumps(patch_body), content_type="application/json")
+        self.assertEqual(revised.status_code, 200, revised.content)
+        self.assertEqual(revised.json()["version"], 2)
+        count.refresh_from_db()
+        first_line.refresh_from_db()
+        second_line.refresh_from_db()
+        self.assertEqual(count.lines.count(), 2)
+        self.assertGreater(first_line.captured_quantity_version, first_quantity_version)
+        self.assertEqual(second_line.captured_quantity_version, second_quantity_version)
+
+        balance_versions = {
+            str(line.pk): line.balance.version
+            for line in count.lines.select_related("balance").order_by("id")
+        }
+        self.client.force_login(self.owner)
+        approved = self.client.post(
+            f"/api/v1/stock-counts/{count.pk}/approve",
+            data=json.dumps({
+                "operation_key": str(uuid4()),
+                "expected_version": count.version,
+                "balance_versions": balance_versions,
+            }),
+            content_type="application/json",
+        )
+        self.assertEqual(approved.status_code, 200, approved.content)
+        self.assertEqual(approved.json()["status"], StockCount.Status.APPROVED)
+        self.assertEqual(self.balance_for(self.sku).on_hand, 3)
+        self.assertEqual(self.balance_for(second_sku).on_hand, 3)
+        first_line.refresh_from_db()
+        second_line.refresh_from_db()
+        self.assertEqual(first_line.delta, -1)
+        self.assertEqual(second_line.delta, 0)
+        self.assertEqual(first_line.cost_delta, Decimal("-1.000"))
+        self.assertEqual(second_line.cost_delta, Decimal("0.000"))
+        self.assert_replay()
+
     def test_cost_correction_replays_order_and_delivery_costs(self):
         receipt = self.receive(quantity_value=10, price="100.000")
         order = self.new_order(lines=[{
