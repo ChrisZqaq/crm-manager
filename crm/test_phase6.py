@@ -1,5 +1,7 @@
 from datetime import date, datetime
 from decimal import Decimal
+from unittest.mock import patch
+from uuid import uuid4
 from zoneinfo import ZoneInfo
 
 from django.contrib.auth.models import Permission
@@ -12,13 +14,15 @@ from .models import (
     CommissionReview,
     InventoryBalance,
     InventoryHold,
+    PaymentRecord,
+    ReceiptImage,
     SalesOrder,
     Warehouse,
 )
 from .operations import OperationError
 from .reports import _date_criteria, build_report, workbook_bytes
 from .test_phase4 import Phase4Base
-from .fulfillment import deliver_on_site, ship_sales_order
+from .fulfillment import deliver_on_site, register_payment, ship_sales_order
 
 
 SHANGHAI = ZoneInfo("Asia/Shanghai")
@@ -136,28 +140,128 @@ class ReportPhase6Tests(Phase4Base):
         self.assertEqual(page.status_code, 200)
         self.assertContains(page, "Synthetic event stock")
 
-    def test_payment_report_does_not_invent_q07_date_basis(self):
+    def test_payment_first_evidence_time_survives_failure_replay_updates_and_rechecks(self):
+        order = self.new_order()
+        image = self.add_payment_image()
+        request = {
+            "operation_key": str(uuid4()),
+            "expected_version": order.version,
+            "account_id": self.public_account.pk,
+            "received_amount": str(order.revenue_amount),
+            "image_ids": [image.pk],
+        }
+        before = timezone.now()
+        with patch("crm.fulfillment._create_operation", side_effect=RuntimeError("synthetic rollback")):
+            with self.assertRaises(RuntimeError):
+                register_payment(self.sales, order.pk, request)
+        self.assertFalse(PaymentRecord.objects.filter(order=order).exists())
+        self.assertIsNone(ReceiptImage.objects.get(pk=image.pk).payment_id)
+        self.assertFalse(BusinessOperation.objects.filter(sales_order=order, action="payment_register").exists())
+        order.refresh_from_db()
+        self.assertEqual(order.status, SalesOrder.Status.AWAITING_PAYMENT)
+
+        result = register_payment(self.sales, order.pk, request)
+        self.assertEqual(register_payment(self.sales, order.pk, request), result)
+        payment = PaymentRecord.objects.get(order=order)
+        first_registered_at = payment.first_evidence_registered_at
+        operation = BusinessOperation.objects.get(operation_key=request["operation_key"])
+        self.assertEqual(first_registered_at, operation.created_at)
+        self.assertGreaterEqual(first_registered_at, before)
+        self.assertLessEqual(first_registered_at, timezone.now())
+
+        self.verify(order, actor=self.owner)
+        second_image = self.add_payment_image()
+        self.register(
+            order,
+            account=self.private_account,
+            received_amount="9.000",
+            difference_reason="Synthetic correction",
+            image=second_image,
+        )
+        payment.refresh_from_db()
+        self.assertEqual(payment.first_evidence_registered_at, first_registered_at)
+        self.verify(order, actor=self.owner)
+        self.verify(order, actor=self.owner)
+        payment.refresh_from_db()
+        self.assertEqual(payment.first_evidence_registered_at, first_registered_at)
+
+    def test_payment_report_uses_first_evidence_registration_time(self):
         order = self.new_order()
         self.register(order)
         data = build_report(self.sales, "payments", {})
         self.assertEqual(len(data["items"]), 1)
-        self.assertFalse(data["metadata"]["date_filter_available"])
-        self.assertTrue(data["metadata"]["payment_date_basis_pending"])
+        self.assertTrue(data["metadata"]["date_filter_available"])
+        self.assertFalse(data["metadata"]["payment_date_basis_pending"])
+        self.assertEqual(data["metadata"]["date_basis"], "首次登记收款凭证时间（北京时间）")
+        self.assertEqual(data["summary"], {})
+        self.assertTrue(data["items"][0]["first_evidence_registered_at"])
         self.assertEqual(data["items"][0]["actual_received_at"], "")
         self.assertIn("非实收核实", dict((key, label) for key, label, _ in data["columns"]).get("registered_amount", ""))
-        with self.assertRaises(OperationError) as raised:
-            build_report(self.sales, "payments", {"period": "1m"})
-        self.assertEqual(raised.exception.code, "date_filter_pending")
         self.client.force_login(self.sales)
-        response = self.client.get("/api/v1/reports/payments?period=1m")
-        self.assertEqual(response.status_code, 409)
-        self.assertEqual(response.json()["error"]["code"], "date_filter_pending")
+        response = self.client.get("/api/v1/reports/payments?period=all")
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()["date_filter_available"])
+        self.assertFalse(response.json()["payment_date_basis_pending"])
         page = self.client.get("/reports/payments/")
         self.assertEqual(page.status_code, 200)
-        self.assertContains(page, "Q07待确认")
+        self.assertContains(page, "首次成功登记收款凭证时间")
+        self.assertContains(page, "开始日期")
         invalid_page = self.client.get("/reports/payments/?page_size=not-a-number")
         self.assertEqual(invalid_page.status_code, 200)
         self.assertContains(invalid_page, "page与page_size必须为整数")
+
+    def test_payment_report_applies_beijing_boundaries_and_matches_api_page_and_xlsx(self):
+        registration_times = [
+            datetime(2026, 9, 29, 23, 59, 59, 999999, tzinfo=SHANGHAI),
+            datetime(2026, 9, 30, 0, 0, tzinfo=SHANGHAI),
+            datetime(2026, 10, 1, 0, 0, tzinfo=SHANGHAI),
+            datetime(2026, 10, 1, 23, 59, 59, 999999, tzinfo=SHANGHAI),
+            datetime(2026, 10, 2, 0, 0, tzinfo=SHANGHAI),
+        ]
+        orders = []
+        for registered_at in registration_times:
+            order = self.new_order()
+            self.register(order)
+            PaymentRecord.objects.filter(order=order).update(first_evidence_registered_at=registered_at)
+            orders.append(order)
+
+        fixed_now = datetime(2026, 10, 31, 12, 0, tzinfo=SHANGHAI)
+        custom_query = {"period": "custom", "start_date": "2026-10-01", "end_date": "2026-10-01"}
+        with patch("crm.reports._now_local", return_value=fixed_now):
+            rolling = build_report(self.sales, "payments", {"period": "1m"})
+            custom = build_report(self.sales, "payments", custom_query)
+
+        self.assertEqual((rolling["metadata"]["start_date"], rolling["metadata"]["end_date"]), ("2026-09-30", "2026-10-31"))
+        self.assertEqual({row["order_id"] for row in rolling["items"]}, {str(order.pk) for order in orders[1:]})
+        self.assertEqual({row["order_id"] for row in custom["items"]}, {str(orders[2].pk), str(orders[3].pk)})
+
+        self.client.force_login(self.sales)
+        query = "period=custom&start_date=2026-10-01&end_date=2026-10-01"
+        with patch("crm.reports._now_local", return_value=fixed_now):
+            api = self.client.get(f"/api/v1/reports/payments?{query}&page_size=200")
+            page = self.client.get(f"/reports/payments/?{query}&page=2&page_size=1")
+            export = self.client.get(f"/api/v1/reports/payments/export?{query}&page=2&page_size=1")
+
+        self.assertEqual(api.status_code, 200)
+        self.assertEqual(api.json()["total"], 2)
+        self.assertEqual({row["order_id"] for row in api.json()["items"]}, {str(orders[2].pk), str(orders[3].pk)})
+        self.assertEqual(page.status_code, 200)
+        self.assertEqual(page.context["total"], 2)
+        self.assertEqual(page.context["page"], 2)
+        self.assertContains(page, "首次登记收款凭证时间")
+        self.assertEqual(export.status_code, 200)
+        from io import BytesIO
+        from openpyxl import load_workbook
+
+        sheet = load_workbook(BytesIO(export.content), data_only=False).active
+        self.assertEqual(sheet.max_row, 8)
+        headers = [sheet.cell(6, column).value for column in range(1, sheet.max_column + 1)]
+        registered_at_column = headers.index("首次登记收款凭证时间") + 1
+        exported_dates = [sheet.cell(row, registered_at_column).value for row in range(7, 9)]
+        api_dates = [row["first_evidence_registered_at"] for row in api.json()["items"]]
+        self.assertEqual(exported_dates, api_dates)
+        self.assertEqual(export["X-Report-Start-Date"], "2026-10-01")
+        self.assertEqual(export["X-Report-End-Date"], "2026-10-01")
 
     def test_commission_uses_original_earned_date_and_lists_deltas_separately(self):
         order = self.new_order()

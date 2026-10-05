@@ -328,13 +328,17 @@ def _sales_data(actor, query, *, today=None):
     }
 
 
-def _payment_data(actor, query):
-    if query.get("start_date") or query.get("end_date") or query.get("period") not in (None, "", "all"):
-        raise OperationError("收款核对报表的时间口径待确认Q07，当前不能按日期筛选。", status=409, code="date_filter_pending")
+def _payment_data(actor, query, *, today=None):
+    period = _date_criteria(query, today=today)
     orders = _order_filters(_order_queryset(actor), query)
     records = PaymentRecord.objects.filter(order_id__in=orders.values("pk")).select_related(
         "order__salesperson", "order__customer", "order__channel", "account", "registered_by"
     ).prefetch_related("images")
+    if period["start_at"]:
+        records = records.filter(
+            first_evidence_registered_at__gte=period["start_at"],
+            first_evidence_registered_at__lt=period["end_before"],
+        )
     status_value = query.get("status", "")
     valid_statuses = dict(PaymentRecord.Status.choices)
     if status_value and status_value not in valid_statuses:
@@ -363,6 +367,7 @@ def _payment_data(actor, query):
             "account": payment.account.name, "account_method": payment.account.get_method_display(),
             "responsibility": payment.account.get_responsibility_display(),
             "registered_by": payment.registered_by.get_username(),
+            "first_evidence_registered_at": _local_datetime(payment.first_evidence_registered_at),
             "actual_received_at": _local_datetime(payment.received_at),
             "image_ids": ", ".join(str(image.pk) for image in payment.images.all()),
             "difference_reason": payment.difference_reason, "problem_reason": payment.problem_reason,
@@ -376,11 +381,12 @@ def _payment_data(actor, query):
         ("difference_amount", "登记差额（收款−应收）", "amount"),
         ("account", "收款账户", "text"), ("account_method", "账户方式", "text"),
         ("responsibility", "核对责任", "text"), ("registered_by", "登记人", "text"),
+        ("first_evidence_registered_at", "首次登记收款凭证时间", "text"),
         ("actual_received_at", "登记的实际收款时间（可空）", "text"),
         ("image_ids", "受控凭证图片编号", "text"), ("difference_reason", "金额差异原因", "text"),
         ("problem_reason", "待处理原因", "text"),
     ]
-    return items, columns, {"date_filter_pending": True}
+    return items, columns, {}
 
 
 def _commission_status(order, review):
@@ -546,8 +552,8 @@ def build_report(actor, report, query):
             metadata["date_filter_available"] = False
             metadata["period_label"] = "未交付订单（周期筛选不适用）"
     elif report == "payments":
-        items, columns, summary = _payment_data(actor, query)
-        metadata = _with_query_metadata(report, query, basis="时间筛选待确认Q07；当前不按日期筛选", date_filter=False, payment_pending=True)
+        items, columns, summary = _payment_data(actor, query, today=now.date())
+        metadata = _with_query_metadata(report, query, basis="首次登记收款凭证时间（北京时间）", today=now.date())
     else:
         items, columns, summary = _commission_data(actor, query, today=now.date())
         metadata = _with_query_metadata(report, query, basis="未首次计入按订单提交时间；正式计入按首次计入时间；调整差额按批准时间", today=now.date())

@@ -32,7 +32,7 @@
 
   {% if error %}<p role="alert">{{ error }}</p>{% endif %}
   {% if report_name == "payments" %}
-    <p class="notice" role="status">时间口径问题Q07待确认。当前展示有权限查看的全部收款记录，不按日期筛选；登记的实际收款时间是可空字段，不能代表首次登记凭证时间。</p>
+    <p class="notice" role="status">周期按系统记录的首次成功登记收款凭证时间筛选；修改截图、金额或账户，以及重新核对均不改变归属日期。实际收款时间仍为可空字段，单独显示。</p>
   {% endif %}
   {% if report_name == "inventory" %}
     <p>这是当前库存余额，不按销售日期筛选；限制原因区分订单占用、客户预留、囤货和破损。</p>
@@ -47,7 +47,7 @@
         </select>
       </label>
     {% endif %}
-    {% if report_name != "inventory" and report_name != "payments" %}
+    {% if report_name != "inventory" %}
       <label>周期
         <select name="period">
           <option value="all" {% if request.GET.period == "all" or not request.GET.period %}selected{% endif %}>全部</option>

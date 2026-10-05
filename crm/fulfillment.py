@@ -177,6 +177,7 @@ def register_payment(actor, order_id, data, request_id=""):
             if account is None or not account.is_active:
                 raise OperationError("收款账户不存在或已停用。", status=409, code="inactive_reference", fields={"account_id": "请选择启用账户。"})
             payment = PaymentRecord.objects.select_for_update().filter(order=order).first()
+            new_payment = payment is None
             images = _images_for_payment(actor, payment, image_ids)
             changed = bool(
                 payment is None
@@ -221,6 +222,9 @@ def register_payment(actor, order_id, data, request_id=""):
             if changed:
                 order.version += 1
                 operation = _create_operation(actor, order, key, action, input_hash, input_data, control)
+                if new_payment:
+                    payment.first_evidence_registered_at = operation.created_at
+                    payment.save(update_fields=("first_evidence_registered_at",))
                 order.last_sequence = operation.sequence
                 order.save(update_fields=("status", "version", "last_sequence", "updated_at"))
             else:

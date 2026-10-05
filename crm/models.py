@@ -710,6 +710,7 @@ class PaymentRecord(models.Model):
     paused = models.BooleanField(default=False)
     difference_reason = models.TextField(blank=True)
     problem_reason = models.TextField(blank=True)
+    first_evidence_registered_at = models.DateTimeField(null=True, blank=True, editable=False)
     received_at = models.DateTimeField(null=True, blank=True)
     verified_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="verified_payments")
     verified_at = models.DateTimeField(null=True, blank=True)
