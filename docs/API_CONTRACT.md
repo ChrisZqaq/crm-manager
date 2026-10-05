@@ -107,7 +107,7 @@
 | POST `/api/v1/splits` | `source_warehouse_id`、`source_sku_id`、`source_quantity`、`target_warehouse_id`、`target_sku_id`、`target_quantity`、`reason`；SKU必须不同，可同仓或跨仓，来源按可售量校验，扣减成本全部转入目标，单事务且幂等。 |
 | POST `/api/v1/gifts` | `reason`、`lines[{warehouse_id,sku_id,quantity}]`；按各行可售量和移动平均成本扣库存，不形成收入或提成；单事务且幂等。 |
 | GET `/api/v1/damaged-records`、POST `/api/v1/damaged-records/{id}/resolve` | 查询待处理破损；处理传`kind=exchange/refund`、`quantity`、`expected_version`、`operation_key`。退款另传`actual_refund`和`unreturned_freight`，记录实际退款与库存成本差额，不重复退款。 |
-| GET／POST `/api/v1/stock-counts`、POST `/api/v1/stock-counts/{id}/approve` | 创建传`reason`及实盘`lines`，可用移动平均或`manual_unit_cost`；审批传`expected_version`及逐行余额版本。实物数量变化使数量锚点过期；普通人员不能审批本人记录，老板例外仍执行库存校验。 |
+| GET／POST `/api/v1/stock-counts`、PATCH `/api/v1/stock-counts/{id}/update`、POST `/api/v1/stock-counts/{id}/approve` | 创建传`reason`及实盘`lines`，可用移动平均或`manual_unit_cost`；数量变化后仓管用PATCH重核待审批明细，确认当前实物数量并传`expected_version`；审批传`expected_version`及逐行余额版本。实物数量变化使数量锚点过期；普通人员不能审批本人记录，老板例外仍执行库存校验。 |
 | GET `/api/v1/cost-corrections`、POST `/api/v1/cost-corrections/preview`、`/submit`、`/{id}/approve`、`/{id}/reject` | 纠错目标为`receipt_id`或`opening_batch_id`之一；采购仓库变更作用于整单，明细使用稳定行号。可传`supplemental_count_costs[{count_line_id,unit_cost}]`补齐需要的历史盘盈成本。预览在REPEATABLE READ快照中生成令牌，并返回按来源、规范化修正事实、原因及补充成本生成的`input_hash`供同内容重试确定操作键；提交仍传本次实际`preview_token`。提交／审批复核版本、业务序号及当前权限，变化后要求重预览。 |
 
 阶段5库存和成本写操作均先锁`BusinessControl`并在PostgreSQL事务内校验；成本纠错按序回放来源及后续业务，当前受限数量必须合法，历史实际库存不得为负。接受与否以独立测试和负责人复核为准。
