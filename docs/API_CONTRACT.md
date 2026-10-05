@@ -116,12 +116,18 @@
 
 POST `/api/v1/images`支持JPEG／PNG／WebP，每张≤10MB，服务端验证实际格式及解码；返回受控image_id，无公共文件URL。可由入库凭证或订单收款登记授权上传；已关联图片按单据及订单可见范围访问，未关联暂存图片仅上传者可访问。每单最多20张；失败暂存文件按24小时清理，关联旧凭证保留，不因新截图替换或日志轮转删除。
 
-GET `reports/inventory`、`sales`、`payments`、`commissions`，公共日期输入`period=1m/3m/6m/12m/all/custom`或自定义start_date/end_date。月推算遇不存在的日取该月最后一天，查询区间为起始日00:00包含、结束日下一天00:00不包含，统一北京时间。
+报表页面为`/reports/{inventory|sales|payments|commissions}/`。结构化查询为GET `/api/v1/reports/{name}`，下载为GET `/api/v1/reports/{name}/export`；页面与两个API使用相同的筛选、权限和统计函数。查询API默认每页50行，`page_size`为1—200；`page`从1开始。响应含`items`、`total`、分页字段、`columns`、`summary`、`timezone`、`period_label`、`date_basis`、`start_date`、`end_date`、`date_filter_available`、`queried_at`及`filter_summary`。
 
-销售报表默认发货／现场交付口径；未交付仅显式选择unshipped另查，已取消不计有效销售或预估提成。支持SKU、IP、仓库、销售、客户、渠道和收货省市组合；数量按单位分组，毛利按下单成本。客户生日开关不改变访问范围。
+销售及提成周期接受`period=1m/3m/6m/12m/all/custom`，或省略period并同时提供`start_date`和`end_date`。滚动周期以北京时间当天为结束日，向前推1、3、6、12个月；目标月不存在对应日时取该月月末。自定义日期首尾均包含，底层查询用开始日00:00包含、结束日次日00:00不包含。日期须为`YYYY-MM-DD`，起始不得晚于结束。`all`不设置日期上下界。
 
-提成汇总使用当前正式批准金额及原计入日期；待重审列出旧批准与新计算值，不能两者相加。未首次计入按提交日期；差额清单按批准日期单独展示，无转账日期。采购成本修改可能更新历史销售毛利，但不改变销量、成交收入或发货日期。
+库存报表读取当前实时库存余额、成本、可售量、限制数量与原因，不接受销售日期筛选。筛选为`warehouse_id`、`sku_id`、`brand_id`及`low_stock=true/false`。
 
-GET `reports/{name}/export`返回.xlsx，与页面过滤及权限一致、导出全部匹配行，不含图片包。内部ID、SKU编号和条码为文本，金额3位、单位明确，用户文本不能被识别成公式；响应给出实际起止日期及查询时间。
+销售默认`scope=delivered`，按快递发货时间或现场交付时间筛选，排除已取消订单；`scope=unshipped`显式查看未交付订单，不并入已交付销售，也不适用交付日期周期。筛选可组合使用`sku_id`、`brand_id`、`warehouse_id`、`salesperson_id`、`customer_id`、`channel_id`、`province`和`city`。省市来自订单地址快照。各行按SKU、仓库、销售、客户、渠道、地区及售卖单位分组；不同单位不混加，订单行收入、下单成本和运费仅汇总一次，毛利按收入减下单成本和出库运费计算。
+
+收款核对表的Q07日期归属尚未确认，因此当前显示授权范围内的全部收款记录，不按日期筛选；非`period=all`、`start_date`或`end_date`会返回`date_filter_pending`。响应明确`date_filter_available=false`、`payment_date_basis_pending=true`。可按订单维度、核对`status`、`account_id`及`paused=true/false`筛选。金额列区分订单应收、登记收款与差额；`received_at`是可空的登记实际收款时间，不等同于首次登记凭证时间。图片只返回受控图片编号，图片内容仍走原单据权限接口。
+
+提成周期对尚未首次计入的订单按提交时间，对已首次计入订单按`first_earned_at`；重审后的当前批准金额仍归原首次计入日期。预估、待复核、已计入、待重审分别标示；待重审同时显示原批准金额和新估算，不能相加。普通重审及采购纠错差额按各自批准时间单独列示，并显示每条差额的线下处理完成状态；差额不重复加到正式提成总额。筛选除订单维度外可用`commission_status=estimate/pending_review/approved/needs_review`。所有提成查询还必须满足订单可见范围与提成专用权限：销售仅见本人；查看全部订单本身不授予查看他人提成的权限，查看全部提成也不扩大订单读取范围。
+
+GET `/reports/{name}/export`及GET `/api/v1/reports/{name}/export`返回.xlsx，忽略当前页并导出全部匹配行；所有过滤与聚合先应用账号权限，不导出凭证图片内容。内部ID、SKU编号、条码及用户文本按文本写入并防止公式执行；金额保留3位并作为数值，包括负数。Excel有效数字超过15位或文本超过单元格上限时明确拒绝导出，不生成被静默舍入或截断的文件；单工作表超过Excel行数上限时要求缩小筛选范围。工作簿含统计口径、实际起止日期（全部周期显示全部日期）和北京时间查询时间。收款核对表含Q07待确认说明，不伪造日期区间。
 
 2026-10-04 SKU规格补充Q05：可选说明文本按box_spec（箱规格）、inner_box_spec（盒规格，如18包/中盒）、pack_spec（包规格）依次返回；盒规格为空返回空字符串，与已有规格字段一致，不触发数量换算或成本计算。

@@ -7,10 +7,11 @@ from django.core.files.storage import default_storage
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
-from django.http import FileResponse, JsonResponse
+from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from django.urls import reverse
 from django.views.decorators.http import require_http_methods, require_POST, require_safe
 from PIL import Image, UnidentifiedImageError
 import warnings
@@ -93,6 +94,7 @@ from .sales import (
     update_birthday_preference,
     update_customer,
 )
+from .reports import REPORTS, build_report, page_report_data, workbook_bytes
 
 
 def home(request):
@@ -605,6 +607,121 @@ def _json_body_value(value, field):
     if not isinstance(data, dict):
         raise OperationError("映射字段须为JSON对象。", fields={field: "请输入对象。"})
     return data
+
+
+def _report_permission(request, report_name):
+    config = REPORTS.get(report_name)
+    if config is None:
+        raise Http404("报表不存在。")
+    _require_page_permission(request, config["permission"])
+
+
+def _report_download_response(report_name, data):
+    response = HttpResponse(
+        workbook_bytes(data),
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+    response["Content-Disposition"] = f'attachment; filename="{report_name}_{data["metadata"]["queried_at"][:10]}.xlsx"'
+    response["X-Report-Start-Date"] = data["metadata"].get("start_date") or ""
+    response["X-Report-End-Date"] = data["metadata"].get("end_date") or ""
+    response["X-Report-Queried-At"] = data["metadata"]["queried_at"]
+    return response
+
+
+@login_required
+@require_safe
+def report_page(request, report_name):
+    _report_permission(request, report_name)
+    error = ""
+    data = None
+    result = {}
+    try:
+        data = build_report(request.user, report_name, request.GET)
+        try:
+            result = page_report_data(request.GET, data, request.GET.get("page", 1))
+        except CatalogQueryError as exc:
+            error = str(exc)
+            fallback_query = request.GET.copy()
+            fallback_query.pop("page", None)
+            fallback_query.pop("page_size", None)
+            result = page_report_data(fallback_query, data, 1)
+    except OperationError as exc:
+        error = str(exc)
+    context = {
+        **result,
+        "report_name": report_name,
+        "report_title": REPORTS[report_name]["title"],
+        "export_url": f"{reverse('report-export', args=(report_name,))}?{request.GET.urlencode()}",
+        "error": error,
+        "prev_url": "",
+        "next_url": "",
+    }
+    if data is not None and result:
+        query = request.GET.copy()
+        if result["has_previous"]:
+            query["page"] = result["page"] - 1
+            context["prev_url"] = f"?{query.urlencode()}"
+        if result["has_next"]:
+            query["page"] = result["page"] + 1
+            context["next_url"] = f"?{query.urlencode()}"
+    return render(request, "crm/report.html", context)
+
+
+@login_required
+@require_safe
+def report_page_export(request, report_name):
+    _report_permission(request, report_name)
+    try:
+        return _report_download_response(report_name, build_report(request.user, report_name, request.GET))
+    except OperationError as exc:
+        return HttpResponse(str(exc), status=exc.status, content_type="text/plain; charset=utf-8")
+
+
+@require_safe
+def reports_api(request, report_name):
+    if report_name not in REPORTS:
+        return _api_error(request, 404, "not_found", "报表不存在。")
+    error = _require_api_access(request, (("crm", REPORTS[report_name]["permission"]),))
+    if error:
+        return error
+    try:
+        data = build_report(request.user, report_name, request.GET)
+        result = page_report_data(request.GET, data, request.GET.get("page", 1))
+        return JsonResponse({
+            "report": report_name,
+            "timezone": data["metadata"]["timezone"],
+            "period": data["metadata"].get("period"),
+            "start_date": data["metadata"].get("start_date"),
+            "end_date": data["metadata"].get("end_date"),
+            "period_label": data["metadata"]["period_label"],
+            "date_basis": data["metadata"]["date_basis"],
+            "date_filter_available": data["metadata"]["date_filter_available"],
+            "payment_date_basis_pending": data["metadata"]["payment_date_basis_pending"],
+            "queried_at": data["metadata"]["queried_at"],
+            "filter_summary": data["metadata"]["filter_summary"],
+            "summary": data["summary"],
+            "columns": [{"key": key, "label": label, "type": kind} for key, label, kind in data["columns"]],
+            **{key: result[key] for key in ("items", "total", "page", "page_size", "has_previous", "has_next")},
+        })
+    except (OperationError, CatalogQueryError) as exc:
+        if isinstance(exc, OperationError):
+            return _api_error(request, exc.status, exc.code, str(exc), exc.fields)
+        return _api_error(request, 400, "invalid_pagination", str(exc), {"page": str(exc)})
+
+
+@require_safe
+def reports_export_api(request, report_name):
+    if report_name not in REPORTS:
+        return _api_error(request, 404, "not_found", "报表不存在。")
+    error = _require_api_access(request, (("crm", REPORTS[report_name]["permission"]),))
+    if error:
+        return error
+    try:
+        return _report_download_response(report_name, build_report(request.user, report_name, request.GET))
+    except OperationError as exc:
+        return _api_error(request, exc.status, exc.code, str(exc), exc.fields)
+    except CatalogQueryError as exc:
+        return _api_error(request, 400, "invalid_filter", str(exc))
 
 
 @login_required

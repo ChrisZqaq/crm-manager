@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ report_title }} · CRM</title>
+  <style>
+    body { font-family: sans-serif; margin: 1.5rem; color: #202124; }
+    nav, form, .summary { margin: 1rem 0; }
+    label { display: inline-block; margin: .35rem .6rem .35rem 0; }
+    table { border-collapse: collapse; width: 100%; margin-top: 1rem; }
+    th, td { border: 1px solid #c8c8c8; padding: .4rem .55rem; text-align: left; vertical-align: top; }
+    th { background: #f3f4f6; position: sticky; top: 0; }
+    .table-wrap { overflow-x: auto; }
+    .notice { padding: .7rem; background: #fff5d6; border: 1px solid #e5c86a; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>{{ report_title }}</h1>
+    <p>{{ request.user.get_username }}</p>
+    <nav>
+      {% if perms.crm.view_inventorybalance or request.user.is_superuser %}<a href="{% url 'report-page' 'inventory' %}">库存</a> · {% endif %}
+      {% if perms.crm.view_salesorder or request.user.is_superuser %}
+        <a href="{% url 'report-page' 'sales' %}">销售</a> ·
+        <a href="{% url 'report-page' 'payments' %}">收款核对</a> ·
+        <a href="{% url 'report-page' 'commissions' %}">提成</a> ·
+      {% endif %}
+      <a href="{% url 'orders' %}">订单</a>
+    </nav>
+  </header>
+
+  {% if error %}<p role="alert">{{ error }}</p>{% endif %}
+  {% if report_name == "payments" %}
+    <p class="notice" role="status">时间口径问题Q07待确认。当前展示有权限查看的全部收款记录，不按日期筛选；登记的实际收款时间是可空字段，不能代表首次登记凭证时间。</p>
+  {% endif %}
+  {% if report_name == "inventory" %}
+    <p>这是当前库存余额，不按销售日期筛选；限制原因区分订单占用、客户预留、囤货和破损。</p>
+  {% endif %}
+
+  <form method="get">
+    {% if report_name == "sales" %}
+      <label>查询范围
+        <select name="scope">
+          <option value="delivered" {% if request.GET.scope != "unshipped" %}selected{% endif %}>已交付销售</option>
+          <option value="unshipped" {% if request.GET.scope == "unshipped" %}selected{% endif %}>未交付订单（单独查看）</option>
+        </select>
+      </label>
+    {% endif %}
+    {% if report_name != "inventory" and report_name != "payments" %}
+      <label>周期
+        <select name="period">
+          <option value="all" {% if request.GET.period == "all" or not request.GET.period %}selected{% endif %}>全部</option>
+          <option value="1m" {% if request.GET.period == "1m" %}selected{% endif %}>近1个月</option>
+          <option value="3m" {% if request.GET.period == "3m" %}selected{% endif %}>近3个月</option>
+          <option value="6m" {% if request.GET.period == "6m" %}selected{% endif %}>近6个月</option>
+          <option value="12m" {% if request.GET.period == "12m" %}selected{% endif %}>近12个月</option>
+          <option value="custom" {% if request.GET.period == "custom" %}selected{% endif %}>自定义</option>
+        </select>
+      </label>
+      <label>开始日期 <input type="date" name="start_date" value="{{ request.GET.start_date }}"></label>
+      <label>结束日期 <input type="date" name="end_date" value="{{ request.GET.end_date }}"></label>
+    {% endif %}
+    {% if filter_options.brands %}
+      <label>IP
+        <select name="brand_id"><option value="">全部</option>{% for option in filter_options.brands %}<option value="{{ option.id }}" {% if request.GET.brand_id == option.id %}selected{% endif %}>{{ option.label }}</option>{% endfor %}</select>
+      </label>
+    {% endif %}
+    {% if filter_options.skus %}
+      <label>SKU
+        <select name="sku_id"><option value="">全部</option>{% for option in filter_options.skus %}<option value="{{ option.id }}" {% if request.GET.sku_id == option.id %}selected{% endif %}>{{ option.label }}</option>{% endfor %}</select>
+      </label>
+    {% endif %}
+    {% if filter_options.warehouses %}
+      <label>仓库
+        <select name="warehouse_id"><option value="">全部</option>{% for option in filter_options.warehouses %}<option value="{{ option.id }}" {% if request.GET.warehouse_id == option.id %}selected{% endif %}>{{ option.label }}</option>{% endfor %}</select>
+      </label>
+    {% endif %}
+    {% if filter_options.salespeople %}
+      <label>销售
+        <select name="salesperson_id"><option value="">全部</option>{% for option in filter_options.salespeople %}<option value="{{ option.id }}" {% if request.GET.salesperson_id == option.id %}selected{% endif %}>{{ option.label }}</option>{% endfor %}</select>
+      </label>
+    {% endif %}
+    {% if filter_options.customers %}
+      <label>客户
+        <select name="customer_id"><option value="">全部</option>{% for option in filter_options.customers %}<option value="{{ option.id }}" {% if request.GET.customer_id == option.id %}selected{% endif %}>{{ option.label }}</option>{% endfor %}</select>
+      </label>
+    {% endif %}
+    {% if filter_options.channels %}
+      <label>渠道
+        <select name="channel_id"><option value="">全部</option>{% for option in filter_options.channels %}<option value="{{ option.id }}" {% if request.GET.channel_id == option.id %}selected{% endif %}>{{ option.label }}</option>{% endfor %}</select>
+      </label>
+    {% endif %}
+    {% if filter_options.provinces %}
+      <label>收货省份 <input name="province" list="province-options" value="{{ request.GET.province }}"><datalist id="province-options">{% for value in filter_options.provinces %}<option value="{{ value }}">{% endfor %}</datalist></label>
+    {% endif %}
+    {% if filter_options.cities %}
+      <label>收货城市 <input name="city" list="city-options" value="{{ request.GET.city }}"><datalist id="city-options">{% for value in filter_options.cities %}<option value="{{ value }}">{% endfor %}</datalist></label>
+    {% endif %}
+    {% if report_name == "payments" %}
+      <label>核对状态
+        <select name="status"><option value="">全部</option><option value="pending" {% if request.GET.status == "pending" %}selected{% endif %}>待核对</option><option value="problem" {% if request.GET.status == "problem" %}selected{% endif %}>待处理</option><option value="passed" {% if request.GET.status == "passed" %}selected{% endif %}>核对通过</option></select>
+      </label>
+      {% if filter_options.accounts %}<label>收款账户<select name="account_id"><option value="">全部</option>{% for option in filter_options.accounts %}<option value="{{ option.id }}" {% if request.GET.account_id == option.id %}selected{% endif %}>{{ option.label }}</option>{% endfor %}</select></label>{% endif %}
+      <label>暂停状态<select name="paused"><option value="">全部</option><option value="true" {% if request.GET.paused == "true" %}selected{% endif %}>暂停</option><option value="false" {% if request.GET.paused == "false" %}selected{% endif %}>未暂停</option></select></label>
+    {% endif %}
+    {% if report_name == "commissions" %}
+      <label>提成状态
+        <select name="commission_status"><option value="">全部</option><option value="estimate" {% if request.GET.commission_status == "estimate" %}selected{% endif %}>预估</option><option value="pending_review" {% if request.GET.commission_status == "pending_review" %}selected{% endif %}>待复核</option><option value="approved" {% if request.GET.commission_status == "approved" %}selected{% endif %}>已计入</option><option value="needs_review" {% if request.GET.commission_status == "needs_review" %}selected{% endif %}>待重审</option></select>
+      </label>
+    {% endif %}
+    {% if report_name == "inventory" %}
+      <label>低库存<select name="low_stock"><option value="">全部</option><option value="true" {% if request.GET.low_stock == "true" %}selected{% endif %}>仅低库存</option><option value="false" {% if request.GET.low_stock == "false" %}selected{% endif %}>排除低库存</option></select></label>
+    {% endif %}
+    <label>每页行数 <input type="number" name="page_size" min="1" max="200" value="{{ request.GET.page_size|default:'50' }}"></label>
+    <button type="submit">筛选</button>
+    <a href="{{ export_url }}">导出全部筛选结果（.xlsx）</a>
+  </form>
+
+  {% if metadata %}
+    <p>统计范围：{{ metadata.period_label }}；统计口径：{{ metadata.date_basis }}；查询时间：{{ metadata.queried_at }}</p>
+  {% endif %}
+  {% if report_name == "sales" and summary.totals %}
+    <p class="summary">数量（分单位）：{% for item in summary.quantity_by_unit %}{{ item.unit }} {{ item.quantity }}{% if not forloop.last %}；{% endif %}{% empty %}无{% endfor %}；金额：{{ summary.totals.revenue_amount }}；下单成本：{{ summary.totals.cost_amount }}；出库运费：{{ summary.totals.freight_amount }}；毛利：{{ summary.totals.margin_amount }}。</p>
+  {% endif %}
+  {% if report_name == "commissions" and summary.adjustment_delta_not_added %}
+    <p class="summary">提成调整差额合计：{{ summary.adjustment_delta_not_added }}（独立展示，不加到正式提成金额）。</p>
+  {% endif %}
+  {% if total != None %}<p>匹配 {{ total }} 行；第 {{ page }} 页，每页 {{ page_size }} 行。</p>{% endif %}
+  <div class="table-wrap">
+    <table>
+      <thead><tr>{% for column in columns %}<th>{{ column.1 }}</th>{% endfor %}</tr></thead>
+      <tbody>
+        {% for row in table_rows %}<tr>{% for value in row %}<td>{% if value == "" or value == None %}—{% else %}{{ value }}{% endif %}</td>{% endfor %}</tr>
+        {% empty %}<tr><td colspan="20">没有匹配的记录。</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <nav aria-label="报表分页">{% if prev_url %}<a href="{{ prev_url }}">上一页</a>{% endif %} {% if next_url %}<a href="{{ next_url }}">下一页</a>{% endif %}</nav>
+</body>
+</html>

@@ -5,7 +5,7 @@
   <header>
     <h1>库存与成本</h1>
     <span>{{ request.user.get_username }}</span>
-    <nav><a href="{% url 'catalog-search' %}">商品</a> · <a href="{% url 'holds' %}">限制记录</a> · <a href="{% url 'adjustments' %}">库存调整与纠错</a> · <a href="{% url 'receiving' %}">采购入库</a> · <a href="{% url 'opening' %}">期初盘点</a> · <a href="{% url 'admin:index' %}">管理后台</a></nav>
+    <nav><a href="{% url 'catalog-search' %}">商品</a> · <a href="{% url 'report-page' 'inventory' %}">库存报表</a> · <a href="{% url 'holds' %}">限制记录</a> · <a href="{% url 'adjustments' %}">库存调整与纠错</a> · <a href="{% url 'receiving' %}">采购入库</a> · <a href="{% url 'opening' %}">期初盘点</a> · <a href="{% url 'admin:index' %}">管理后台</a></nav>
     <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button type="submit">退出登录</button></form>
   </header>
 
