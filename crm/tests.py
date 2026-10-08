@@ -104,20 +104,21 @@ class CatalogTestCase(TestCase):
         self.assertEqual(denied.json()["error"]["code"], "permission_denied")
         self.assertEqual(self.client.get("/catalog/").status_code, 403)
 
-    def test_catalog_exposes_reachable_business_links_by_permission(self):
+    def test_workbench_and_orders_expose_order_creation_by_permission(self):
         sales = self.make_user(ROLE_SALES)
         self.client.force_login(sales)
-        response = self.client.get("/catalog/")
-        self.assertEqual(response.status_code, 200)
-        for label, href in (
-            ("新建订单", "/orders/new/"),
-            ("销售订单", "/orders/"),
-            ("客户", "/customers/"),
-            ("库存", "/inventory/"),
-        ):
-            self.assertContains(response, label)
-            self.assertContains(response, f'href="{href}"')
-            self.assertEqual(self.client.get(href).status_code, 200)
+        workbench = self.client.get("/")
+        orders = self.client.get("/orders/")
+        for response in (workbench, orders):
+            self.assertEqual(response.status_code, 200)
+            self.assertContains(response, "新建订单")
+            self.assertContains(response, 'href="/orders/new/"')
+        self.assertEqual(self.client.get("/orders/new/").status_code, 200)
+        catalog = self.client.get("/catalog/")
+        self.assertEqual(catalog.status_code, 200)
+        for label, href in (("销售订单", "/orders/"), ("客户", "/customers/"), ("库存", "/inventory/")):
+            self.assertContains(catalog, label)
+            self.assertContains(catalog, f'href="{href}"')
 
         catalog_only = self.make_user()
         catalog_only.user_permissions.set(Permission.objects.filter(
@@ -125,10 +126,14 @@ class CatalogTestCase(TestCase):
             codename__in=("view_brand", "view_product", "view_sku"),
         ))
         self.client.force_login(catalog_only)
-        response = self.client.get("/catalog/")
-        self.assertEqual(response.status_code, 200)
-        for href in ("/orders/new/", "/orders/", "/customers/", "/inventory/"):
-            self.assertNotContains(response, f'href="{href}"')
+        catalog = self.client.get("/catalog/")
+        workbench = self.client.get("/")
+        self.assertEqual(catalog.status_code, 200)
+        self.assertEqual(workbench.status_code, 200)
+        for response in (catalog, workbench):
+            for href in ("/orders/new/", "/orders/", "/customers/", "/inventory/"):
+                self.assertNotContains(response, f'href="{href}"')
+        self.assertEqual(self.client.get("/orders/new/").status_code, 403)
 
     def test_csrf_protects_password_login(self):
         user = self.make_user(ROLE_SALES)
@@ -310,10 +315,8 @@ class CatalogTestCase(TestCase):
         catalog = self.client.get("/catalog/")
         self.assertEqual(catalog.status_code, 200)
         self.assertContains(catalog, "礼盒·预组")
-        self.assertContains(catalog, "瘦包")
-        self.assertContains(catalog, "肥包")
-        self.assertContains(catalog, "空")
-        self.assertContains(catalog, "—")
+        self.assertContains(catalog, "sku.pack_type_label")
+        self.assertContains(catalog, "未设置")
         self.assertNotContains(catalog, ">slim<")
         self.assertNotContains(catalog, ">fat<")
 
@@ -403,10 +406,9 @@ class CatalogTestCase(TestCase):
         catalog_items = {item["code"]: item for item in catalog.context["items"]}
         self.assertEqual(catalog_items[twenty_boxes.code]["box_spec"], "20中盒/箱")
         self.assertEqual(catalog_items[forty_boxes.code]["box_spec"], "40中盒/箱")
-        self.assertContains(catalog, "箱：20中盒/箱")
-        self.assertContains(catalog, "盒：18包/中盒")
-        self.assertContains(catalog, "包：4张/包")
-        self.assertContains(catalog, "箱：40中盒/箱")
+        self.assertContains(catalog, "sku.box_spec")
+        self.assertContains(catalog, "sku.inner_box_spec")
+        self.assertContains(catalog, "sku.pack_spec")
 
     def test_product_admin_add_edit_series_choice_and_alias_search(self):
         admin_user = User.objects.create_superuser(

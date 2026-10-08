@@ -73,6 +73,7 @@
       <label>收货城市 <input name="city" list="city-options" value="{{ request.GET.city }}"><datalist id="city-options">{% for value in filter_options.cities %}<option value="{{ value }}">{% endfor %}</datalist></label>
     {% endif %}
     {% if report_name == "payments" %}
+      <label>搜索订单编号、客户名称<input type="search" name="q" value="{{ request.GET.q }}" maxlength="120"></label>
       <label>核对状态
         <select name="status"><option value="">全部</option><option value="pending" {% if request.GET.status == "pending" %}selected{% endif %}>待核对</option><option value="problem" {% if request.GET.status == "problem" %}selected{% endif %}>待处理</option><option value="passed" {% if request.GET.status == "passed" %}selected{% endif %}>核对通过</option></select>
       </label>
@@ -103,15 +104,15 @@
   {% endif %}
   {% if total != None %}<p>匹配 {{ total }} 行；第 {{ page }} 页，每页 {{ page_size }} 行。</p>{% endif %}
   {% if report_name == "payments" %}<div class="split-layout payment-split">
-    <section class="data-card"><div class="table-wrap"><table>
+    <section class="data-card"><div class="table-scroll"><table>
       <thead><tr>{% for column in columns %}<th>{{ column.1 }}</th>{% endfor %}</tr></thead>
-      <tbody>{% for row in table_rows %}<tr data-payment-row="{{ row.0 }}" data-difference="{{ row.10 }}" data-evidence-date="{{ row.15 }}">{% for value in row %}<td>{% if forloop.first %}<button class="link-button" type="button" data-payment-order="{{ value }}">{{ value }}</button>{% elif value == "" or value == None %}—{% else %}{{ value }}{% endif %}</td>{% endfor %}</tr>{% empty %}<tr><td colspan="20" class="empty-state">没有匹配的收款记录。</td></tr>{% endfor %}</tbody>
+      <tbody>{% for row in table_rows %}<tr data-payment-row="{{ row.0 }}" data-difference="{{ row.11 }}" data-evidence-date="{{ row.16 }}">{% for value in row %}<td>{% if forloop.first %}<button class="link-button" type="button" data-payment-order="{{ value }}">{{ value }}</button>{% elif value == "" or value == None %}—{% else %}{{ value }}{% endif %}</td>{% endfor %}</tr>{% empty %}<tr><td colspan="{{ columns|length|default:1 }}" class="empty-state">没有匹配的收款记录。</td></tr>{% endfor %}</tbody>
     </table></div><nav class="pagination" aria-label="收款核对分页">{% if prev_url %}<a class="button-link" href="{{ prev_url }}">上一页</a>{% endif %} {% if next_url %}<a class="button-link" href="{{ next_url }}">下一页</a>{% endif %}</nav></section>
     <aside class="data-card detail-panel is-mobile-hidden" id="payment-detail" aria-labelledby="payment-detail-title"><div class="card-head detail-toolbar"><h2 id="payment-detail-title">收款详情</h2><button type="button" class="mobile-only" data-close-payment>返回列表</button></div><div class="card-body" id="payment-detail-body"><p class="empty-state">选择订单查看收款资料和核对操作。</p></div></aside>
   </div>
   {% else %}<div class="data-card"><div class="table-wrap"><table>
     <thead><tr>{% for column in columns %}<th>{{ column.1 }}</th>{% endfor %}</tr></thead>
-    <tbody>{% for row in table_rows %}<tr>{% for value in row %}<td>{% if value == "" or value == None %}—{% else %}{{ value }}{% endif %}</td>{% endfor %}</tr>{% empty %}<tr><td colspan="20" class="empty-state">没有匹配的记录。</td></tr>{% endfor %}</tbody>
+    <tbody>{% for row in table_rows %}<tr>{% for value in row %}<td>{% if value == "" or value == None %}—{% else %}{{ value }}{% endif %}</td>{% endfor %}</tr>{% empty %}<tr><td colspan="{{ columns|length|default:1 }}" class="empty-state">没有匹配的记录。</td></tr>{% endfor %}</tbody>
   </table></div><nav class="pagination" aria-label="报表分页">{% if prev_url %}<a class="button-link" href="{{ prev_url }}">上一页</a>{% endif %} {% if next_url %}<a class="button-link" href="{{ next_url }}">下一页</a>{% endif %}</nav></div>{% endif %}
 </div>
 {% if report_name == "payments" %}

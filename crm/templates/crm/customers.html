@@ -6,6 +6,7 @@
 <section class="page-heading"><div><h1>客户</h1><p>{% if perms.crm.view_all_customers or request.user.is_superuser %}全部可见客户{% else %}我的客户{% endif %}</p></div>{% if perms.crm.add_customer or request.user.is_superuser %}<a class="button-primary" href="{% url 'customer-new' %}">新建客户</a>{% endif %}</section>
 <form class="data-card filter-bar" id="customer-filters" role="search">
   <div class="filter-field filter-search"><label for="customer-query">客户姓名、公司或联系方式</label><input id="customer-query" type="search" maxlength="120" autocomplete="off"></div>
+  {% if perms.crm.view_all_customers or request.user.is_superuser %}<div class="filter-field"><label for="customer-owner">客户负责人</label><select id="customer-owner" name="owner_id"><option value="">全部</option></select></div>{% endif %}
   <label class="filter-check"><input id="include-archived" type="checkbox"> 包含已归档</label>
   <button class="button-primary" type="submit">查询</button><a class="button-link" href="{% url 'customers' %}">重置</a>
   <label class="filter-check" id="birthday-setting"><input id="birthday-enabled" type="checkbox" checked> 显示今天生日提醒</label>
@@ -22,16 +23,27 @@
 (() => {
   const csrf=()=>document.cookie.split('; ').find(value=>value.startsWith('csrftoken='))?.split('=')[1]||'';
   async function api(url,method='GET',body){const response=await fetch(url,{method,credentials:'same-origin',headers:body?{'Content-Type':'application/json','X-CSRFToken':csrf()}: {},body:body?JSON.stringify(body):undefined}),data=await response.json();if(!response.ok){const error=new Error(data.error?.message||'请求失败。');error.status=response.status;throw error;}return data;}
-  const form=document.getElementById('customer-filters'),body=document.getElementById('customers'),message=document.getElementById('customer-status'),query=document.getElementById('customer-query'),archived=document.getElementById('include-archived'),reminder=document.getElementById('birthday-enabled'),birthdayLink=document.getElementById('birthday-link');
+  const form=document.getElementById('customer-filters'),body=document.getElementById('customers'),message=document.getElementById('customer-status'),query=document.getElementById('customer-query'),archived=document.getElementById('include-archived'),owner=document.getElementById('customer-owner'),reminder=document.getElementById('birthday-enabled'),birthdayLink=document.getElementById('birthday-link');
   const initial=new URLSearchParams(location.search);query.value=initial.get('q')||'';archived.checked=initial.get('include_archived')==='true';
+  let ownerId=initial.get('owner_id')||'',ownerOptionsLoaded=false;
   let page=Number(initial.get('page')||1),pageCount=1,canArchive={{ perms.crm.archive_customer|yesno:'true,false' }}||{{ request.user.is_superuser|yesno:'true,false' }},canEditCustomer={{ perms.crm.change_customer|yesno:'true,false' }}||{{ request.user.is_superuser|yesno:'true,false' }};
   const esc=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
   function empty(messageText){const row=document.createElement('tr'),cell=document.createElement('td');cell.colSpan=7;cell.className='empty-state';cell.textContent=messageText;row.append(cell);body.replaceChildren(row);}
   async function load(){
     message.textContent='';
     const params=new URLSearchParams({page:String(page),page_size:'50',include_archived:String(archived.checked),q:query.value.trim()});
+    if(owner){if(owner.value||ownerOptionsLoaded)ownerId=owner.value;if(ownerId)params.set('owner_id',ownerId);}
     try{
       const data=await api(`/api/v1/customers?${params}`);
+      if(owner){
+        const selected=ownerId,options=data.filter_options?.salespeople||[];
+        owner.replaceChildren(new Option('全部',''));
+        for(const option of options)owner.add(new Option(option.label,String(option.id)));
+        if(selected&&!options.some(option=>String(option.id)===selected))owner.add(new Option('当前筛选（无可见客户）',selected));
+        owner.value=selected;
+        ownerId=owner.value;
+        ownerOptionsLoaded=true;
+      }
       if(data.items.length){body.innerHTML=data.items.map(item=>`<tr><td><button type="button" class="link-button" data-customer="${item.id}">${esc(item.name)}</button>${item.birthday_today?' <span class="status-pill status-pill--info">生日</span>':''}</td><td>${esc(item.contact)}</td><td>${esc(item.company||'—')}</td><td>${esc(item.birthday||'—')}</td><td>${esc(item.owner_name)}</td><td>${item.is_active?'正常':'已归档'}</td><td>${canEditCustomer?`<a href="/customers/${item.id}/edit/">编辑</a>`:''} ${item.is_active&&canArchive?`<button type="button" data-archive="${item.id}" data-version="${item.version}">归档</button>`:''}</td></tr>`).join('');}
       else empty('没有匹配的客户。');
       pageCount=Math.max(1,Math.ceil(data.total/data.page_size));document.getElementById('customer-page').textContent=`共${data.total}位 · ${data.page}/${pageCount}`;document.getElementById('customer-previous').disabled=data.page<=1;document.getElementById('customer-next').disabled=data.page>=pageCount;
@@ -59,6 +71,7 @@
   }
   form.addEventListener('submit',event=>{event.preventDefault();page=1;load();});
   archived.addEventListener('change',()=>{page=1;load();});
+  if(owner)owner.addEventListener('change',()=>{ownerId=owner.value;page=1;load();});
   body.addEventListener('click',async event=>{
     const detailButton=event.target.closest('[data-customer]');if(detailButton){await showCustomer(detailButton.dataset.customer);return;}
     const button=event.target.closest('[data-archive]');if(!button)return;

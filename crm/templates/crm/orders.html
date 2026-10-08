@@ -7,8 +7,8 @@
 <form class="data-card filter-bar" id="order-filters" role="search">
   <div class="filter-field filter-search"><label for="order-query">订单编号、客户、渠道或销售</label><input id="order-query" name="q" type="search" value="{{ request.GET.q }}" maxlength="120"></div>
   <div class="filter-field"><label for="order-status">履约状态</label><select id="order-status" name="status"><option value="">全部</option>{% for value,label in status_options %}<option value="{{ value }}" {% if request.GET.status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
-  <div class="filter-field"><label for="order-salesperson">销售ID</label><input id="order-salesperson" name="salesperson_id" type="number" min="1" step="1" inputmode="numeric" value="{{ request.GET.salesperson_id }}"></div>
-  <div class="filter-field"><label for="order-warehouse">仓库ID</label><input id="order-warehouse" name="warehouse_id" type="number" min="1" step="1" inputmode="numeric" value="{{ request.GET.warehouse_id }}"></div>
+  <div class="filter-field"><label for="order-salesperson">销售</label><select id="order-salesperson" name="salesperson_id" data-filter-options="salespeople"><option value="">全部</option></select></div>
+  <div class="filter-field"><label for="order-warehouse">出货仓</label><select id="order-warehouse" name="warehouse_id" data-filter-options="warehouses"><option value="">全部</option></select></div>
   <div class="filter-field"><label for="order-start">下单日期起</label><input id="order-start" name="start_date" type="date" value="{{ request.GET.start_date }}"></div>
   <div class="filter-field"><label for="order-end">下单日期止</label><input id="order-end" name="end_date" type="date" value="{{ request.GET.end_date }}"></div>
   <div class="filter-field"><label for="order-verification">收款核对</label><select id="order-verification" name="verification_status"><option value="">全部</option><option value="pending" {% if request.GET.verification_status == 'pending' %}selected{% endif %}>待核对</option><option value="problem" {% if request.GET.verification_status == 'problem' %}selected{% endif %}>待处理</option><option value="passed" {% if request.GET.verification_status == 'passed' %}selected{% endif %}>核对通过</option></select></div>
@@ -21,6 +21,16 @@
 (() => {
   const form=document.getElementById('order-filters'), body=document.getElementById('orders'), message=document.getElementById('order-status-message');
   const controls=[...form.querySelectorAll('input,select')];
+  const initial=new URLSearchParams(location.search);
+  for(const control of controls)if(control.name&&initial.has(control.name)){if(control.dataset.filterOptions)control.dataset.requestedValue=initial.get(control.name);else control.value=initial.get(control.name);}
+  function setOptions(select,options){
+    const selected=select.dataset.requestedValue??select.value;
+    select.replaceChildren(new Option('全部',''));
+    for(const item of options||[])select.add(new Option(item.label,String(item.id)));
+    if(selected&&!options?.some(item=>String(item.id)===selected))select.add(new Option('当前筛选',selected));
+    select.value=selected;
+    delete select.dataset.requestedValue;
+  }
   const rowsFor=(data)=>{
     body.replaceChildren();
     if(!data.items.length){const row=document.createElement('tr'),cell=document.createElement('td');cell.colSpan=8;cell.className='empty-state';cell.textContent='没有匹配的订单。';row.append(cell);body.append(row);return;}
@@ -38,6 +48,7 @@
     try{
       const response=await fetch(`/api/v1/orders?${params}`,{credentials:'same-origin'}), data=await response.json();
       if(!response.ok)throw new Error(data.error?.message||'订单加载失败。');
+      for(const select of form.querySelectorAll('[data-filter-options]'))setOptions(select,data.filter_options?.[select.dataset.filterOptions]);
       rowsFor(data);pageCount=Math.max(1,Math.ceil(data.total/data.page_size));document.getElementById('order-page').textContent=`共${data.total}单 · ${data.page}/${pageCount}`;
       document.getElementById('order-previous').disabled=data.page<=1;document.getElementById('order-next').disabled=data.page>=pageCount;
       const url=new URL(location.href);url.search=params.toString();history.replaceState(null,'',url);
