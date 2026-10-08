@@ -72,7 +72,7 @@
 | POST `/api/v1/customers/{id}/archive`、`/transfer` | 归档传版本及操作标识；转交仅老板／管理员，另传新`owner_id`，不改订单销售人或历史地址快照。 |
 | GET／PATCH `/api/v1/me/preferences` | 读取或修改本人生日提醒开关；PATCH传版本及操作标识。 |
 | GET `/api/v1/birthdays` | 返回北京时间当天、当前用户可查看且未归档客户的生日；关闭个人提醒时返回空列表。 |
-| GET `/api/v1/orders` | 支持`q`、`status`和标准分页；销售默认只见本人订单，获`view_all_sales_orders`者可查看全部；仓管默认见全部订单。`status`保留原状态枚举，另返回由模型`get_status_display()`生成的`status_label`；支持全部五种现有状态筛选。 |
+| GET `/api/v1/orders` | 支持`q`、`status`和标准分页，2026-10-08增量增加精确客户/仓库/销售/核对状态及下单日期筛选（完整参数见文末）；销售默认只见本人订单，获`view_all_sales_orders`者可查看全部；仓管默认见全部订单。`status`保留原状态枚举，另返回由模型`get_status_display()`生成的`status_label`；支持全部五种现有状态筛选。 |
 | POST `/api/v1/orders/preview`、POST `/api/v1/orders` | 先提交订单输入获取短时签名预览，再以`preview_token`和`operation_key`确认并占货。现场散客可不关联客户或收货地址；快递须有完整收件快照。 |
 | GET `/api/v1/orders/{id}` | 返回授权范围内订单、活动明细、成交／订单成本／毛利、付款核对状态及物流供货仓；`status`保留原枚举并返回模型生成的`status_label`。提成预估、正式批准及差额状态仅向本人销售、`view_all_commissions`或管理员提供；不符合条件时从JSON完全省略对应字段。图片仍使用受控image_id读取。 |
 | POST `/api/v1/orders/{id}/amend/preview`、POST `/api/v1/orders/{id}/amend` | 预览完整新明细并校验版本；确认使用签名token及操作标识。删行保留为不活动历史行，新行分配新行ID。修改他人订单时，预览的`commission_estimate`仍按提成查看权限控制。 |
@@ -135,7 +135,7 @@ GET `/reports/{name}/export`及GET `/api/v1/reports/{name}/export`返回.xlsx，
 
 ## UI最小查询依赖增量（2026-10-08，实施中）
 
-static-v3六页已获用户批准；以下是精确查询/获批筛选的接入，不新增业务数据模型。当前派发UI-QUERY-1，待固定版本及独立验证后更新实现状态。
+static-v3六页已获用户批准；以下是精确查询/获批筛选的接入，不新增业务数据模型。UI-QUERY-1已在223fbbc实现并通过服务端独立验证及负责人审查；前端接入与最终六页集成仍待验证。
 
 - GET `/api/v1/orders` 保留q、status和既有分页，增加 `customer_id`、`warehouse_id`、`salesperson_id`、`verification_status`；各筛选可组合，先应用原订单可见范围和全部筛选，再计total与分页。
 - q扩展到现有页面展示的订单编号/ID，不新增订单编号规则；保留原文本搜索字段。
@@ -145,7 +145,7 @@ static-v3六页已获用户批准；以下是精确查询/获批筛选的接入�
 - 2026-10-08用户明确接受：订单日期筛选按下单日期，工作台所有登录人员可进入且各数据块遵循现有权限，不增加工作台权限开关；据此解除日期/首页依赖阻断，销售报表原发货/现场交付口径保持不变。
 
 
-### UI依赖确认补充（2026-10-08）
+### UI依赖确认补充
 
 - GET orders的 `start_date/end_date` 使用现有自定义日期规则（同时提供、YYYY-MM-DD、首尾北京时间日期均包含、开始不晚于结束），过滤正式下单时点，不使用人工单据日/发货日/更新时间；API及页面标明下单日期。日期过滤和其他过滤均在分页前。
 - `/` 复用现有home渲染独立工作台模板，仅要求登录；无单独工作台权限/模型。按各数据源现有读取权限和本人/全部范围产生数据与入口，无权数据块不渲染，不先读数据再藏DOM；全部无相关业务读取权限的用户仍能看到无敏感数据的页面壳。
