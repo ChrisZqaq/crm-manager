@@ -39,6 +39,15 @@
 
 未决：工作台准入/区块权限表现、订单列表日期含义、“客户待跟进”是否只是示意、是否批准增加服务端销售日序列。已向前端回报现有接口和限制；未改应用/API/配置，未运行应用测试。等待负责人安排前后端停写交接后再编码。
 
+## UI-DATE-OVERFLOW｜日期边界修复与自测
+
+依据：负责人完成 QA 后的 UI-DATE-OVERFLOW 派发；本轮后端重新取得唯一应用写入权。只改共享日期边界、回归测试和本工作记录。
+
+- `_date_criteria` 计算 `end_day + 1` 时捕获 `OverflowError`，转为现有 `OperationError`（HTTP 400、`invalid_input`），错误归属 `fields.end_date`。订单列表和报表共用此校验；未改端点异常处理、日期截断、业务口径或 API 成功响应结构。
+- 回归覆盖：订单列表 `9999-12-31` 返回 400；共享日期函数把最大日期映射为 `end_date` 错误；销售报表最大日期返回 400；闰年 2024 全年 `series=day` 返回 366 点。
+- 定向自测4项通过（订单日期API、日期准则类2项、销售报表API/序列），Django system check 无问题。使用 Python 3.12 专用环境 `/Users/chrisz/.cache/aluola-crm-date-overflow-20261008-venv` 和独立 PostgreSQL 测试库 `test_aluola_crm_date_overflow_20261008`；测试运行器已销毁新建测试库，未使用或删除 `test_aluola_crm_dev` 或演示库。
+- 不需要数据库迁移。修复提交后将完整证据交负责人和 QA；不推送，并停止应用写入，待后续派发。
+
 ## UI-QUERY-1｜实现与自测
 
 依据：负责人固定起点`4acccd79bd0825afc9f8211c68f15a3bba31184e`及最新UI/API增量。前端已在`4e4890e08a6a5c5b7ffa756f598e94d35a6dbc54`停写；本轮后端为唯一应用写入者。负责人另行维护的公共契约/计划/问题文档保持未暂存，不纳入代码提交。

@@ -1237,6 +1237,12 @@ class OrderListFilterTests(Phase4Base):
         })
         self.assertEqual(reversed_dates.status_code, 400)
         self.assertIn("start_date", reversed_dates.json()["error"]["fields"])
+        overflow_date = client.get("/api/v1/orders", {
+            "start_date": "9999-12-31",
+            "end_date": "9999-12-31",
+        })
+        self.assertEqual(overflow_date.status_code, 400)
+        self.assertIn("end_date", overflow_date.json()["error"]["fields"])
 
     def test_order_number_salesperson_and_payment_status_filters(self):
         pending = self.new_order()

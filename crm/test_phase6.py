@@ -46,6 +46,9 @@ class ReportDateCriteriaTests(SimpleTestCase):
             _date_criteria({"period": "custom", "start_date": "2026-03-02", "end_date": "2026-03-01"})
         with self.assertRaises(OperationError):
             _date_criteria({"period": "custom", "start_date": "2026-02-30", "end_date": "2026-03-01"})
+        with self.assertRaises(OperationError) as overflow:
+            _date_criteria({"period": "custom", "start_date": "9999-12-31", "end_date": "9999-12-31"})
+        self.assertIn("end_date", overflow.exception.fields)
 
 
 class ReportPhase6Tests(Phase4Base):
@@ -127,6 +130,21 @@ class ReportPhase6Tests(Phase4Base):
         series_response = self.client.get("/api/v1/reports/sales", daily_query)
         self.assertEqual(series_response.status_code, 200, series_response.content)
         self.assertEqual(series_response.json()["series"], daily["series"])
+        leap_year_series = self.client.get("/api/v1/reports/sales", {
+            "period": "custom",
+            "start_date": "2024-01-01",
+            "end_date": "2024-12-31",
+            "series": "day",
+        })
+        self.assertEqual(leap_year_series.status_code, 200, leap_year_series.content)
+        self.assertEqual(len(leap_year_series.json()["series"]), 366)
+        overflow_date = self.client.get("/api/v1/reports/sales", {
+            "period": "custom",
+            "start_date": "9999-12-31",
+            "end_date": "9999-12-31",
+        })
+        self.assertEqual(overflow_date.status_code, 400, overflow_date.content)
+        self.assertIn("end_date", overflow_date.json()["error"]["fields"])
         too_many_days = self.client.get("/api/v1/reports/sales", {
             "period": "custom",
             "start_date": "2024-01-01",

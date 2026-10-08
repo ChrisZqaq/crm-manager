@@ -102,12 +102,19 @@ def _date_criteria(query, *, today=None):
             raise OperationError("滚动周期不能同时填写自定义日期。", fields={"period": "请选择自定义周期后再填写日期。"})
         end_day = today or _now_local().date()
         start_day = _months_before(end_day, valid[period])
+    try:
+        end_before = _aware_midnight(end_day + timedelta(days=1)) if end_day else None
+    except OverflowError:
+        raise OperationError(
+            "结束日期超出可筛选范围。",
+            fields={"end_date": "结束日期无法计算次日边界。"},
+        ) from None
     return {
         "period": period,
         "start_date": start_day.isoformat() if start_day else None,
         "end_date": end_day.isoformat() if end_day else None,
         "start_at": _aware_midnight(start_day) if start_day else None,
-        "end_before": _aware_midnight(end_day + timedelta(days=1)) if end_day else None,
+        "end_before": end_before,
         "timezone": "Asia/Shanghai",
         "period_label": (
             f"{start_day.isoformat()} 至 {end_day.isoformat()}（含首尾，北京时间）"
