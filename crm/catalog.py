@@ -30,7 +30,7 @@ def _product_values(product):
     ]
 
 
-def _parse_filters(params):
+def _parse_filters(params, *, include_sku_status=False):
     brand_id = params.get("brand_id", "").strip()
     if brand_id:
         try:
@@ -43,16 +43,22 @@ def _parse_filters(params):
     valid_types = {choice for choice, _ in Product.Type.choices}
     if type_value and type_value not in valid_types:
         raise CatalogQueryError("type不是有效商品类型。")
-    return {
+    filters = {
         "brand_id": brand_id or None,
         "series": params.get("series", "").strip(),
         "type": type_value,
         "language": params.get("language", "").strip(),
     }
+    if include_sku_status:
+        sku_status = params.get("sku_status", "").strip()
+        if sku_status and sku_status not in {"active", "inactive", "all"}:
+            raise CatalogQueryError("sku_status不是有效SKU状态。")
+        filters["sku_status"] = sku_status or None
+    return filters
 
 
-def _product_queryset(params, *, include_skus=True):
-    filters = _parse_filters(params)
+def _product_queryset(params, *, include_skus=True, include_sku_status=False):
+    filters = _parse_filters(params, include_sku_status=include_sku_status)
     queryset = Product.objects.filter(is_active=True, brand__is_active=True)
     if filters["brand_id"]:
         queryset = queryset.filter(brand_id=filters["brand_id"])
@@ -62,10 +68,20 @@ def _product_queryset(params, *, include_skus=True):
         queryset = queryset.filter(type=filters["type"])
     if filters["language"]:
         queryset = queryset.filter(language__icontains=filters["language"])
+    sku_status = filters.get("sku_status")
+    sku_queryset = SKU.objects.all()
+    if sku_status is None or sku_status == "active":
+        sku_queryset = sku_queryset.filter(is_active=True)
+    elif sku_status == "inactive":
+        sku_queryset = sku_queryset.filter(is_active=False)
+    if sku_status == "all":
+        queryset = queryset.filter(skus__isnull=False).distinct()
+    elif sku_status:
+        queryset = queryset.filter(skus__is_active=(sku_status == "active")).distinct()
     queryset = queryset.select_related("brand")
     if include_skus:
         queryset = queryset.prefetch_related(
-            Prefetch("skus", queryset=SKU.objects.filter(is_active=True).order_by("id"))
+            Prefetch("skus", queryset=sku_queryset.order_by("id"))
         )
     return queryset
 
@@ -73,7 +89,7 @@ def _product_queryset(params, *, include_skus=True):
 def _ranked_products(params):
     query = _normalize(params.get("q", ""))
     matches = []
-    for product in _product_queryset(params):
+    for product in _product_queryset(params, include_sku_status=True):
         values = _product_values(product)
         for sku in product.skus.all():
             values.extend((sku.code, sku.barcode, *sku.aliases))

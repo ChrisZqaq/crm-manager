@@ -702,6 +702,7 @@ def reports_api(request, report_name):
             "queried_at": data["metadata"]["queried_at"],
             "filter_summary": data["metadata"]["filter_summary"],
             "summary": data["summary"],
+            **({"filter_options": data["filter_options"]} if report_name == "inventory" else {}),
             **({"series": result["series"]} if "series" in result else {}),
             "columns": [{"key": key, "label": label, "type": kind} for key, label, kind in data["columns"]],
             **{key: result[key] for key in ("items", "total", "page", "page_size", "has_previous", "has_next")},
@@ -1012,6 +1013,22 @@ def customers_api(request):
     items = customer_queryset_for(request.user).select_related("owner")
     if include_archived == "false":
         items = items.filter(is_active=True)
+    owner_rows = (
+        items.filter(owner_id__isnull=False)
+        .order_by("owner__username", "owner_id")
+        .values_list("owner_id", "owner__username")
+        .distinct()
+    )
+    filter_options = {
+        "salespeople": [{"id": str(owner_id), "label": username} for owner_id, username in owner_rows]
+    }
+    owner_value = request.GET.get("owner_id", "")
+    if owner_value:
+        try:
+            owner_id = identifier(owner_value, "owner_id")
+        except OperationError as exc:
+            return _api_error(request, exc.status, exc.code, str(exc), exc.fields)
+        items = items.filter(owner_id=owner_id)
     query = request.GET.get("q", "").strip()
     if query:
         items = items.filter(Q(name__icontains=query) | Q(company__icontains=query) | Q(contact__icontains=query))
@@ -1027,6 +1044,7 @@ def customers_api(request):
         for item in page["items"]
     ]
     page["birthday_reminder_enabled"] = reminders_enabled
+    page["filter_options"] = filter_options
     page["queried_at"] = timezone.localtime().isoformat(timespec="seconds")
     return JsonResponse(page)
 
@@ -1122,7 +1140,24 @@ def orders_api(request):
     error = _require_api_access(request, (("crm", "view_salesorder"),))
     if error:
         return error
-    items = sales_order_queryset_for(request.user).select_related("salesperson", "customer", "channel")
+    order_scope = sales_order_queryset_for(request.user)
+    salesperson_rows = (
+        order_scope.order_by()
+        .values_list("salesperson_id", "salesperson__username")
+        .distinct()
+        .order_by("salesperson__username", "salesperson_id")
+    )
+    warehouse_rows = (
+        SalesOrderLine.objects.filter(order_id__in=order_scope.values("pk"), active=True)
+        .values_list("warehouse_id", "warehouse__name")
+        .distinct()
+        .order_by("warehouse__name", "warehouse_id")
+    )
+    filter_options = {
+        "salespeople": [{"id": str(user_id), "label": username} for user_id, username in salesperson_rows],
+        "warehouses": [{"id": str(warehouse_id), "label": name} for warehouse_id, name in warehouse_rows],
+    }
+    items = order_scope.select_related("salesperson", "customer", "channel")
     status_value = request.GET.get("status", "")
     if status_value:
         if status_value not in SalesOrder.Status.values:
@@ -1189,6 +1224,7 @@ def orders_api(request):
     except CatalogQueryError as exc:
         return _api_error(request, 400, "invalid_pagination", str(exc), {"page": str(exc)})
     page["items"] = [_sales_order_data(item, request.user) for item in page["items"]]
+    page["filter_options"] = filter_options
     page["queried_at"] = timezone.localtime().isoformat(timespec="seconds")
     return JsonResponse(page)
 

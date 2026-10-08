@@ -317,6 +317,50 @@ class CatalogTestCase(TestCase):
         self.assertNotContains(catalog, ">slim<")
         self.assertNotContains(catalog, ">fat<")
 
+    def test_product_api_filters_matching_sku_status_without_changing_default_or_order_skus(self):
+        inactive_on_mixed = SKU.objects.create(
+            product=self.product, code="SEA0008", unit="盒", is_active=False,
+        )
+        inactive_product = Product.objects.create(
+            brand=self.brand, type=Product.Type.MERCHANDISE, name="仅停用SKU",
+        )
+        inactive_only = SKU.objects.create(
+            product=inactive_product, code="SEA0009", unit="个", is_active=False,
+        )
+        no_sku_product = Product.objects.create(
+            brand=self.brand, type=Product.Type.MERCHANDISE, name="暂无SKU",
+        )
+        self.client.force_login(self.make_user(ROLE_SALES))
+
+        legacy = self.client.get("/api/v1/products").json()["items"]
+        legacy_by_id = {item["id"]: item for item in legacy}
+        self.assertEqual([sku["id"] for sku in legacy_by_id[self.product.pk]["skus"]], [self.sku.pk])
+        self.assertEqual(legacy_by_id[inactive_product.pk]["skus"], [])
+        self.assertIn(no_sku_product.pk, legacy_by_id)
+
+        active = self.client.get("/api/v1/products?sku_status=active").json()["items"]
+        active_by_id = {item["id"]: item for item in active}
+        self.assertEqual(set(active_by_id), {self.product.pk})
+        self.assertEqual([sku["id"] for sku in active_by_id[self.product.pk]["skus"]], [self.sku.pk])
+
+        inactive = self.client.get("/api/v1/products?sku_status=inactive").json()["items"]
+        inactive_by_id = {item["id"]: item for item in inactive}
+        self.assertEqual(set(inactive_by_id), {self.product.pk, inactive_product.pk})
+        self.assertEqual([sku["id"] for sku in inactive_by_id[self.product.pk]["skus"]], [inactive_on_mixed.pk])
+        self.assertEqual([sku["id"] for sku in inactive_by_id[inactive_product.pk]["skus"]], [inactive_only.pk])
+
+        all_statuses = self.client.get("/api/v1/products?sku_status=all").json()["items"]
+        all_by_id = {item["id"]: item for item in all_statuses}
+        self.assertEqual(set(all_by_id), {self.product.pk, inactive_product.pk})
+        self.assertEqual({sku["is_active"] for sku in all_by_id[self.product.pk]["skus"]}, {True, False})
+
+        invalid = self.client.get("/api/v1/products?sku_status=disabled")
+        self.assertEqual(invalid.status_code, 400)
+        self.assertEqual(invalid.json()["error"]["code"], "invalid_filter")
+        order_skus = self.client.get("/api/v1/skus").json()["items"]
+        self.assertNotIn(inactive_on_mixed.pk, {sku["id"] for sku in order_skus})
+        self.assertNotIn(inactive_only.pk, {sku["id"] for sku in order_skus})
+
     def test_sku_inner_box_spec_stays_separate_in_search_catalog_and_api(self):
         twenty_boxes = SKU.objects.create(
             product=self.product,

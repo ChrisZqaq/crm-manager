@@ -372,6 +372,14 @@ def _sales_data(actor, query, *, today=None):
 def _payment_data(actor, query, *, today=None):
     period = _date_criteria(query, today=today)
     orders = _order_filters(_order_queryset(actor), query)
+    search_text = query.get("q", "").strip()
+    if search_text:
+        search = Q(customer_name_snapshot__icontains=search_text)
+        if search_text.isascii() and search_text.isdigit() and len(search_text) <= 19:
+            order_id = int(search_text)
+            if order_id <= 2**63 - 1:
+                search |= Q(pk=order_id)
+        orders = orders.filter(search)
     records = PaymentRecord.objects.filter(order_id__in=orders.values("pk")).select_related(
         "order__salesperson", "order__customer", "order__channel", "account", "registered_by"
     ).prefetch_related("images")
@@ -401,7 +409,9 @@ def _payment_data(actor, query, *, today=None):
         items.append({
             "order_id": str(order.pk), "submitted_at": _local_datetime(order.created_at),
             "salesperson": order.salesperson.get_username(), "customer": order.customer_name_snapshot or "门店散客",
-            "channel": order.channel.name, "status": payment.status, "status_label": payment.get_status_display(),
+            "channel": order.channel.name, "order_status": order.status,
+            "order_status_label": order.get_status_display(), "status": payment.status,
+            "status_label": payment.get_status_display(),
             "paused": "是" if payment.paused else "否", "order_amount": _money(order.revenue_amount),
             "expected_amount": _money(payment.expected_amount), "registered_amount": _money(payment.received_amount),
             "difference_amount": _money(difference), "account_id": str(payment.account_id),
@@ -416,6 +426,7 @@ def _payment_data(actor, query, *, today=None):
     columns = [
         ("order_id", "订单编号", "text"), ("submitted_at", "订单提交时间", "text"),
         ("salesperson", "销售", "text"), ("customer", "客户快照", "text"), ("channel", "渠道", "text"),
+        ("order_status_label", "履约状态", "text"),
         ("status_label", "核对状态", "text"), ("paused", "出库暂停", "text"),
         ("order_amount", "订单金额", "amount"), ("expected_amount", "登记应收金额", "amount"),
         ("registered_amount", "登记收款金额（非实收核实）", "amount"),

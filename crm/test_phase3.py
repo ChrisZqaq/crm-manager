@@ -183,6 +183,49 @@ class CustomerPhase3Tests(Phase3Base):
         self.assertEqual(warehouse.get("/api/v1/customers").status_code, 403)
         self.assertEqual(warehouse.get("/customers/").status_code, 403)
 
+    def test_customer_owner_filter_and_options_follow_scope_before_search_and_pagination(self):
+        first = self.create_customer(actor=self.sales, name="Synthetic First Customer")
+        second = self.create_customer(actor=self.sales_two, name="Synthetic Second Customer")
+        all_customers = Client()
+        all_customers.force_login(self.owner)
+
+        response = all_customers.get("/api/v1/customers", {"page_size": 1})
+        self.assertEqual(response.status_code, 200, response.content)
+        data = response.json()
+        self.assertEqual(data["total"], 2)
+        self.assertEqual(len(data["items"]), 1)
+        self.assertEqual(data["items"][0]["id"], first.pk)
+        self.assertEqual(
+            data["filter_options"]["salespeople"],
+            [
+                {"id": str(self.sales.pk), "label": self.sales.get_username()},
+                {"id": str(self.sales_two.pk), "label": self.sales_two.get_username()},
+            ],
+        )
+        searched = all_customers.get("/api/v1/customers", {"q": "Synthetic First", "page_size": 1}).json()
+        self.assertEqual(searched["total"], 1)
+        self.assertEqual(len(searched["filter_options"]["salespeople"]), 2)
+
+        filtered = all_customers.get("/api/v1/customers", {"owner_id": self.sales_two.pk, "page_size": 1})
+        self.assertEqual(filtered.status_code, 200, filtered.content)
+        self.assertEqual(filtered.json()["total"], 1)
+        self.assertEqual(filtered.json()["items"][0]["id"], second.pk)
+        self.assertEqual(len(filtered.json()["filter_options"]["salespeople"]), 2)
+
+        invalid = all_customers.get("/api/v1/customers", {"owner_id": "not-an-id"})
+        self.assertEqual(invalid.status_code, 400)
+        self.assertIn("owner_id", invalid.json()["error"]["fields"])
+
+        own_scope = Client()
+        own_scope.force_login(self.sales)
+        hidden = own_scope.get("/api/v1/customers", {"owner_id": self.sales_two.pk})
+        self.assertEqual(hidden.status_code, 200)
+        self.assertEqual(hidden.json()["total"], 0)
+        self.assertEqual(
+            hidden.json()["filter_options"]["salespeople"],
+            [{"id": str(self.sales.pk), "label": self.sales.get_username()}],
+        )
+
     def test_customer_address_http_contract_and_old_order_address_switch(self):
         client = Client()
         client.force_login(self.sales)
@@ -645,6 +688,18 @@ class SalesOrderPhase3Tests(Phase3Base):
         self.assertEqual(error.exception.code, "stale_preview")
         self.assertEqual(SalesOrder.objects.count(), 0)
         self.assertEqual(InventoryBalance.objects.get(pk=self.balance.pk).occupied, 0)
+
+    def test_order_sku_search_and_preview_keep_inactive_sku_restriction(self):
+        self.sku.is_active = False
+        self.sku.save(update_fields=("is_active",))
+        client = Client()
+        client.force_login(self.sales)
+
+        skus = client.get("/api/v1/skus").json()["items"]
+        self.assertNotIn(self.sku.pk, {item["id"] for item in skus})
+        with self.assertRaises(OperationError) as error:
+            preview_sales_order(self.sales, self.order_payload())
+        self.assertEqual(error.exception.code, "inactive_reference")
 
     def test_second_line_failure_rolls_back_and_same_key_can_retry(self):
         second_sku = self.new_sku(2)

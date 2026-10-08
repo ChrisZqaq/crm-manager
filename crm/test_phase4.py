@@ -1363,3 +1363,59 @@ class OrderListFilterTests(Phase4Base):
         ids = [item["id"] for page in (first_page.json(), second_page.json()) for item in page["items"]]
         self.assertEqual(set(ids), {multi_warehouse.pk, second_order.pk})
         self.assertEqual(len(ids), len(set(ids)))
+
+    def test_order_filter_options_cover_visible_orders_before_filters_and_pagination(self):
+        own_order = self.new_order()
+        self.add_balance(self.sku, self.second_warehouse, 20, "1.000")
+        other_order = self.preview_and_confirm(self.order_payload(lines=[{
+            "sku_id": self.sku.pk,
+            "warehouse_id": self.second_warehouse.pk,
+            "quantity": 1,
+            "sale_price": "5.000",
+        }]), actor=self.sales_two)[2]
+        client = Client()
+        client.force_login(self.sales)
+
+        own_scope = client.get("/api/v1/orders", {"page_size": 1}).json()
+        self.assertEqual(own_scope["total"], 1)
+        self.assertEqual(own_scope["items"][0]["id"], own_order.pk)
+        self.assertEqual(
+            own_scope["filter_options"],
+            {
+                "salespeople": [{"id": str(self.sales.pk), "label": self.sales.get_username()}],
+                "warehouses": [{"id": str(self.warehouse.pk), "label": self.warehouse.name}],
+            },
+        )
+        hidden = client.get("/api/v1/orders", {"salesperson_id": self.sales_two.pk, "page_size": 1}).json()
+        self.assertEqual(hidden["total"], 0)
+        self.assertEqual(len(hidden["filter_options"]["salespeople"]), 1)
+        self.assertEqual(len(hidden["filter_options"]["warehouses"]), 1)
+
+        self.sales.user_permissions.add(
+            Permission.objects.get(content_type__app_label="crm", codename="view_all_sales_orders")
+        )
+        all_pages = client.get("/api/v1/orders", {"page_size": 1}).json()
+        self.assertEqual(all_pages["total"], 2)
+        self.assertEqual(len(all_pages["items"]), 1)
+        self.assertEqual(len(all_pages["filter_options"]["salespeople"]), 2)
+        self.assertEqual(len(all_pages["filter_options"]["warehouses"]), 2)
+        all_scope = client.get("/api/v1/orders", {
+            "salesperson_id": self.sales_two.pk,
+            "page_size": 1,
+        }).json()
+        self.assertEqual(all_scope["total"], 1)
+        self.assertEqual(all_scope["items"][0]["id"], other_order.pk)
+        self.assertEqual(
+            all_scope["filter_options"]["salespeople"],
+            [
+                {"id": str(self.sales.pk), "label": self.sales.get_username()},
+                {"id": str(self.sales_two.pk), "label": self.sales_two.get_username()},
+            ],
+        )
+        self.assertEqual(
+            all_scope["filter_options"]["warehouses"],
+            [
+                {"id": str(self.warehouse.pk), "label": self.warehouse.name},
+                {"id": str(self.second_warehouse.pk), "label": self.second_warehouse.name},
+            ],
+        )

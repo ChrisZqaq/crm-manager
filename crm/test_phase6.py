@@ -215,6 +215,21 @@ class ReportPhase6Tests(Phase4Base):
         self.assertEqual(global_disabled["summary"]["by_unit"], [])
         self.assertFalse(data["metadata"]["date_filter_available"])
         self.client.force_login(self.sales)
+        api = self.client.get("/api/v1/reports/inventory?page_size=1")
+        self.assertEqual(api.status_code, 200, api.content)
+        self.assertEqual(api.json()["total"], 3)
+        self.assertEqual(
+            set(api.json()["filter_options"]),
+            {"warehouses", "skus", "brands"},
+        )
+        self.assertEqual(
+            {item["id"] for item in api.json()["filter_options"]["warehouses"]},
+            {str(self.warehouse.pk), str(self.second_warehouse.pk)},
+        )
+        self.assertEqual(
+            {item["id"] for item in api.json()["filter_options"]["skus"]},
+            {str(self.sku.pk), str(pack_sku.pk)},
+        )
         page = self.client.get("/reports/inventory/")
         self.assertEqual(page.status_code, 200)
         self.assertContains(page, "Synthetic event stock")
@@ -303,19 +318,59 @@ class ReportPhase6Tests(Phase4Base):
             self.register(order)
             PaymentRecord.objects.filter(order=order).update(first_evidence_registered_at=registered_at)
             orders.append(order)
+        for order in orders[2:4]:
+            order.refresh_from_db()
+            order.customer_name_snapshot = "Synthetic Payment Customer"
+            order.save(update_fields=("customer_name_snapshot",))
+        outside_order = self.preview_and_confirm(self.order_payload(), actor=self.sales_two)[2]
+        outside_order.refresh_from_db()
+        outside_image = self.add_payment_image(owner=self.sales_two)
+        register_payment(self.sales_two, outside_order.pk, {
+            "operation_key": str(uuid4()),
+            "expected_version": outside_order.version,
+            "account_id": self.public_account.pk,
+            "received_amount": str(outside_order.revenue_amount),
+            "image_ids": [outside_image.pk],
+            "difference_reason": "",
+        })
+        PaymentRecord.objects.filter(order=outside_order).update(
+            first_evidence_registered_at=registration_times[2],
+        )
+        outside_order.refresh_from_db()
+        outside_order.customer_name_snapshot = "Synthetic Payment Customer"
+        outside_order.save(update_fields=("customer_name_snapshot",))
 
         fixed_now = datetime(2026, 10, 31, 12, 0, tzinfo=SHANGHAI)
         custom_query = {"period": "custom", "start_date": "2026-10-01", "end_date": "2026-10-01"}
         with patch("crm.reports._now_local", return_value=fixed_now):
             rolling = build_report(self.sales, "payments", {"period": "1m"})
             custom = build_report(self.sales, "payments", custom_query)
+            searched = build_report(self.sales, "payments", {
+                **custom_query,
+                "q": "Synthetic Payment",
+                "account_id": str(self.public_account.pk),
+                "status": PaymentRecord.Status.PENDING,
+            })
+            searched_by_id = build_report(self.sales, "payments", {
+                **custom_query,
+                "q": str(orders[2].pk),
+            })
 
         self.assertEqual((rolling["metadata"]["start_date"], rolling["metadata"]["end_date"]), ("2026-09-30", "2026-10-31"))
         self.assertEqual({row["order_id"] for row in rolling["items"]}, {str(order.pk) for order in orders[1:]})
         self.assertEqual({row["order_id"] for row in custom["items"]}, {str(orders[2].pk), str(orders[3].pk)})
+        self.assertEqual({row["order_id"] for row in searched["items"]}, {str(orders[2].pk), str(orders[3].pk)})
+        self.assertNotIn(str(outside_order.pk), {row["order_id"] for row in searched["items"]})
+        self.assertEqual([row["order_id"] for row in searched_by_id["items"]], [str(orders[2].pk)])
+        self.assertEqual(searched["items"][0]["order_status"], orders[2].status)
+        self.assertEqual(searched["items"][0]["order_status_label"], orders[2].get_status_display())
+        self.assertEqual(searched["items"][0]["status"], PaymentRecord.Status.PENDING)
 
         self.client.force_login(self.sales)
-        query = "period=custom&start_date=2026-10-01&end_date=2026-10-01"
+        query = (
+            "period=custom&start_date=2026-10-01&end_date=2026-10-01"
+            f"&q=Synthetic+Payment&account_id={self.public_account.pk}&status={PaymentRecord.Status.PENDING}"
+        )
         with patch("crm.reports._now_local", return_value=fixed_now):
             api = self.client.get(f"/api/v1/reports/payments?{query}&page_size=200")
             page = self.client.get(f"/reports/payments/?{query}&page=2&page_size=1")
@@ -324,6 +379,11 @@ class ReportPhase6Tests(Phase4Base):
         self.assertEqual(api.status_code, 200)
         self.assertEqual(api.json()["total"], 2)
         self.assertEqual({row["order_id"] for row in api.json()["items"]}, {str(orders[2].pk), str(orders[3].pk)})
+        self.assertEqual(
+            {column["label"] for column in api.json()["columns"] if column["key"] in ("order_status_label", "status_label")},
+            {"履约状态", "核对状态"},
+        )
+        self.assertTrue(all(row["order_status_label"] for row in api.json()["items"]))
         self.assertEqual(page.status_code, 200)
         self.assertEqual(page.context["total"], 2)
         self.assertEqual(page.context["page"], 2)
@@ -335,6 +395,11 @@ class ReportPhase6Tests(Phase4Base):
         sheet = load_workbook(BytesIO(export.content), data_only=False).active
         self.assertEqual(sheet.max_row, 8)
         headers = [sheet.cell(6, column).value for column in range(1, sheet.max_column + 1)]
+        order_id_column = headers.index("订单编号") + 1
+        exported_ids = {str(sheet.cell(row, order_id_column).value) for row in range(7, 9)}
+        self.assertEqual(exported_ids, {str(orders[2].pk), str(orders[3].pk)})
+        self.assertIn("履约状态", headers)
+        self.assertIn("核对状态", headers)
         registered_at_column = headers.index("首次登记收款凭证时间") + 1
         exported_dates = [sheet.cell(row, registered_at_column).value for row in range(7, 9)]
         api_dates = [row["first_evidence_registered_at"] for row in api.json()["items"]]
