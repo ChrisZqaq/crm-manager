@@ -1,6 +1,6 @@
 # CRM Manager 文档入口
 
-更新：2026-10-08。采用Django＋PostgreSQL，第一版阶段1—6与导航修复已验收；覆盖全项目的五方协作已校准并经四角色复核，暂无新派发任务；本机试用和既有UI候选保留，尚未正式上线。
+更新：2026-10-08。采用Django＋PostgreSQL，第一版阶段1—6与导航修复已验收；全项目协作已校准，UI候选待评审，腾讯云部署条件只读检查已完成；本机试用和既有UI候选保留，尚未正式上线。
 
 ## 所有人最小阅读集
 
@@ -13,6 +13,7 @@
 | 前端 | [ROLE](workspaces/frontend/ROLE.md) | [WORK](workspaces/frontend/WORK.md) |
 | 原开发/后端 | [ROLE](workspaces/backend/ROLE.md) | [WORK](workspaces/backend/WORK.md) |
 | 测试 | [ROLE](workspaces/qa/ROLE.md) | [WORK](workspaces/qa/WORK.md) |
+| 部署工程师 | [ROLE](workspaces/deploy/ROLE.md) | [WORK](workspaces/deploy/WORK.md) |
 
 ## 公共依据：负责人维护，角色按需读取
 
