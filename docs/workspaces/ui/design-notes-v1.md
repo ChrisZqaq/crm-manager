@@ -5,7 +5,7 @@
 - 原型：[`prototype-v1.html`](prototype-v1.html)，单文件、无外部依赖，使用合成数据。SHA-256 对应本次交付的 HTML 文件。
 - 设计范围：销售订单列表与新建订单预览、库存查询、客户列表；老板、销售、仓管的导航入口示例。
 - 不包含：真实应用代码、数据库/API变更、上线行为、真实客户/期初数据、未批准业务功能。
-- 工作区核对：`git status` 显示应用及数据库目录没有改动；仅有 `docs/ui/` 新增文件，以及本任务开始前已存在的 `docs/project/DEVELOPMENT_PLAN.md` 与期初模板修改。本任务未写入或连接数据库。
+- 工作区核对：`git status` 显示应用及数据库目录没有改动；仅有 `docs/workspaces/ui/` 新增文件，以及本任务开始前已存在的 `docs/project/DEVELOPMENT_PLAN.md` 与期初模板修改。本任务未写入或连接数据库。
 
 ## 现有界面审查记录
 
