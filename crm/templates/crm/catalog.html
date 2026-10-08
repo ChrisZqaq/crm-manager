@@ -16,6 +16,13 @@
     <a href="{% url 'admin:index' %}">管理后台</a>
   </header>
 
+  <nav aria-label="业务入口">
+    {% if perms.crm.add_salesorder %}<a href="{% url 'order-new' %}">新建订单</a>{% endif %}
+    {% if perms.crm.view_salesorder %}<a href="{% url 'orders' %}">销售订单</a>{% endif %}
+    {% if perms.crm.view_customer %}<a href="{% url 'customers' %}">客户</a>{% endif %}
+    {% if perms.crm.view_inventorybalance %}<a href="{% url 'inventory' %}">库存</a>{% endif %}
+  </nav>
+
   <form method="get">
     <label for="q">名称、编号、条码或别名</label>
     <input id="q" name="q" value="{{ request.GET.q }}">

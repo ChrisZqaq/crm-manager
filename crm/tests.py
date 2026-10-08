@@ -104,6 +104,32 @@ class CatalogTestCase(TestCase):
         self.assertEqual(denied.json()["error"]["code"], "permission_denied")
         self.assertEqual(self.client.get("/catalog/").status_code, 403)
 
+    def test_catalog_exposes_reachable_business_links_by_permission(self):
+        sales = self.make_user(ROLE_SALES)
+        self.client.force_login(sales)
+        response = self.client.get("/catalog/")
+        self.assertEqual(response.status_code, 200)
+        for label, href in (
+            ("新建订单", "/orders/new/"),
+            ("销售订单", "/orders/"),
+            ("客户", "/customers/"),
+            ("库存", "/inventory/"),
+        ):
+            self.assertContains(response, label)
+            self.assertContains(response, f'href="{href}"')
+            self.assertEqual(self.client.get(href).status_code, 200)
+
+        catalog_only = self.make_user()
+        catalog_only.user_permissions.set(Permission.objects.filter(
+            content_type__app_label="crm",
+            codename__in=("view_brand", "view_product", "view_sku"),
+        ))
+        self.client.force_login(catalog_only)
+        response = self.client.get("/catalog/")
+        self.assertEqual(response.status_code, 200)
+        for href in ("/orders/new/", "/orders/", "/customers/", "/inventory/"):
+            self.assertNotContains(response, f'href="{href}"')
+
     def test_csrf_protects_password_login(self):
         user = self.make_user(ROLE_SALES)
         client = Client(enforce_csrf_checks=True)
