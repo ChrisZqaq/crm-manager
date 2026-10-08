@@ -13,7 +13,7 @@
     <p>这是当前库存余额，不按销售日期筛选；限制原因区分订单占用、客户预留、囤货和破损。</p>
   {% endif %}
 
-  <form method="get">
+  <form class="data-card filter-bar" method="get">
     {% if report_name == "sales" %}
       <label>查询范围
         <select name="scope">
@@ -102,15 +102,49 @@
     <p class="summary">提成调整差额合计：{{ summary.adjustment_delta_not_added }}（独立展示，不加到正式提成金额）。</p>
   {% endif %}
   {% if total != None %}<p>匹配 {{ total }} 行；第 {{ page }} 页，每页 {{ page_size }} 行。</p>{% endif %}
-  <div class="table-wrap">
-    <table>
+  {% if report_name == "payments" %}<div class="split-layout payment-split">
+    <section class="data-card"><div class="table-wrap"><table>
       <thead><tr>{% for column in columns %}<th>{{ column.1 }}</th>{% endfor %}</tr></thead>
-      <tbody>
-        {% for row in table_rows %}<tr>{% for value in row %}<td>{% if report_name == "payments" and forloop.first %}<a href="{% url 'order-detail' value %}">{{ value }}</a>{% elif value == "" or value == None %}—{% else %}{{ value }}{% endif %}</td>{% endfor %}</tr>
-        {% empty %}<tr><td colspan="20">没有匹配的记录。</td></tr>{% endfor %}
-      </tbody>
-    </table>
+      <tbody>{% for row in table_rows %}<tr data-payment-row="{{ row.0 }}" data-difference="{{ row.10 }}" data-evidence-date="{{ row.15 }}">{% for value in row %}<td>{% if forloop.first %}<button class="link-button" type="button" data-payment-order="{{ value }}">{{ value }}</button>{% elif value == "" or value == None %}—{% else %}{{ value }}{% endif %}</td>{% endfor %}</tr>{% empty %}<tr><td colspan="20" class="empty-state">没有匹配的收款记录。</td></tr>{% endfor %}</tbody>
+    </table></div><nav class="pagination" aria-label="收款核对分页">{% if prev_url %}<a class="button-link" href="{{ prev_url }}">上一页</a>{% endif %} {% if next_url %}<a class="button-link" href="{{ next_url }}">下一页</a>{% endif %}</nav></section>
+    <aside class="data-card detail-panel is-mobile-hidden" id="payment-detail" aria-labelledby="payment-detail-title"><div class="card-head detail-toolbar"><h2 id="payment-detail-title">收款详情</h2><button type="button" class="mobile-only" data-close-payment>返回列表</button></div><div class="card-body" id="payment-detail-body"><p class="empty-state">选择订单查看收款资料和核对操作。</p></div></aside>
   </div>
-  <nav aria-label="报表分页">{% if prev_url %}<a href="{{ prev_url }}">上一页</a>{% endif %} {% if next_url %}<a href="{{ next_url }}">下一页</a>{% endif %}</nav>
+  {% else %}<div class="data-card"><div class="table-wrap"><table>
+    <thead><tr>{% for column in columns %}<th>{{ column.1 }}</th>{% endfor %}</tr></thead>
+    <tbody>{% for row in table_rows %}<tr>{% for value in row %}<td>{% if value == "" or value == None %}—{% else %}{{ value }}{% endif %}</td>{% endfor %}</tr>{% empty %}<tr><td colspan="20" class="empty-state">没有匹配的记录。</td></tr>{% endfor %}</tbody>
+  </table></div><nav class="pagination" aria-label="报表分页">{% if prev_url %}<a class="button-link" href="{{ prev_url }}">上一页</a>{% endif %} {% if next_url %}<a class="button-link" href="{{ next_url }}">下一页</a>{% endif %}</nav></div>{% endif %}
 </div>
+{% if report_name == "payments" %}
+<script>
+(() => {
+  const panel=document.getElementById('payment-detail'),detail=document.getElementById('payment-detail-body'),layout=panel.closest('.split-layout');
+  async function api(url,method='GET',body){const token=document.cookie.split('; ').find(value=>value.startsWith('csrftoken='))?.split('=')[1]||'',response=await fetch(url,{method,credentials:'same-origin',headers:body?{'Content-Type':'application/json','X-CSRFToken':token}: {},body:body?JSON.stringify(body):undefined}),data=await response.json();if(!response.ok){const error=new Error(data.error?.message||'请求失败。');error.status=response.status;throw error;}return data;}
+  const field=(list,label,value)=>{const dt=document.createElement('dt'),dd=document.createElement('dd');dt.textContent=label;dd.textContent=value||'—';list.append(dt,dd);};
+  async function show(orderId){panel.classList.add('is-mobile-active');panel.classList.remove('is-mobile-hidden');layout.classList.add('mobile-detail-open');detail.replaceChildren(Object.assign(document.createElement('p'),{className:'muted',textContent:'正在加载收款详情…'}));document.querySelectorAll('[data-payment-row]').forEach(row=>row.classList.toggle('row-selected',row.dataset.paymentRow===String(orderId)));
+    try{
+      const selectedRow=document.querySelector(`[data-payment-row="${CSS.escape(String(orderId))}"]`),order=await api(`/api/v1/orders/${encodeURIComponent(orderId)}`),payment=order.payment;if(!payment)throw new Error('该订单没有登记收款记录。');detail.replaceChildren();
+      const heading=document.createElement('h3');heading.textContent=`订单 ${order.sequence}`;detail.append(heading);
+      const list=document.createElement('dl');list.className='detail-list';for(const [label,value] of [['客户',order.customer_name||'门店散客'],['销售',order.salesperson],['履约状态',order.status_label],['收款核对',payment.status_label],['出库暂停',payment.paused?'是':'否'],['订单金额',`¥${order.revenue_amount}`],['登记应收金额',`¥${payment.expected_amount}`],['登记收款金额',`¥${payment.received_amount}`],['登记差额',`¥${selectedRow?.dataset.difference||'—'}`],['收款账户',`${payment.account_name}（${payment.account_method_label}）`],['核对责任',payment.account_responsibility_label],['首次凭证登记',selectedRow?.dataset.evidenceDate],['差额原因',payment.difference_reason],['待处理原因',payment.problem_reason]])field(list,label,value);detail.append(list);
+      const images=document.createElement('section'),title=document.createElement('h3');images.className='detail-section';title.textContent='收款凭证';images.append(title);if(payment.image_ids?.length){const gallery=document.createElement('div');gallery.className='payment-images';for(const id of payment.image_ids){const image=document.createElement('img');image.src=`/api/v1/images/${encodeURIComponent(id)}`;image.alt='收款凭证';image.loading='lazy';image.addEventListener('error',()=>{const note=document.createElement('span');note.className='muted';note.textContent='该凭证无法显示（权限不足或文件不可用）。';image.replaceWith(note);},{once:true});gallery.append(image);}images.append(gallery);}else{const note=document.createElement('p');note.textContent='未登记凭证。';images.append(note);}detail.append(images);
+      const actions=document.createElement('section');actions.className='detail-section';const orderLink=document.createElement('a');orderLink.href=`/orders/${encodeURIComponent(order.id)}/`;orderLink.className='button-link';orderLink.textContent='打开订单详情';actions.append(orderLink);
+      {% if perms.crm.verify_payment or request.user.is_superuser %}
+      if(payment.status!=='passed'){
+        const form=document.createElement('form');form.className='form-grid verify-payment-form';
+        const resultLabel=document.createElement('label');resultLabel.textContent='核对结果';const result=document.createElement('select');result.required=true;for(const [value,text] of [['passed','核对通过'],['problem','待处理']]){const option=document.createElement('option');option.value=value;option.textContent=text;result.append(option);}resultLabel.append(result);
+        const reasonLabel=document.createElement('label');reasonLabel.textContent='待处理原因';const reason=document.createElement('input');reason.maxLength=500;reasonLabel.append(reason);form.append(resultLabel,reasonLabel);
+        const submit=document.createElement('button');submit.type='submit';submit.className='button-primary';submit.textContent='确认核对';form.append(submit);
+        const feedback=document.createElement('p');feedback.className='full-width';feedback.setAttribute('role','status');form.append(feedback);
+        result.addEventListener('change',()=>{reason.required=result.value==='problem';reason.disabled=result.value!=='problem';if(!reason.required)reason.value='';});result.dispatchEvent(new Event('change'));
+        form.addEventListener('submit',async event=>{event.preventDefault();submit.disabled=true;feedback.textContent='正在提交…';try{await api(`/api/v1/orders/${encodeURIComponent(order.id)}/verify-payment`,'POST',{expected_version:order.version,operation_key:crypto.randomUUID(),result:result.value,problem_reason:result.value==='problem'?reason.value.trim():''});location.reload();}catch(error){feedback.textContent=error.message;feedback.setAttribute('role',error.status===403?'alert':'status');submit.disabled=false;}});
+        actions.append(form);
+      }
+      {% endif %}
+      detail.append(actions);
+    }catch(error){const message=document.createElement('p');message.setAttribute('role',error.status===403?'alert':'status');message.textContent=error.status===403?'当前账号无权查看此订单或收款凭证。':error.message;detail.replaceChildren(message);}
+  }
+  document.querySelectorAll('[data-payment-order]').forEach(button=>button.addEventListener('click',()=>show(button.dataset.paymentOrder)));
+  document.querySelector('[data-close-payment]').addEventListener('click',()=>{panel.classList.remove('is-mobile-active');panel.classList.add('is-mobile-hidden');layout.classList.remove('mobile-detail-open');document.querySelectorAll('[data-payment-row]').forEach(row=>row.classList.remove('row-selected'));});
+})();
+</script>
+{% endif %}
 {% endblock %}

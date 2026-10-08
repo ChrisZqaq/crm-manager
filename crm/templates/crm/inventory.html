@@ -3,19 +3,18 @@
 {% block title %}库存与成本 · 阿罗拉潮玩空间{% endblock %}
 {% block topbar_title %}库存与成本{% endblock %}
 {% block content %}
-<section class="page-heading"><h1>库存与成本</h1></section>
+<section class="page-heading"><div><h1>库存查询</h1><p>可售量扣除订单占用、客户预留、囤货和破损；单位成本按SKU规格显示。</p></div><a class="button-link" href="{% url 'report-export' 'inventory' %}?{{ request.GET.urlencode }}">导出筛选结果</a></section>
 <div class="legacy-content">
 {% if error %}<p role="alert">{{ error }}</p>{% endif %}
-  <form method="get">
-    <label>仓库ID <input name="warehouse_id" value="{{ request.GET.warehouse_id }}"></label>
-    <label>SKU ID <input name="sku_id" value="{{ request.GET.sku_id }}"></label>
-    <label>IP ID <input name="brand_id" value="{{ request.GET.brand_id }}"></label>
-    <label>低库存
-      <select name="low_stock"><option value="">全部</option><option value="true" {% if request.GET.low_stock == "true" %}selected{% endif %}>仅低库存</option><option value="false" {% if request.GET.low_stock == "false" %}selected{% endif %}>排除低库存</option></select>
-    </label>
-    <button type="submit">筛选</button>
+  <form class="data-card filter-bar" method="get">
+    <div class="filter-field"><label for="inventory-warehouse">仓库ID</label><input id="inventory-warehouse" name="warehouse_id" type="number" min="1" step="1" inputmode="numeric" value="{{ request.GET.warehouse_id }}"></div>
+    <div class="filter-field"><label for="inventory-sku">SKU ID</label><input id="inventory-sku" name="sku_id" type="number" min="1" step="1" inputmode="numeric" value="{{ request.GET.sku_id }}"></div>
+    <div class="filter-field"><label for="inventory-brand">IP ID</label><input id="inventory-brand" name="brand_id" type="number" min="1" step="1" inputmode="numeric" value="{{ request.GET.brand_id }}"></div>
+    <div class="filter-field"><label for="inventory-stock-status">库存状态</label><select id="inventory-stock-status" name="low_stock"><option value="">全部</option><option value="true" {% if request.GET.low_stock == 'true' %}selected{% endif %}>低库存</option><option value="false" {% if request.GET.low_stock == 'false' %}selected{% endif %}>正常库存</option></select></div>
+    <button class="button-primary" type="submit">筛选</button><a class="button-link" href="{% url 'inventory' %}">重置</a>
   </form>
-  <section class="summary-grid" aria-label="库存概览"><article class="data-card summary-card"><span class="summary-label">当前筛选记录</span><strong>—</strong><span class="summary-note">合计接口待接入</span></article><article class="data-card summary-card"><span class="summary-label">库存金额汇总</span><strong>—</strong><span class="summary-note">不同SKU单位不合并；汇总接口待接入</span></article><article class="data-card summary-card"><span class="summary-label">提醒设置</span><strong>{% if control.low_stock_enabled %}开启{% else %}关闭{% endif %}</strong><span class="summary-note">默认阈值 {{ control.default_threshold }}</span></article></section>
+  <section class="summary-grid" aria-label="库存概览"><article class="data-card summary-card"><span class="summary-label">当前筛选仓库×SKU记录</span><strong>{{ total }}</strong><span class="summary-note">记录数，不是跨单位件数</span></article><article class="data-card summary-card"><span class="summary-label">全局低库存提醒</span><strong>{% if control.low_stock_enabled %}开启{% else %}关闭{% endif %}</strong><span class="summary-note">默认阈值 {{ control.default_threshold }}</span></article></section>
+  <section class="data-card"><div class="card-head"><h2>按单位统计</h2><span class="muted">当前授权筛选全集，不受分页影响</span></div><div class="card-body" id="inventory-summary" aria-live="polite"><p class="muted">正在汇总…</p></div><p id="inventory-summary-error" class="inline-status card-body" role="status" aria-live="polite"></p></section>
 
   {% if perms.crm.manage_global_low_stock or request.user.is_superuser %}
   <form id="global-settings" data-api="/api/v1/settings/low-stock">
@@ -49,8 +48,7 @@
       {% empty %}<tr><td colspan="14">没有匹配的库存记录。</td></tr>{% endfor %}
     </tbody>
   </table></div>
-  {% if has_previous %}<a href="?warehouse_id={{ request.GET.warehouse_id|urlencode }}&sku_id={{ request.GET.sku_id|urlencode }}&brand_id={{ request.GET.brand_id|urlencode }}&low_stock={{ request.GET.low_stock|urlencode }}&page={{ page|add:"-1" }}">上一页</a>{% endif %}
-  {% if has_next %}<a href="?warehouse_id={{ request.GET.warehouse_id|urlencode }}&sku_id={{ request.GET.sku_id|urlencode }}&brand_id={{ request.GET.brand_id|urlencode }}&low_stock={{ request.GET.low_stock|urlencode }}&page={{ page|add:1 }}">下一页</a>{% endif %}
+  <div class="pagination">{% if has_previous %}<a class="button-link" href="?warehouse_id={{ request.GET.warehouse_id|urlencode }}&sku_id={{ request.GET.sku_id|urlencode }}&brand_id={{ request.GET.brand_id|urlencode }}&low_stock={{ request.GET.low_stock|urlencode }}&page={{ page|add:'-1' }}">上一页</a>{% endif %}<span>第 {{ page }} 页 · 共 {{ total }} 条记录</span>{% if has_next %}<a class="button-link" href="?warehouse_id={{ request.GET.warehouse_id|urlencode }}&sku_id={{ request.GET.sku_id|urlencode }}&brand_id={{ request.GET.brand_id|urlencode }}&low_stock={{ request.GET.low_stock|urlencode }}&page={{ page|add:1 }}">下一页</a>{% endif %}</div>
 
   <script>
     function csrfToken() { return document.cookie.split('; ').find(x => x.startsWith('csrftoken='))?.split('=')[1] || ''; }
@@ -61,6 +59,7 @@
       return result;
     }
     const status = document.getElementById('status');
+    (async()=>{const params=new URLSearchParams(location.search);params.delete('page');params.delete('page_size');params.set('page_size','1');const summary=document.getElementById('inventory-summary'),error=document.getElementById('inventory-summary-error');try{const response=await fetch(`/api/v1/reports/inventory?${params}`,{credentials:'same-origin'}),data=await response.json();if(!response.ok)throw new Error(data.error?.message||'库存汇总加载失败。');if(!data.summary.by_unit.length){summary.replaceChildren(Object.assign(document.createElement('p'),{className:'empty-state',textContent:'当前筛选没有库存记录。'}));return;}const table=document.createElement('table'),thead=document.createElement('thead'),headRow=document.createElement('tr'),tbody=document.createElement('tbody');for(const label of ['单位','在库','可售','订单占用','客户预留','破损']){const th=document.createElement('th');th.textContent=label;headRow.append(th);}thead.append(headRow);for(const item of data.summary.by_unit){const row=document.createElement('tr');for(const value of [item.unit,item.on_hand,item.available,item.occupied,item.reserved,item.damaged]){const cell=document.createElement('td');cell.textContent=value;if(typeof value==='number')cell.className='numeric';row.append(cell);}tbody.append(row);}table.append(thead,tbody);const wrap=document.createElement('div');wrap.className='table-scroll';wrap.append(table);summary.replaceChildren(wrap);}catch(exception){summary.replaceChildren();error.textContent=exception.message;error.setAttribute('role','alert');}})();
     const globalForm = document.getElementById('global-settings');
     if (globalForm) globalForm.addEventListener('submit', async event => {
       event.preventDefault();
