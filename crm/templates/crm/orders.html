@@ -36,7 +36,7 @@
     if(!data.items.length){const row=document.createElement('tr'),cell=document.createElement('td');cell.colSpan=8;cell.className='empty-state';cell.textContent='没有匹配的订单。';row.append(cell);body.append(row);return;}
     for(const item of data.items){
       const row=document.createElement('tr'), warehouses=[...new Set((item.lines||[]).map(line=>line.warehouse).filter(Boolean))];
-      const cells=[String(item.sequence),item.customer_name||'门店散客',item.salesperson,warehouses.join('、')||'—',`¥${item.revenue_amount}`,item.status_label,item.payment?.status_label||'未登记'];
+      const cells=[String(item.id),item.customer_name||'门店散客',item.salesperson,warehouses.join('、')||'—',`¥${item.revenue_amount}`,item.status_label,item.payment?.status_label||'未登记'];
       cells.forEach((value,index)=>{const cell=document.createElement('td');if(index===0){const link=document.createElement('a');link.href=`/orders/${encodeURIComponent(item.id)}/`;link.textContent=value;cell.append(link);}else{cell.textContent=value;if(index===5||index===6){const pill=document.createElement('span');const tone=index===5?(item.status==='completed'?'success':item.status==='ready_to_ship'?'info':item.status==='cancelled'?'neutral':'warning'):(!item.payment?'neutral':item.payment.status==='passed'?'success':item.payment.status==='problem'?'danger':'warning');pill.className=`status-pill status-pill--${tone}`;pill.textContent=value;cell.replaceChildren(pill);}}if(index===4)cell.classList.add('numeric');row.append(cell);});
       const action=document.createElement('td'), link=document.createElement('a');link.href=`/orders/${encodeURIComponent(item.id)}/`;link.textContent='查看';action.append(link);row.append(action);body.append(row);
     }

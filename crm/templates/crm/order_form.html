@@ -3,7 +3,7 @@
 {% block title %}{% if order %}修改订单{% else %}新建订单{% endif %} · 阿罗拉潮玩空间{% endblock %}
 {% block topbar_title %}{% if order %}修改订单{% else %}新建订单{% endif %}{% endblock %}
 {% block content %}
-<section class="page-heading"><h1>{% if order %}修改订单 {{ order.last_sequence }}{% else %}新建订单{% endif %}</h1></section>
+<section class="page-heading"><h1>{% if order %}修改订单 {{ order.pk }}{% else %}新建订单{% endif %}</h1></section>
 <div class="legacy-content">
 <form hidden>{% csrf_token %}</form>
   <form id="order-form">
@@ -22,9 +22,9 @@
         <label>查找仓库 <input id="warehouse-query" type="search" placeholder="仓库名称"><button id="search-warehouses" type="button">查找</button></label>
         <div id="lines"></div><button id="add-line" type="button">添加商品</button>
       </fieldset>
-    <button id="preview" type="submit">预览成本与占货</button>
+    <button id="preview" class="button-primary" type="submit">预览成本与占货</button>
   </form>
-  <section id="preview-result" hidden><h2>订单预览</h2><pre id="summary"></pre><button id="confirm" type="button">确认并占货</button></section>
+  <section id="preview-result" hidden><h2>订单预览</h2><pre id="summary"></pre><button id="confirm" class="button-primary" type="button">确认并占货</button></section>
   <p id="status" role="status"></p>
   {{ initial|json_script:"order-initial" }}
   <script>
@@ -37,7 +37,8 @@
       const customerCache=new Map(),skuCache=new Map(),warehouseCache=new Map();
       function option(select,value,label){const node=document.createElement('option');node.value=String(value);node.textContent=label;select.append(node);}
       function customerOptions(selectedId=customerSelect.value){customers=customers.filter((item,index,array)=>array.findIndex(other=>other.id===item.id)===index);const selected=customerCache.get(String(selectedId));if(selected&&!customers.some(item=>item.id===selected.id))customers.push(selected);customerSelect.innerHTML='';option(customerSelect,'','现场客户 / 不关联客户');for(const item of customers)option(customerSelect,item.id,item.name);customerSelect.value=selectedId||'';}
-      function skuOptions(select,selectedId='',fallbackLabel=''){select.innerHTML='';option(select,'','请选择SKU');for(const item of skus)option(select,item.id,`${item.code} · ${item.unit}`);const selected=skuCache.get(String(selectedId));if(selected&&!skus.some(item=>item.id===selected.id))option(select,selected.id,`${selected.code} · ${selected.unit}`);else if(selectedId&&!skus.some(item=>String(item.id)===String(selectedId)))option(select,selectedId,fallbackLabel||`SKU ${selectedId}（历史明细）`);select.value=selectedId||'';}
+      function skuLabel(item){return `${item.product?.name?`${item.product.name} · `:''}${item.code} · ${item.unit}`;}
+        function skuOptions(select,selectedId='',fallbackLabel=''){select.innerHTML='';option(select,'','请选择SKU');for(const item of skus)option(select,item.id,skuLabel(item));const selected=skuCache.get(String(selectedId));if(selected&&!skus.some(item=>item.id===selected.id))option(select,selected.id,skuLabel(selected));else if(selectedId&&!skus.some(item=>String(item.id)===String(selectedId)))option(select,selectedId,fallbackLabel||`SKU ${selectedId}（历史明细）`);select.value=selectedId||'';}
       function warehouseOptions(select,selectedId='',fallbackLabel=''){select.innerHTML='';option(select,'','请选择仓库');for(const item of warehouses)option(select,item.id,item.name);const selected=warehouseCache.get(String(selectedId));if(selected&&!warehouses.some(item=>item.id===selected.id))option(select,selected.id,selected.name);else if(selectedId&&!warehouses.some(item=>String(item.id)===String(selectedId)))option(select,selectedId,fallbackLabel||`仓库 ${selectedId}（历史明细）`);select.value=selectedId||'';}
       function resetCities(selected=''){const row=regions.find(item=>item.province===province.value);city.innerHTML='<option value="">请选择城市</option>';for(const item of row?.cities||[])option(city,item.name,item.name);city.value=selected;}
     function customerAddresses(){const item=customers.find(row=>String(row.id)===customerSelect.value);savedAddress.innerHTML='<option value="">手工填写</option>';for(const address of item?.addresses||[])option(savedAddress,address.id,`${address.recipient} · ${address.province}${address.city} ${address.detail}`);}
@@ -45,7 +46,7 @@
       const row=document.createElement('fieldset');row.className='order-line';
       row.innerHTML='<legend>商品</legend><label>SKU <select data-field="sku" required></select></label><label>仓库 <select data-field="warehouse" required></select></label><label>数量 <input data-field="quantity" type="number" min="1" step="1" required></label><label>单价 <input data-field="sale_price" inputmode="decimal" required></label><button type="button" data-remove>移除商品</button>';
         const skuSelect=row.querySelector('[data-field="sku"]'),warehouseSelect=row.querySelector('[data-field="warehouse"]');
-        if(value.sku_id&&value.sku_code)skuCache.set(String(value.sku_id),{id:value.sku_id,code:value.sku_code,unit:value.unit||''});
+      if(value.sku_id&&value.sku_code)skuCache.set(String(value.sku_id),{id:value.sku_id,code:value.sku_code,unit:value.unit||'',product:{name:value.product_name||''}});
         if(value.warehouse_id&&value.warehouse)warehouseCache.set(String(value.warehouse_id),{id:value.warehouse_id,name:value.warehouse});
         skuOptions(skuSelect,value.sku_id||'',value.sku_code||'');warehouseOptions(warehouseSelect,value.warehouse_id||'',value.warehouse||'');
       skuSelect.value=value.sku_id||'';warehouseSelect.value=value.warehouse_id||'';row.querySelector('[data-field="quantity"]').value=value.quantity||1;row.querySelector('[data-field="sale_price"]').value=value.unit_price||'';

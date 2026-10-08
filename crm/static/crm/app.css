@@ -33,7 +33,7 @@ button, input, select, textarea { font: inherit; }
 button, a, summary { touch-action: manipulation; }
 a { color: #3e4b9b; text-decoration: none; }
 a:hover { color: var(--brand); text-decoration: underline; }
-button { min-height: 38px; border: 1px solid var(--line); border-radius: var(--radius-control); padding: 7px 12px; background: var(--surface); color: var(--ink); cursor: pointer; }
+button { min-height: 40px; border: 1px solid var(--line); border-radius: var(--radius-control); padding: 8px 12px; background: var(--surface); color: var(--ink); cursor: pointer; }
 button:hover { border-color: #b8bdd6; background: #fafaff; }
 button:disabled { opacity: .55; cursor: not-allowed; }
 :focus-visible { outline: 3px solid #e99a0d; outline-offset: 2px; }
@@ -86,9 +86,9 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
 .page-heading { display: flex; min-height: 42px; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
 .page-heading p { margin-bottom: 0; color: var(--muted); font-size: 13px; }
 .page-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
-.button-primary { border-color: var(--brand); background: var(--brand); color: #fff; font-weight: 600; }
+.button-primary { display: inline-flex; min-height: 40px; align-items: center; justify-content: center; border: 1px solid var(--brand); border-radius: 6px; padding: 8px 16px; background: var(--brand); color: #fff; font-size: 14px; font-weight: 600; }
 .button-primary:hover { border-color: var(--brand-deep); background: var(--brand-deep); color: #fff; }
-.button-link { display: inline-flex; min-height: 38px; align-items: center; justify-content: center; border: 1px solid var(--line); border-radius: var(--radius-control); padding: 7px 12px; background: var(--surface); color: var(--ink); }
+.button-link { display: inline-flex; min-height: 40px; align-items: center; justify-content: center; border: 1px solid var(--line); border-radius: 6px; padding: 8px 16px; background: var(--surface); color: var(--ink); }
 .button-link:hover { border-color: #b8bdd6; background: #fafaff; text-decoration: none; }
 .button-danger { border-color: #e5b9be; color: var(--danger); }
 .data-card { min-width: 0; border: 1px solid var(--line); border-radius: var(--radius-card); background: var(--surface); box-shadow: var(--shadow-card); }
@@ -144,9 +144,10 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
 .tab-list a, .tab-list button { min-height: 40px; border: 0; border-bottom: 2px solid transparent; border-radius: 0; padding: 8px 12px; background: transparent; color: var(--muted); }
 .tab-list .is-active { border-bottom-color: var(--brand); color: var(--brand); font-weight: 650; }
 .mobile-only { display: none; }
+.desktop-detail-close { margin-left: 6px; }
 .link-button { min-height: auto; border: 0; padding: 0; background: transparent; color: #3e4b9b; text-align: left; }
 .link-button:hover { background: transparent; text-decoration: underline; }
-.dashboard-grid { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(260px, .85fr); gap: 16px; }
+.dashboard-grid { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(260px, .85fr); gap: 16px; align-items: start; }
 .dashboard-side { display: grid; align-content: start; gap: 16px; }
 .dashboard-trend { grid-column: 1 / -1; }
 .trend-chart { display: grid; min-height: 190px; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 10px; align-items: end; border-bottom: 1px solid var(--line); padding: 12px 0 0; }
@@ -195,6 +196,7 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
   .summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .split-layout { grid-template-columns: minmax(0, 1fr); }
   .mobile-only { display: inline-flex; }
+  .desktop-detail-close { display: none; }
   .detail-panel.is-mobile-hidden { display: none; }
   .split-layout.mobile-detail-open > section:first-child { display: none; }
   .dashboard-grid { grid-template-columns: minmax(0, 1fr); }

@@ -24,7 +24,7 @@
       <label>负责人 <select id="owner_id" required><option value="">请选择</option>{% for person in salespeople %}<option value="{{ person.pk }}">{{ person.get_username }}</option>{% endfor %}</select></label>
     {% endif %}
     <fieldset><legend>收货地址（至少一个）</legend><div id="addresses"></div><button id="add-address" type="button">添加地址</button></fieldset>
-    <button type="submit">保存客户</button>
+    <button class="button-primary" type="submit">保存客户</button>
   </form>
   <p id="status" role="status"></p>
   {{ initial|json_script:"customer-initial" }}

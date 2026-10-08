@@ -81,7 +81,7 @@
         orderBody.replaceChildren();
         for(const item of orderPage.items) {
           const row=document.createElement('tr'), values=[
-            {text:String(item.sequence),href:`/orders/${encodeURIComponent(item.id)}/`},
+            {text:String(item.id),href:`/orders/${encodeURIComponent(item.id)}/`},
             item.customer_name||'门店散客', [...new Set((item.lines||[]).map(line=>line.warehouse).filter(Boolean))].join('、')||'—',
             `¥${item.revenue_amount}`, item.status_label, item.payment?.status_label||'未登记'
           ];
