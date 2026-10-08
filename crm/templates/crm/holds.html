@@ -1,9 +1,11 @@
-<!doctype html>
-<html lang="zh-Hans">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>预留与囤货 · CRM</title></head>
-<body>
-  <header><h1>预留与囤货</h1><nav><a href="{% url 'inventory' %}">库存</a> · <a href="{% url 'adjustments' %}">库存调整与纠错</a> · <a href="{% url 'receiving' %}">采购入库</a> · <a href="{% url 'opening' %}">期初盘点</a></nav></header>
-  <p>解锁按具体记录办理，只能释放该记录的剩余数量；此处不指定销售订单，也不自动到期。</p>
+{% extends 'crm/base.html' %}
+{% load static %}
+{% block title %}预留与囤货 · 阿罗拉潮玩空间{% endblock %}
+{% block topbar_title %}预留与囤货{% endblock %}
+{% block content %}
+<section class="page-heading"><h1>预留与囤货</h1></section>
+<div class="legacy-content">
+<p>解锁按具体记录办理，只能释放该记录的剩余数量；此处不指定销售订单，也不自动到期。</p>
   {% if perms.crm.create_inventory_hold or request.user.is_superuser %}
   <form id="hold-create">
     {% csrf_token %}
@@ -56,5 +58,5 @@
       } catch (error) { status.textContent = error.message; }
     }));
   </script>
-</body>
-</html>
+</div>
+{% endblock %}

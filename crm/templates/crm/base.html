@@ -1,0 +1,89 @@
+{% load static %}
+<!doctype html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#302C6C">
+  <title>{% block title %}阿罗拉潮玩空间 · CRM{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'crm/app.css' %}">
+  {% block extra_head %}{% endblock %}
+</head>
+<body class="app-body">
+  <a class="skip-link" href="#main-content">跳到主要内容</a>
+  <div class="app-frame">
+    <aside class="sidebar" id="primary-navigation" aria-label="主导航">
+      <a class="brand" href="{% url 'home' %}" aria-label="阿罗拉潮玩空间工作台">
+        <img src="{% static 'crm/brand-logo.png' %}" alt="阿罗拉潮玩空间" width="150" height="52">
+      </a>
+      <nav class="nav-list">
+        <a class="nav-item {% if request.resolver_match.url_name == 'home' or request.resolver_match.url_name == 'workbench' %}is-active{% endif %}" href="{% url 'home' %}" {% if request.resolver_match.url_name == 'home' or request.resolver_match.url_name == 'workbench' %}aria-current="page"{% endif %}>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-6v-7h-4v7H4a1 1 0 0 1-1-1z"/></svg><span>工作台</span>
+        </a>
+        {% if perms.crm.view_salesorder %}
+          <a class="nav-item {% if request.resolver_match.url_name == 'orders' or request.resolver_match.url_name == 'order-new' or request.resolver_match.url_name == 'order-detail' or request.resolver_match.url_name == 'order-edit' %}is-active{% endif %}" href="{% url 'orders' %}" {% if request.resolver_match.url_name == 'orders' or request.resolver_match.url_name == 'order-new' or request.resolver_match.url_name == 'order-detail' or request.resolver_match.url_name == 'order-edit' %}aria-current="page"{% endif %}>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h8l5 5v13H7z"/><path d="M15 3v6h5M10 13h7M10 17h7"/></svg><span>销售订单</span>
+          </a>
+        {% endif %}
+        {% if perms.crm.view_inventorybalance %}
+          <a class="nav-item {% if request.resolver_match.url_name == 'inventory' %}is-active{% endif %}" href="{% url 'inventory' %}" {% if request.resolver_match.url_name == 'inventory' %}aria-current="page"{% endif %}>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 9 5-9 5-9-5zM3 8v9l9 5 9-5V8M12 13v9"/></svg><span>库存查询</span>
+          </a>
+        {% endif %}
+        {% if perms.crm.view_brand and perms.crm.view_product and perms.crm.view_sku %}
+          <a class="nav-item {% if request.resolver_match.url_name == 'catalog-search' %}is-active{% endif %}" href="{% url 'catalog-search' %}" {% if request.resolver_match.url_name == 'catalog-search' %}aria-current="page"{% endif %}>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m20 13-7 7-11-11V2h7z"/><circle cx="6.5" cy="6.5" r="1.2"/></svg><span>商品档案</span>
+          </a>
+        {% endif %}
+        {% if perms.crm.view_customer %}
+          <a class="nav-item {% if request.resolver_match.url_name == 'customers' or request.resolver_match.url_name == 'customer-new' or request.resolver_match.url_name == 'customer-edit' or request.resolver_match.url_name == 'birthdays' %}is-active{% endif %}" href="{% url 'customers' %}" {% if request.resolver_match.url_name == 'customers' or request.resolver_match.url_name == 'customer-new' or request.resolver_match.url_name == 'customer-edit' %}aria-current="page"{% endif %}>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2z"/></svg><span>客户</span>
+          </a>
+        {% endif %}
+        {% if perms.crm.view_salesorder %}
+          <a class="nav-item {% if request.resolver_match.url_name == 'report-page' and report_name == 'payments' %}is-active{% endif %}" href="{% url 'report-page' 'payments' %}" {% if request.resolver_match.url_name == 'report-page' and report_name == 'payments' %}aria-current="page"{% endif %}>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h4"/></svg><span>收款核对</span>
+          </a>
+          <a class="nav-item {% if request.resolver_match.url_name == 'report-page' and report_name == 'commissions' %}is-active{% endif %}" href="{% url 'report-page' 'commissions' %}" {% if request.resolver_match.url_name == 'report-page' and report_name == 'commissions' %}aria-current="page"{% endif %}>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M17 7H9.5a3.5 3.5 0 1 0 0 7H14a3.5 3.5 0 1 1 0 7H6"/></svg><span>提成</span>
+          </a>
+        {% endif %}
+        {% if perms.crm.view_inventorybalance or perms.crm.view_salesorder %}
+          <details class="nav-group" {% if request.resolver_match.url_name == 'report-page' or request.resolver_match.url_name == 'report-export' %}open{% endif %}>
+            <summary class="nav-item {% if request.resolver_match.url_name == 'report-page' or request.resolver_match.url_name == 'report-export' %}is-active{% endif %}">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20V7"/></svg><span>报表</span>
+            </summary>
+            <div class="nav-sublist">
+              {% if perms.crm.view_inventorybalance %}<a href="{% url 'report-page' 'inventory' %}">库存</a>{% endif %}
+              {% if perms.crm.view_salesorder %}<a href="{% url 'report-page' 'sales' %}">销售</a><a href="{% url 'report-page' 'payments' %}">收款核对</a><a href="{% url 'report-page' 'commissions' %}">提成</a>{% endif %}
+            </div>
+          </details>
+        {% endif %}
+        <div class="nav-divider" aria-hidden="true"></div>
+        {% if perms.crm.confirm_receipt %}<a class="nav-item {% if request.resolver_match.url_name == 'receiving' %}is-active{% endif %}" href="{% url 'receiving' %}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16v14H4zM4 7l2-4h12l2 4M12 11v7M9 15l3 3 3-3"/></svg><span>采购入库</span></a>{% endif %}
+        {% if perms.crm.confirm_opening %}<a class="nav-item {% if request.resolver_match.url_name == 'opening' %}is-active{% endif %}" href="{% url 'opening' %}"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg><span>期初盘点</span></a>{% endif %}
+        {% if perms.crm.view_inventoryhold %}<a class="nav-item {% if request.resolver_match.url_name == 'holds' %}is-active{% endif %}" href="{% url 'holds' %}"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v3"/></svg><span>限制记录</span></a>{% endif %}
+        {% if perms.crm.create_inventory_split or perms.crm.create_inventory_gift or perms.crm.resolve_damaged_record or perms.crm.add_stockcount or perms.crm.submit_costcorrection or perms.crm.approve_stockcount or perms.crm.approve_costcorrection or perms.crm.view_stockcount or perms.crm.view_costcorrection %}<a class="nav-item {% if request.resolver_match.url_name == 'adjustments' %}is-active{% endif %}" href="{% url 'adjustments' %}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16M4 12h16M4 19h16M8 3v4M15 10v4M10 17v4"/></svg><span>库存调整</span></a>{% endif %}
+        {% if perms.crm.view_customer %}<a class="nav-item {% if request.resolver_match.url_name == 'birthdays' %}is-active{% endif %}" href="{% url 'birthdays' %}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h16v9H4zM3 12a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0M8 8V5M16 8V4"/></svg><span>今天生日</span></a>{% endif %}
+        {% if request.user.is_staff or request.user.is_superuser %}<a class="nav-item" href="{% url 'admin:index' %}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="m19 13.5 1.5 1.2-1.5 2.6-1.8-.6a7 7 0 0 1-1.5.9l-.3 1.9h-3l-.4-1.9a7 7 0 0 1-1.5-.9l-1.8.6-1.5-2.6 1.5-1.2a7 7 0 0 1 0-1.8l-1.5-1.2 1.5-2.6 1.8.6a7 7 0 0 1 1.5-.9l.4-1.9h3l.3 1.9a7 7 0 0 1 1.5.9l1.8-.6 1.5 2.6-1.5 1.2a7 7 0 0 1 0 1.8z" transform="translate(-1 -2)"/></svg><span>管理后台</span></a>{% endif %}
+      </nav>
+      <form class="sidebar-logout" method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="nav-item" type="submit"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 17l5-5-5-5M15 12H3M12 3h7a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-7"/></svg><span>退出登录</span></button></form>
+    </aside>
+    <button class="sidebar-scrim" data-menu-close aria-label="关闭导航" tabindex="-1"></button>
+    <div class="app-column">
+      <header class="topbar">
+        <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="primary-navigation" aria-label="打开导航" data-menu-toggle>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+        </button>
+        <div class="topbar-title">{% block topbar_title %}阿罗拉潮玩空间{% endblock %}</div>
+        <div class="topbar-user"><span class="user-avatar" aria-hidden="true">{{ request.user.get_username|slice:":1"|upper }}</span><span>{{ request.user.get_username }}</span></div>
+      </header>
+      <main class="main-content" id="main-content" tabindex="-1">
+        {% block content %}{% endblock %}
+      </main>
+    </div>
+  </div>
+  <script src="{% static 'crm/app.js' %}" defer></script>
+  {% block extra_scripts %}{% endblock %}
+</body>
+</html>

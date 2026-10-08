@@ -1,12 +1,11 @@
-<!doctype html>
-<html lang="zh-Hans">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>采购入库 · CRM</title></head>
-<body>
-  <header>
-    <h1>采购入库</h1>
-    <nav><a href="{% url 'inventory' %}">库存</a> · <a href="{% url 'holds' %}">限制记录</a> · <a href="{% url 'catalog-search' %}">商品</a> · <a href="{% url 'admin:crm_supplier_changelist' %}">供应商档案</a></nav>
-  </header>
-  {% if not warehouses %}<p role="alert">请先在管理后台新增并启用仓库。</p>{% endif %}
+{% extends 'crm/base.html' %}
+{% load static %}
+{% block title %}采购入库 · 阿罗拉潮玩空间{% endblock %}
+{% block topbar_title %}采购入库{% endblock %}
+{% block content %}
+<section class="page-heading"><h1>采购入库</h1></section>
+<div class="legacy-content">
+{% if not warehouses %}<p role="alert">请先在管理后台新增并启用仓库。</p>{% endif %}
   {% if not suppliers %}<p role="alert">请先在管理后台新增并启用供应商。</p>{% endif %}
   {% if not skus %}<p role="alert">请先在管理后台新增并启用SKU。</p>{% endif %}
   <form id="receipt-form">
@@ -116,5 +115,5 @@
       } catch (error) { resultBox.textContent = error.message; status.textContent = '入库未确认，请重新预览。'; }
     });
   </script>
-</body>
-</html>
+</div>
+{% endblock %}

@@ -1,36 +1,11 @@
-<!doctype html>
-<html lang="zh-Hans">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{{ report_title }} · CRM</title>
-  <style>
-    body { font-family: sans-serif; margin: 1.5rem; color: #202124; }
-    nav, form, .summary { margin: 1rem 0; }
-    label { display: inline-block; margin: .35rem .6rem .35rem 0; }
-    table { border-collapse: collapse; width: 100%; margin-top: 1rem; }
-    th, td { border: 1px solid #c8c8c8; padding: .4rem .55rem; text-align: left; vertical-align: top; }
-    th { background: #f3f4f6; position: sticky; top: 0; }
-    .table-wrap { overflow-x: auto; }
-    .notice { padding: .7rem; background: #fff5d6; border: 1px solid #e5c86a; }
-  </style>
-</head>
-<body>
-  <header>
-    <h1>{{ report_title }}</h1>
-    <p>{{ request.user.get_username }}</p>
-    <nav>
-      {% if perms.crm.view_inventorybalance or request.user.is_superuser %}<a href="{% url 'report-page' 'inventory' %}">库存</a> · {% endif %}
-      {% if perms.crm.view_salesorder or request.user.is_superuser %}
-        <a href="{% url 'report-page' 'sales' %}">销售</a> ·
-        <a href="{% url 'report-page' 'payments' %}">收款核对</a> ·
-        <a href="{% url 'report-page' 'commissions' %}">提成</a> ·
-      {% endif %}
-      <a href="{% url 'orders' %}">订单</a>
-    </nav>
-  </header>
-
-  {% if error %}<p role="alert">{{ error }}</p>{% endif %}
+{% extends 'crm/base.html' %}
+{% load static %}
+{% block title %}{{ report_title }} · 阿罗拉潮玩空间{% endblock %}
+{% block topbar_title %}{{ report_title }}{% endblock %}
+{% block content %}
+<section class="page-heading"><h1>{{ report_title }}</h1></section>
+<div class="legacy-content">
+{% if error %}<p role="alert">{{ error }}</p>{% endif %}
   {% if report_name == "payments" %}
     <p class="notice" role="status">周期按系统记录的首次成功登记收款凭证时间筛选；修改截图、金额或账户，以及重新核对均不改变归属日期。实际收款时间仍为可空字段，单独显示。</p>
   {% endif %}
@@ -131,11 +106,11 @@
     <table>
       <thead><tr>{% for column in columns %}<th>{{ column.1 }}</th>{% endfor %}</tr></thead>
       <tbody>
-        {% for row in table_rows %}<tr>{% for value in row %}<td>{% if value == "" or value == None %}—{% else %}{{ value }}{% endif %}</td>{% endfor %}</tr>
+        {% for row in table_rows %}<tr>{% for value in row %}<td>{% if report_name == "payments" and forloop.first %}<a href="{% url 'order-detail' value %}">{{ value }}</a>{% elif value == "" or value == None %}—{% else %}{{ value }}{% endif %}</td>{% endfor %}</tr>
         {% empty %}<tr><td colspan="20">没有匹配的记录。</td></tr>{% endfor %}
       </tbody>
     </table>
   </div>
   <nav aria-label="报表分页">{% if prev_url %}<a href="{{ prev_url }}">上一页</a>{% endif %} {% if next_url %}<a href="{{ next_url }}">下一页</a>{% endif %}</nav>
-</body>
-</html>
+</div>
+{% endblock %}

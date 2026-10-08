@@ -1,9 +1,11 @@
-<!doctype html>
-<html lang="zh-Hans">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>期初盘点 · CRM</title></head>
-<body>
-  <header><h1>期初盘点</h1><nav><a href="{% url 'inventory' %}">库存</a> · <a href="{% url 'receiving' %}">采购入库</a> · <a href="{% url 'catalog-search' %}">商品</a> · <a href="{% url 'admin:index' %}">管理后台</a></nav></header>
-  {% if opening_completed %}
+{% extends 'crm/base.html' %}
+{% load static %}
+{% block title %}期初盘点 · 阿罗拉潮玩空间{% endblock %}
+{% block topbar_title %}期初盘点{% endblock %}
+{% block content %}
+<section class="page-heading"><h1>期初盘点</h1></section>
+<div class="legacy-content">
+{% if opening_completed %}
     <p role="status">正式期初已确认，入口已关闭。后续库存通过采购入库管理；期初纠错按已批准流程处理。</p>
   {% else %}
     <p>上传标准模板的两张工作表。预览不会写入商品、仓库或库存；确认时才会整批提交。</p>
@@ -62,5 +64,5 @@
       });
     }
   </script>
-</body>
-</html>
+</div>
+{% endblock %}

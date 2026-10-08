@@ -1,11 +1,10 @@
-<!doctype html>
-<html lang="zh-Hans">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>库存调整与纠错 · CRM</title></head>
-<body>
-<header>
-  <h1>库存调整与纠错</h1>
-  <nav><a href="{% url 'inventory' %}">库存</a> · <a href="{% url 'holds' %}">限制记录</a> · <a href="{% url 'receiving' %}">采购入库</a> · <a href="{% url 'opening' %}">期初盘点</a></nav>
-</header>
+{% extends 'crm/base.html' %}
+{% load static %}
+{% block title %}库存调整与纠错 · 阿罗拉潮玩空间{% endblock %}
+{% block topbar_title %}库存调整与纠错{% endblock %}
+{% block content %}
+<section class="page-heading"><h1>库存调整与纠错</h1></section>
+<div class="legacy-content">
 <p id="status" role="status" aria-live="polite"></p>
 
 <template id="warehouse-options">
@@ -796,5 +795,5 @@
 
   loadDamage(); loadCounts(); loadCorrections();
 </script>
-</body>
-</html>
+</div>
+{% endblock %}

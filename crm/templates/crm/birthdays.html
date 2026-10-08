@@ -1,11 +1,13 @@
-<!doctype html>
-<html lang="zh-Hans">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>今天生日 · CRM</title></head>
-<body>
-  <header><h1>今天生日</h1><nav><a href="{% url 'customers' %}">客户</a></nav></header>
-  {% if enabled %}
+{% extends 'crm/base.html' %}
+{% load static %}
+{% block title %}今天生日 · 阿罗拉潮玩空间{% endblock %}
+{% block topbar_title %}今天生日{% endblock %}
+{% block content %}
+<section class="page-heading"><h1>今天生日</h1></section>
+<div class="legacy-content">
+{% if enabled %}
     <p>{{ today|date:"Y年n月j日" }}（北京时间）</p>
     <ul>{% for item in customers %}<li><a href="{% url 'customer-edit' item.id %}">{{ item.name }}</a> · {{ item.contact }}{% if item.company %} · {{ item.company }}{% endif %}</li>{% empty %}<li>今天没有客户生日。</li>{% endfor %}</ul>
   {% else %}<p>个人生日提醒已关闭。客户生日资料仍保留。</p>{% endif %}
-</body>
-</html>
+</div>
+{% endblock %}

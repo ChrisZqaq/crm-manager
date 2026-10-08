@@ -1,15 +1,11 @@
-<!doctype html>
-<html lang="zh-Hans">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>库存与成本 · CRM</title></head>
-<body>
-  <header>
-    <h1>库存与成本</h1>
-    <span>{{ request.user.get_username }}</span>
-    <nav><a href="{% url 'catalog-search' %}">商品</a> · <a href="{% url 'report-page' 'inventory' %}">库存报表</a> · <a href="{% url 'holds' %}">限制记录</a> · <a href="{% url 'adjustments' %}">库存调整与纠错</a> · <a href="{% url 'receiving' %}">采购入库</a> · <a href="{% url 'opening' %}">期初盘点</a> · <a href="{% url 'admin:index' %}">管理后台</a></nav>
-    <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button type="submit">退出登录</button></form>
-  </header>
-
-  {% if error %}<p role="alert">{{ error }}</p>{% endif %}
+{% extends 'crm/base.html' %}
+{% load static %}
+{% block title %}库存与成本 · 阿罗拉潮玩空间{% endblock %}
+{% block topbar_title %}库存与成本{% endblock %}
+{% block content %}
+<section class="page-heading"><h1>库存与成本</h1></section>
+<div class="legacy-content">
+{% if error %}<p role="alert">{{ error }}</p>{% endif %}
   <form method="get">
     <label>仓库ID <input name="warehouse_id" value="{{ request.GET.warehouse_id }}"></label>
     <label>SKU ID <input name="sku_id" value="{{ request.GET.sku_id }}"></label>
@@ -19,7 +15,7 @@
     </label>
     <button type="submit">筛选</button>
   </form>
-  <p>仅显示已有库存记录。全局提醒：{% if control.low_stock_enabled %}开启{% else %}关闭{% endif %}；默认阈值 {{ control.default_threshold }}。</p>
+  <section class="summary-grid" aria-label="库存概览"><article class="data-card summary-card"><span class="summary-label">当前筛选记录</span><strong>—</strong><span class="summary-note">合计接口待接入</span></article><article class="data-card summary-card"><span class="summary-label">库存金额汇总</span><strong>—</strong><span class="summary-note">不同SKU单位不合并；汇总接口待接入</span></article><article class="data-card summary-card"><span class="summary-label">提醒设置</span><strong>{% if control.low_stock_enabled %}开启{% else %}关闭{% endif %}</strong><span class="summary-note">默认阈值 {{ control.default_threshold }}</span></article></section>
 
   {% if perms.crm.manage_global_low_stock or request.user.is_superuser %}
   <form id="global-settings" data-api="/api/v1/settings/low-stock">
@@ -31,7 +27,7 @@
   {% endif %}
 
   <p id="status" role="status"></p>
-  <table>
+  <section class="data-card"><div class="table-scroll"><table>
     <thead><tr><th>仓库</th><th>SKU</th><th>产品</th><th>单位</th><th>在库</th><th>占用</th><th>预留</th><th>囤货</th><th>破损</th><th>可售</th><th>库存金额</th><th>平均成本</th><th>低库存</th><th>SKU提醒设置</th></tr></thead>
     <tbody>
       {% for item in items %}
@@ -52,7 +48,7 @@
       </tr>
       {% empty %}<tr><td colspan="14">没有匹配的库存记录。</td></tr>{% endfor %}
     </tbody>
-  </table>
+  </table></div>
   {% if has_previous %}<a href="?warehouse_id={{ request.GET.warehouse_id|urlencode }}&sku_id={{ request.GET.sku_id|urlencode }}&brand_id={{ request.GET.brand_id|urlencode }}&low_stock={{ request.GET.low_stock|urlencode }}&page={{ page|add:"-1" }}">上一页</a>{% endif %}
   {% if has_next %}<a href="?warehouse_id={{ request.GET.warehouse_id|urlencode }}&sku_id={{ request.GET.sku_id|urlencode }}&brand_id={{ request.GET.brand_id|urlencode }}&low_stock={{ request.GET.low_stock|urlencode }}&page={{ page|add:1 }}">下一页</a>{% endif %}
 
@@ -82,5 +78,5 @@
       } catch (error) { status.textContent = error.message; }
     }));
   </script>
-</body>
-</html>
+</div>
+{% endblock %}

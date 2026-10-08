@@ -1,9 +1,11 @@
-<!doctype html>
-<html lang="zh-Hans">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>订单 {{ order.last_sequence }} · CRM</title></head>
-<body>
-  <header><h1>订单 {{ order.last_sequence }}</h1><nav><a href="{% url 'orders' %}">返回订单</a></nav></header>
-  <p>状态：{{ order.get_status_display }}；交付方式：{{ order.get_delivery_mode_display }}；销售：{{ order.salesperson.get_username }}；渠道：{{ order.channel.name }}</p>
+{% extends 'crm/base.html' %}
+{% load static %}
+{% block title %}订单 {{ order.last_sequence }} · 阿罗拉潮玩空间{% endblock %}
+{% block topbar_title %}订单 {{ order.last_sequence }}{% endblock %}
+{% block content %}
+<section class="page-heading"><h1>订单 {{ order.last_sequence }}</h1></section>
+<div class="legacy-content">
+<p>状态：{{ order.get_status_display }}；交付方式：{{ order.get_delivery_mode_display }}；销售：{{ order.salesperson.get_username }}；渠道：{{ order.channel.name }}</p>
   <p>客户：{{ order.customer_name_snapshot|default:"现场客户" }}；收件人：{{ order.recipient_snapshot|default:"—" }}；联系方式：{{ order.contact_snapshot|default:"—" }}</p>
   <p>地址：{{ order.province_snapshot }} {{ order.city_snapshot }} {{ order.detail_snapshot }}</p>
   <p>收入 {{ order.revenue_amount }} · 成本 {{ order.cost_amount }} · 毛利 {{ order.margin_amount }}{% if can_view_commission %} · 提成预估 {{ order.commission_estimate }}{% endif %}</p>
@@ -211,5 +213,5 @@
     if(review)review.addEventListener('click',async()=>{try{await postJson(`/api/v1/orders/${initial.id}/review-commission`,actionData());location.reload();}catch(error){status.textContent=error.message;}});
     document.querySelectorAll('.complete-adjustment').forEach(button=>button.addEventListener('click',async()=>{try{await postJson(`/api/v1/commission-adjustments/${button.dataset.id}/complete`,actionData());location.reload();}catch(error){status.textContent=error.message;}}));
   </script>
-</body>
-</html>
+</div>
+{% endblock %}

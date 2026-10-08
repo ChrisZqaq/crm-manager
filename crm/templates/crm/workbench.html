@@ -1,0 +1,36 @@
+{% extends 'crm/base.html' %}
+{% load static %}
+{% block title %}工作台 · 阿罗拉潮玩空间{% endblock %}
+{% block topbar_title %}工作台{% endblock %}
+{% block content %}
+    <section class="page-heading">
+      <div><h1>今天的门店业务</h1><p>销售金额按北京时间已交付日期统计；履约状态与收款核对状态分开显示。</p></div>
+      {% if perms.crm.add_salesorder %}<div class="page-actions"><a class="button-primary" href="{% url 'order-new' %}">＋ 新建订单</a></div>{% endif %}
+    </section>
+    <section class="summary-grid" aria-label="业务摘要">
+      {% if perms.crm.view_salesorder %}<article class="data-card summary-card"><span class="summary-label">今日已交付销售额</span><strong id="today-sales" aria-live="polite">—</strong><span class="summary-note">北京时间；发货/现场交付日</span></article>
+        <article class="data-card summary-card"><span class="summary-label">待出库订单</span><strong id="ready-orders">—</strong><span class="summary-note">当前账号可见范围</span></article>
+        <article class="data-card summary-card"><span class="summary-label">待核对收款</span><strong id="pending-payments">—</strong><span class="summary-note">按收款核对状态</span></article>
+      {% endif %}
+      {% if perms.crm.view_inventorybalance %}<article class="data-card summary-card"><span class="summary-label">低库存记录</span><strong id="low-stock-total">—</strong><span class="summary-note">服从现有提醒设置</span></article>{% endif %}
+    </section>
+    <div class="dashboard-grid">
+      {% if perms.crm.view_salesorder %}<section class="data-card" aria-labelledby="workbench-orders-title"><div class="card-head"><h2 id="workbench-orders-title">待办订单</h2><a href="{% url 'orders' %}">查看全部</a></div><div class="table-scroll"><table><thead><tr><th>订单编号</th><th>客户</th><th>仓库</th><th class="numeric">金额</th><th>履约</th><th>核对</th></tr></thead><tbody id="workbench-orders"><tr><td colspan="6" class="empty-state">数据加载中…</td></tr></tbody></table></div><p class="inline-status" id="workbench-order-status" role="status"></p></section>{% endif %}
+      <div class="dashboard-side">
+        <section class="data-card"><div class="card-head"><h2>待处理事项</h2></div><div class="card-body" id="workbench-todos"><div class="data-pending">真实事项列表数据待接入</div></div></section>
+        {% if perms.crm.view_inventorybalance %}<section class="data-card"><div class="card-head"><h2>低库存提醒</h2><a href="{% url 'inventory' %}?low_stock=true">查看库存</a></div><div class="card-body" id="workbench-low-stock"><div class="inline-status">数据加载中…</div></div><p class="inline-status" id="workbench-stock-status" role="status"></p></section>{% endif %}
+      </div>
+      <section class="data-card dashboard-trend"><div class="card-head"><div><h2>近 7 天销售趋势</h2><p class="muted">按现有已交付销售口径；北京时间</p></div></div><div class="card-body"><div class="data-pending">趋势接口待接入</div></div></section>
+    </div>
+    <script>
+      (()=>{const csrf=()=>document.cookie.split('; ').find(x=>x.startsWith('csrftoken='))?.split('=')[1]||'';const set=(id,value)=>{const el=document.getElementById(id);if(el)el.textContent=value;};const get=async url=>{const response=await fetch(url,{credentials:'same-origin'}),data=await response.json();if(!response.ok)throw new Error(data.error?.message||'数据加载失败');return data;};
+        const beijingDate=value=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(value));
+        {% if perms.crm.view_salesorder %}
+          (async()=>{try{const all=await get('/api/v1/reports/sales?period=all&page_size=1');const today=beijingDate(all.queried_at);const sales=await get(`/api/v1/reports/sales?period=custom&start_date=${today}&end_date=${today}&page_size=1`);set('today-sales',`¥${sales.summary.totals.revenue_amount}`);}catch(error){set('today-sales','暂不可用');document.getElementById('workbench-order-status').textContent=error.message;}
+          try{const ready=await get('/api/v1/orders?status=ready_to_ship&page_size=1');set('ready-orders',ready.total);const pending=await get('/api/v1/reports/payments?period=all&status=pending&page_size=1');set('pending-payments',pending.total);const orders=await get('/api/v1/orders?status=ready_to_ship&page_size=6');const tbody=document.getElementById('workbench-orders');tbody.replaceChildren();for(const item of orders.items){const tr=document.createElement('tr'),link=document.createElement('a');link.href=`/orders/${encodeURIComponent(item.id)}/`;link.textContent=item.sequence;const orderCell=document.createElement('td');orderCell.append(link);const warehouses=[...new Set((item.lines||[]).map(line=>line.warehouse).filter(Boolean))].join('、')||'—';const values=[orderCell,item.customer_name||'门店散客',warehouses,`¥${item.revenue_amount}`,item.status_label,item.payment?.status_label||'未登记'];for(let i=0;i<values.length;i++){const td=document.createElement('td');if(values[i] instanceof Node)td.append(values[i]);else td.textContent=values[i];if(i===3)td.className='numeric';tr.append(td);}tbody.append(tr);}if(!orders.items.length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=6;td.className='empty-state';td.textContent='当前范围没有待出库订单。';tr.append(td);tbody.append(tr);}}catch(error){document.getElementById('workbench-order-status').textContent=error.message;}
+          })();
+        {% endif %}
+        {% if perms.crm.view_inventorybalance %}(async()=>{try{const data=await get('/api/v1/inventory?low_stock=true&page_size=5');set('low-stock-total',data.total);const box=document.getElementById('workbench-low-stock');box.replaceChildren();if(!data.items.length){box.append(Object.assign(document.createElement('p'),{className:'empty-state',textContent:'当前没有低库存记录。'}));return;}const list=document.createElement('ul');for(const item of data.items){const li=document.createElement('li');li.textContent=`${item.product} · ${item.code} · ${item.warehouse}：${item.available} ${item.unit}`;list.append(li);}box.append(list);}catch(error){set('low-stock-total','暂不可用');document.getElementById('workbench-stock-status').textContent=error.message;}})();{% endif %}
+      })();
+    </script>
+{% endblock %}

@@ -1,87 +1,44 @@
-<!doctype html>
-<html lang="zh-Hans">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>商品查询 · CRM</title>
-</head>
-<body>
-  <header>
-    <h1>商品与SKU查询</h1>
-    <span>{{ request.user.get_username }}</span>
-    <form method="post" action="{% url 'logout' %}">
-      {% csrf_token %}
-      <button type="submit">退出登录</button>
-    </form>
-    <a href="{% url 'admin:index' %}">管理后台</a>
-  </header>
-
-  <nav aria-label="业务入口">
-    {% if perms.crm.add_salesorder %}<a href="{% url 'order-new' %}">新建订单</a>{% endif %}
-    {% if perms.crm.view_salesorder %}<a href="{% url 'orders' %}">销售订单</a>{% endif %}
-    {% if perms.crm.view_customer %}<a href="{% url 'customers' %}">客户</a>{% endif %}
-    {% if perms.crm.view_inventorybalance %}<a href="{% url 'inventory' %}">库存</a>{% endif %}
-  </nav>
-
-  <form method="get">
-    <label for="q">名称、编号、条码或别名</label>
-    <input id="q" name="q" value="{{ request.GET.q }}">
-
-    <label for="brand_id">IP</label>
-    <select id="brand_id" name="brand_id">
-      <option value="">全部</option>
-      {% for brand in brands %}
-        <option value="{{ brand.id }}" {% if request.GET.brand_id == brand.id|stringformat:"s" %}selected{% endif %}>{{ brand.name }}</option>
-      {% endfor %}
-    </select>
-
-    <label for="series">系列</label>
-    <input id="series" name="series" value="{{ request.GET.series }}">
-
-    <label for="type">类型</label>
-    <select id="type" name="type">
-      <option value="">全部</option>
-      <option value="booster" {% if request.GET.type == "booster" %}selected{% endif %}>补充包</option>
-      <option value="merchandise" {% if request.GET.type == "merchandise" %}selected{% endif %}>周边</option>
-      <option value="gift_set" {% if request.GET.type == "gift_set" %}selected{% endif %}>礼盒·预组</option>
-    </select>
-
-    <label for="language">语言</label>
-    <input id="language" name="language" value="{{ request.GET.language }}">
-    <button type="submit">查询</button>
-  </form>
-
-  {% if error %}<p role="alert">{{ error }}</p>{% endif %}
-  <p>共 {{ total }} 个SKU候选；同一查询可返回多个语言、规格或条码候选，不会自动选择。</p>
-  <table>
-    <thead>
-      <tr><th>IP</th><th>产品</th><th>语言</th><th>类型</th><th>系列</th><th>SKU编号</th><th>单位</th><th>规格</th><th>包类型</th><th>条码</th></tr>
-    </thead>
-    <tbody>
-      {% for item in items %}
-        <tr>
-          <td>{{ item.brand.name }}</td>
-          <td>{{ item.product.name }}</td>
-          <td>{{ item.product.language|default:"—" }}</td>
-          <td>{{ item.product.type_label }}</td>
-          <td>{{ item.product.series|default:"—" }}</td>
-          <td>{{ item.code }}</td>
-          <td>{{ item.unit }}</td>
-          <td>{% if item.box_spec %}箱：{{ item.box_spec }}<br>{% endif %}{% if item.inner_box_spec %}盒：{{ item.inner_box_spec }}<br>{% endif %}{% if item.pack_spec %}包：{{ item.pack_spec }}{% endif %}</td>
-          <td>{{ item.pack_type_label|default:"—" }}</td>
-          <td>{{ item.barcode|default:"—" }}</td>
-        </tr>
-      {% empty %}
-        <tr><td colspan="10">没有匹配的SKU。</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
-
-  {% if has_previous %}
-    <a href="?q={{ request.GET.q|urlencode }}&brand_id={{ request.GET.brand_id|urlencode }}&series={{ request.GET.series|urlencode }}&type={{ request.GET.type|urlencode }}&language={{ request.GET.language|urlencode }}&page={{ page|add:"-1" }}">上一页</a>
-  {% endif %}
-  {% if has_next %}
-    <a href="?q={{ request.GET.q|urlencode }}&brand_id={{ request.GET.brand_id|urlencode }}&series={{ request.GET.series|urlencode }}&type={{ request.GET.type|urlencode }}&language={{ request.GET.language|urlencode }}&page={{ page|add:1 }}">下一页</a>
-  {% endif %}
-</body>
-</html>
+{% extends 'crm/base.html' %}
+{% load static %}
+{% block title %}商品档案 · 阿罗拉潮玩空间{% endblock %}
+{% block topbar_title %}商品档案{% endblock %}
+{% block content %}
+    <section class="page-heading">
+      <div><h1>商品档案</h1><p>产品资料与SKU分开管理；规格保持原始单位。</p></div>
+    </section>
+    <div class="split-layout">
+      <section class="data-card" aria-labelledby="product-list-title">
+        <div class="card-head"><h2 id="product-list-title">商品目录</h2><span class="muted" id="product-total" aria-live="polite"></span></div>
+        <form class="filter-bar" id="product-filters" method="get">
+          <input type="hidden" name="view" value="products">
+          <div class="filter-field filter-search"><label for="product-query">商品名称或SKU</label><input id="product-query" name="q" type="search" value="{{ request.GET.q }}" autocomplete="off"></div>
+          <div class="filter-field"><label for="product-brand">IP</label><select id="product-brand" name="brand_id"><option value="">全部</option>{% for brand in brands %}<option value="{{ brand.id }}" {% if request.GET.brand_id == brand.id|stringformat:'s' %}selected{% endif %}>{{ brand.name }}</option>{% endfor %}</select></div>
+          <div class="filter-field"><label for="product-type">商品类型</label><select id="product-type" name="type"><option value="">全部</option><option value="booster" {% if request.GET.type == 'booster' %}selected{% endif %}>补充包</option><option value="merchandise" {% if request.GET.type == 'merchandise' %}selected{% endif %}>周边</option><option value="gift_set" {% if request.GET.type == 'gift_set' %}selected{% endif %}>礼盒·预组</option></select></div>
+          <div class="filter-field"><label for="product-status">状态</label><select id="product-status" disabled aria-describedby="product-status-note"><option>状态筛选接口待接入</option></select><span class="help-text" id="product-status-note">当前目录接口仅返回可查询商品。</span></div>
+          <button class="button-primary" type="submit">查询</button><button type="reset" id="product-reset">重置</button>
+        </form>
+        {% if error %}<p role="alert">{{ error }}</p>{% endif %}
+        <p class="inline-status" id="product-status" role="status" aria-live="polite"></p>
+        <div class="table-scroll"><table>
+          <thead><tr><th>商品</th><th>SKU</th><th>单位</th><th>商品类型</th><th>系列</th><th>状态</th></tr></thead>
+          <tbody id="product-rows"><tr><td colspan="6" class="empty-state">正在加载商品…</td></tr></tbody>
+        </table></div>
+        <div class="pagination"><span id="product-page"></span><button type="button" id="product-prev" aria-label="上一页">上一页</button><button type="button" id="product-next" aria-label="下一页">下一页</button></div>
+      </section>
+      <aside class="data-card detail-panel" id="product-detail" aria-labelledby="product-detail-title">
+        <div class="card-head detail-toolbar"><h2 id="product-detail-title">商品详情</h2><button type="button" class="mobile-only" data-close-panel>返回列表</button></div>
+        <div class="card-body" id="product-detail-body"><p class="empty-state">选择商品查看资料与SKU。</p></div>
+      </aside>
+    </div>
+    <script>
+      (() => {
+        const form=document.getElementById('product-filters'), rows=document.getElementById('product-rows'), message=document.getElementById('product-status');
+        const detail=document.getElementById('product-detail-body'); let page=Number(new URLSearchParams(location.search).get('page')||1), pages=1, products=[];
+        const params=()=>{const value=new URLSearchParams(new FormData(form));value.set('page',String(page));value.set('page_size','50');return value;};
+        const node=(tag,text,className='')=>{const el=document.createElement(tag);el.textContent=text??'—';if(className)el.className=className;return el;};
+        function showProduct(item,row){document.querySelectorAll('#product-rows tr').forEach(el=>el.classList.remove('row-selected'));row.classList.add('row-selected');detail.replaceChildren();const head=document.createElement('div');head.className='product-detail';head.append(node('div','无商品图片','image-placeholder'));const copy=document.createElement('div');copy.className='product-detail-copy';copy.append(node('h3',item.name));copy.append(node('p',`${item.brand.name} · ${item.type_label}`,'muted'));head.append(copy);detail.append(head);const dl=document.createElement('dl');dl.className='detail-list';for(const [label,value] of [['系列',item.series],['语言',item.language],['官方编号',item.official_code]]){dl.append(node('dt',label),node('dd',value||'—'));}detail.append(dl);const section=document.createElement('section');section.className='detail-section';section.append(node('h3','SKU（独立管理）'));const wrap=document.createElement('div');wrap.className='table-scroll';const table=document.createElement('table');table.innerHTML='<thead><tr><th>SKU</th><th>单位</th><th>规格</th><th>状态</th></tr></thead>';const tbody=document.createElement('tbody');for(const sku of item.skus||[]){const tr=document.createElement('tr'),spec=[sku.box_spec&&`箱 ${sku.box_spec}`,sku.inner_box_spec&&`盒 ${sku.inner_box_spec}`,sku.pack_spec&&`包 ${sku.pack_spec}`].filter(Boolean).join('；')||'—';for(const value of [sku.code,sku.unit,spec,sku.is_active?'启用':'停用'])tr.append(node('td',value));tbody.append(tr);}if(!tbody.children.length){const tr=document.createElement('tr'),td=node('td','暂无SKU');td.colSpan=4;tr.append(td);tbody.append(tr);}table.append(tbody);wrap.append(table);section.append(wrap);detail.append(section);detail.closest('.detail-panel').classList.add('is-mobile-active');detail.closest('.detail-panel').classList.remove('is-mobile-hidden');}
+        async function load(){message.textContent='';rows.setAttribute('aria-busy','true');try{const response=await fetch(`/api/v1/products?${params()}`,{credentials:'same-origin'}),data=await response.json();if(!response.ok)throw new Error(data.error?.message||'商品加载失败');products=data.items;pages=Math.max(1,Math.ceil(data.total/data.page_size));document.getElementById('product-total').textContent=`共 ${data.total} 个商品`;document.getElementById('product-page').textContent=`${data.page} / ${pages}`;document.getElementById('product-prev').disabled=data.page<=1;document.getElementById('product-next').disabled=data.page>=pages;rows.replaceChildren();for(const item of products){const tr=document.createElement('tr');tr.tabIndex=0;tr.setAttribute('role','button');tr.setAttribute('aria-label',`查看${item.name}`);const first=item.skus?.[0];for(const value of [item.name,first?.code||'暂无SKU',first?.unit||'—',item.type_label,item.series||'—',first?(first.is_active?'启用':'停用'):'—'])tr.append(node('td',value));tr.addEventListener('click',()=>showProduct(item,tr));tr.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();showProduct(item,tr);}});rows.append(tr);}if(!products.length){const tr=document.createElement('tr'),td=node('td','没有匹配的商品。');td.colSpan=6;td.className='empty-state';tr.append(td);rows.append(tr);detail.replaceChildren(node('p','没有可显示的商品资料。','empty-state'));}const url=new URL(location.href);for(const [key,value] of params())url.searchParams.set(key,value);history.replaceState(null,'',url); }catch(error){message.textContent=error.message;rows.innerHTML='<tr><td colspan="6" class="empty-state">加载失败。请重试。</td></tr>'; }finally{rows.removeAttribute('aria-busy');}}
+        form.addEventListener('submit',event=>{event.preventDefault();page=1;load();});document.getElementById('product-reset').addEventListener('click',()=>setTimeout(()=>{page=1;load();},0));document.getElementById('product-prev').addEventListener('click',()=>{if(page>1){page--;load();}});document.getElementById('product-next').addEventListener('click',()=>{if(page<pages){page++;load();}});document.querySelector('[data-close-panel]').addEventListener('click',()=>document.getElementById('product-detail').classList.remove('is-mobile-active'));load();
+      })();
+    </script>
+{% endblock %}

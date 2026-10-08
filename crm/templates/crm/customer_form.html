@@ -1,9 +1,11 @@
-<!doctype html>
-<html lang="zh-Hans">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>{% if customer %}编辑客户{% else %}新建客户{% endif %} · CRM</title></head>
-<body>
-  <header><h1>{% if customer %}编辑客户{% else %}新建客户{% endif %}</h1><nav><a href="{% url 'customers' %}">返回客户</a></nav></header>
-  <form hidden>{% csrf_token %}</form>
+{% extends 'crm/base.html' %}
+{% load static %}
+{% block title %}{% if customer %}编辑客户{% else %}新建客户{% endif %} · 阿罗拉潮玩空间{% endblock %}
+{% block topbar_title %}{% if customer %}编辑客户{% else %}新建客户{% endif %}{% endblock %}
+{% block content %}
+<section class="page-heading"><h1>{% if customer %}编辑客户{% else %}新建客户{% endif %}</h1></section>
+<div class="legacy-content">
+<form hidden>{% csrf_token %}</form>
   <form id="customer-form">
     {% csrf_token %}
     <label>客户姓名 <input id="name" maxlength="200" required></label>
@@ -63,5 +65,5 @@
     const transfer=document.getElementById('transfer');if(transfer)transfer.addEventListener('click',async()=>{const current=document.getElementById('owner_id').value;try{await api(`/api/v1/customers/${initial.id}/transfer`,'POST',{owner_id:current,expected_version:initial.version,operation_key:crypto.randomUUID()});location.reload();}catch(error){status.textContent=error.message;}});
     start();
   </script>
-</body>
-</html>
+</div>
+{% endblock %}

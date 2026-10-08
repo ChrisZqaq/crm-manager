@@ -1,9 +1,11 @@
-<!doctype html>
-<html lang="zh-Hans">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>{% if order %}修改订单{% else %}新建订单{% endif %} · CRM</title></head>
-<body>
-  <header><h1>{% if order %}修改订单 {{ order.last_sequence }}{% else %}新建订单{% endif %}</h1><nav><a href="{% url 'orders' %}">返回订单</a></nav></header>
-  <form hidden>{% csrf_token %}</form>
+{% extends 'crm/base.html' %}
+{% load static %}
+{% block title %}{% if order %}修改订单{% else %}新建订单{% endif %} · 阿罗拉潮玩空间{% endblock %}
+{% block topbar_title %}{% if order %}修改订单{% else %}新建订单{% endif %}{% endblock %}
+{% block content %}
+<section class="page-heading"><h1>{% if order %}修改订单 {{ order.last_sequence }}{% else %}新建订单{% endif %}</h1></section>
+<div class="legacy-content">
+<form hidden>{% csrf_token %}</form>
   <form id="order-form">
       <label>客户（现场客户可留空） <select id="customer"><option value="">现场客户 / 不关联客户</option></select></label>
       <label>查找客户 <input id="customer-query" type="search" placeholder="姓名、公司或联系方式"><button id="search-customers" type="button">查找</button></label>
@@ -93,5 +95,5 @@
     document.getElementById('confirm').addEventListener('click',async()=>{if(!previewToken)return;try{const data=await api(initial?`/api/v1/orders/${initial.id}/amend`:'/api/v1/orders','POST',{operation_key:operationKey,preview_token:previewToken});location.href=`/orders/${data.order_id}/`;}catch(error){status.textContent=error.message;}});
     start();
   </script>
-</body>
-</html>
+</div>
+{% endblock %}
