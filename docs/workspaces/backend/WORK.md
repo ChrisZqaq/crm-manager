@@ -48,6 +48,17 @@
 - 定向自测4项通过（订单日期API、日期准则类2项、销售报表API/序列），Django system check 无问题。使用 Python 3.12 专用环境 `/Users/chrisz/.cache/aluola-crm-date-overflow-20261008-venv` 和独立 PostgreSQL 测试库 `test_aluola_crm_date_overflow_20261008`；测试运行器已销毁新建测试库，未使用或删除 `test_aluola_crm_dev` 或演示库。
 - 不需要数据库迁移。修复提交后将完整证据交负责人和 QA；不推送，并停止应用写入，待后续派发。
 
+## UI-OWNER-FILTER｜只读依赖核查
+
+依据：负责人补充的 UI-OWNER-FILTER 核查请求；前端是唯一应用写入者。本轮只读查证，记录后端最小方案，不改应用或公共契约。
+
+- `GET /api/v1/orders` 已有精确 `salesperson_id`，先按 `sales_order_queryset_for(actor)` 限定本人/全部订单范围，再过滤并分页；没有通用销售用户列表 API。`GET /api/v1/customers` 没有 `owner_id` 筛选，但每条客户数据有 `owner_id/owner_name`。`owner_id` 仅用于客户创建/转交写操作。
+- `customer_form_page` 仅在客户表单页面按权限注入启用销售员；报表内部 `build_report.filter_options.salespeople` 由可见订单派生且报表 API不返回它们。都不适合作为两张列表共同依赖的完整筛选数据源。
+- 最小实现建议：前端停写后再由负责人派发，限 `crm/views.py` 的 `customers_api` / `orders_api`、`crm/test_phase4.py` 和负责人维护的 API 契约。原列表响应各增加同形 `filter_options.salespeople:[{id,label}]`；客户选项只从权限过滤后的客户集合 distinct `owner_id/owner__username` 生成，订单选项只从权限过滤后的订单集合 distinct `salesperson_id/salesperson__username` 生成。两者标签用 username，各自独立、不交叉复用；选项先于搜索/筛选和分页从全量可见集合计算，不用当前页、不从全系统用户表泄露无关用户。客户集合保留现有归档筛选语义。
+- 客户新增 `owner_id` GET：先建立 `customer_queryset_for(actor)` 权限范围，再按既有 `identifier` 校验并过滤，之后才计算 `total/page`；无查看全部权限者传其他owner ID只得到范围内空结果，不因参数扩大权限。无效ID沿用现有 400 字段错误。订单筛选无需新增参数或权限。
+- 最小回归边界：客户全部范围含至少两位owner且 `page_size=1` 时，完整选项仍列全且带姓名；owner_id精确过滤后items和total吻合；普通销售不能通过其他owner ID或选项看到范围外客户/用户；无效ID返回400。订单选项覆盖当前用户可见订单中的多位销售且不受分页截断，普通销售只得到本人选项；保留现有 `salesperson_id` 过滤回归。
+- 当前未实现、未跑测试，等待负责人停写交接后另行派发；本工作仅为只读核查和技术建议。
+
 ## UI-QUERY-1｜实现与自测
 
 依据：负责人固定起点`4acccd79bd0825afc9f8211c68f15a3bba31184e`及最新UI/API增量。前端已在`4e4890e08a6a5c5b7ffa756f598e94d35a6dbc54`停写；本轮后端为唯一应用写入者。负责人另行维护的公共契约/计划/问题文档保持未暂存，不纳入代码提交。
@@ -75,3 +86,35 @@
 ### 交接状态
 
 应用改动已由本地提交固定；测试后未再改应用代码。下一步将完整命令/范围/限制发负责人及QA后停止应用写入。不推送。前端仍需接入趋势响应及库存单位汇总；当前静态模板尚未显示这两项。
+
+## UI-LIST-FILTERS｜实现与回归（2026-10-08）
+
+依据：负责人冻结的六页 API 契约及明确派发；前端已在 `17870126ab7ff0aec079cf800fbc264626f481d8` 固定并停写。本轮只改授权的应用和现有测试文件，不改模板、模型、路由、权限及负责人维护的公共契约，不推送。
+
+### 完成内容
+
+- `GET /api/v1/customers` 在当前权限和归档范围内、搜索及分页前计算销售员选项；新增精确 `owner_id` 过滤和原有格式的无效 ID 错误。
+- `GET /api/v1/orders` 从全部授权可见订单及活动商品行计算销售员、仓库选项，在筛选和分页前返回。
+- 库存报表 API 暴露 `build_report` 已有的仓库、SKU、品牌选项。
+- 收款报表在授权订单集上按客户快照或现有订单编号搜索；列表、页面和 XLSX 共用该结果。新增独立履约状态字段/列，核对状态保持原字段/列。
+- 商品目录 API 支持 `sku_status=active|inactive|all`，显式筛选时产品与嵌套 SKU 一致；缺省查询、共享 `/api/v1/skus` 和下单停用 SKU 校验保持原行为。
+
+应用与回归测试共 7 个文件，提交 `a2073d14a0fdd6026461fb15a28358dfbdf4b2de`（`Add UI list filter API support`）。
+
+### 验证与限制
+
+- 6 项定向回归全部通过，Django system check 无问题。测试运行器创建并销毁独立测试库 `test_aluola_crm_ui_list_filters_20261008`；未使用或删除开发测试库或演示库。
+- `git diff --check` 和下列 Python 编译检查通过：
+
+```sh
+/Users/chrisz/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 -m py_compile crm/catalog.py crm/reports.py crm/views.py crm/test_phase3.py crm/test_phase4.py crm/test_phase6.py crm/tests.py
+```
+
+- 定向测试命令（使用独立 DB 名、项目 PostgreSQL socket/端口及专用环境）：
+
+```sh
+CRM_DB_NAME=aluola_crm_ui_list_filters_20261008 CRM_DB_HOST=/Users/chrisz/Documents/projects/aluolaCRM/.local/postgres-socket CRM_DB_PORT=55439 UV_PROJECT_ENVIRONMENT=/Users/chrisz/.cache/aluola-crm-uiquery1-venv uv run --locked --python /Users/chrisz/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 manage.py test crm.tests.CatalogTestCase.test_product_api_filters_matching_sku_status_without_changing_default_or_order_skus crm.test_phase3.CustomerPhase3Tests.test_customer_owner_filter_and_options_follow_scope_before_search_and_pagination crm.test_phase3.SalesOrderPhase3Tests.test_order_sku_search_and_preview_keep_inactive_sku_restriction crm.test_phase4.OrderListFilterTests.test_order_filter_options_cover_visible_orders_before_filters_and_pagination crm.test_phase6.ReportPhase6Tests.test_inventory_report_keeps_live_balance_and_hoard_reason crm.test_phase6.ReportPhase6Tests.test_payment_report_applies_beijing_boundaries_and_matches_api_page_and_xlsx
+```
+
+- 较宽回归使用同一独立 DB 环境，测试选择为 `crm.tests.CatalogTestCase crm.test_phase3.CustomerPhase3Tests crm.test_phase3.SalesOrderPhase3Tests.test_order_sku_search_and_preview_keep_inactive_sku_restriction crm.test_phase4.OrderListFilterTests crm.test_phase6.ReportPhase6Tests`；共 43 项，3 项既有 `/catalog/` HTML 断言失败。它们期待初始 HTML 静态包含“新建订单”“瘦包”及 SKU 文本；固定前端页面改为客户端加载后已不包含这些内容。未改模板或越界调整旧断言；6 项定向新用例通过。
+- 不涉及迁移。没有执行浏览器端 UI 检查；当前完成范围为后端 API/报表行为。提交后仅更新本工作记录，随后停止应用写入并交接。
