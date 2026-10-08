@@ -1,44 +1,41 @@
-# CRM Manager
+# CRM Manager 文档入口
 
-当前状态（2026-10-05）：阶段1—6已验收，固定应用fd3c991。商品、库存、销售履约、纠错、四报表与Excel导出可在开发环境使用；阶段7上线验证尚未完成，不用于正式切换。下文旧阶段说明为历史记录，最新状态以开发计划为准。
+更新：2026-10-08。采用Django＋PostgreSQL，第一版阶段1—6与导航修复已验收；当前为本机试用及UI原型，尚未正式上线。
 
-面向 TCG 经销与门店零售的进销存、客户维护系统。
+## 所有人最小阅读集
 
-核心目标：销售只登记一次，库存、收款核对、客户购买记录和提成都由同一笔业务记录产生，减少群消息、银豹、销售 Excel 与财务 Excel 之间的重复录入和对账。
+根目录[AGENTS](../AGENTS.md) → [协作与会话ID](project/COORDINATION.md) → [当前任务](project/DEVELOPMENT_PLAN.md) → 自己的ROLE/WORK。按任务加载相关业务/规格，不默认读全部docs、其他角色笔记或历史。
 
-## 已批准的开发基线
+| 角色 | 职责/阅读入口 | 当前角色记录 |
+| --- | --- | --- |
+| 负责人 | [协作](project/COORDINATION.md)／[当前问题](project/ISSUE_LOG.md) | [开发计划](project/DEVELOPMENT_PLAN.md) |
+| UI | [ROLE](workspaces/ui/ROLE.md) | [WORK](workspaces/ui/WORK.md) |
+| 前端 | [ROLE](workspaces/frontend/ROLE.md) | [WORK](workspaces/frontend/WORK.md) |
+| 原开发/后端 | [ROLE](workspaces/backend/ROLE.md) | [WORK](workspaces/backend/WORK.md) |
+| 测试 | [ROLE](workspaces/qa/ROLE.md) | [WORK](workspaces/qa/WORK.md) |
 
-- [完整 PRD](PRD.md)：第一版范围、人员操作、流转条件、功能及验收清单。
-- [数据库设计](DATABASE_DESIGN.md)：实体、字段、关联、约束及需要冻结的边界。
-- [SPEC](SPEC.md)：状态、事务、并发、成本方案、接口、测试与上线要求。
-- [开发计划](DEVELOPMENT_PLAN.md)：文档确认门槛及确认后的实施顺序。
-- [阶段1本地开发说明](DEVELOPMENT_PLAN.md#阶段1本地运行)：固定依赖、启动本地PostgreSQL、迁移及自测命令。
-- [会话协作](COORDINATION.md)：负责人、GPT-6 luna开发及测试的阶段交接规则。
-- [协作开发方法](PROJECT_WORKING_METHOD.md)：需求主持、最小实现、分阶段验收、多会话交接及优化建议。
-- [成本执行规格](COST_ENGINE.md)：顺序锁、必要历史输入、纠错回放及原子写回。
-- [API合同](API_CONTRACT.md)：字段、读写动作、权限、错误及导出合同。
-- [关键验收](ACCEPTANCE.md)：手算结果、并发、回滚、权限及上线验证。
-- [问题记录](ISSUE_LOG.md)：待用户确认、待验证和上线前事项的状态。
-- [文档审查](DOCUMENT_REVIEW.md)：跨文档矛盾、公式核验、最小设计建议及冻结前缺口。
+## 公共依据：负责人维护，角色按需读取
 
-用户于2026-10-03批准整套文档作为第一版开发基线（规格提交`ad06ea3`），并允许启动阶段1。后续实现及测试状态见开发计划。
+- **business/**：[项目共识](business/PROJECT_CONSENSUS.md)、[商品](business/PRODUCT_CATALOG.md)、[采购](business/PURCHASE_RECEIVING.md)、[销售履约](business/SALES_FULFILLMENT.md)、[权限](business/ACCESS_CONTROL.md)、[客户/报表](business/CUSTOMERS_REPORTS.md)、[期初/导出](business/INITIAL_DATA.md)。
+- **specs/**：[PRD](specs/PRD.md)、[SPEC](specs/SPEC.md)、[数据库](specs/DATABASE_DESIGN.md)、[成本算法](specs/COST_ENGINE.md)、[API](specs/API_CONTRACT.md)、[验收](specs/ACCEPTANCE.md)。业务基线ad06ea3已批准，后续明确增量见对应文档。
+- **project/**：只维护当前会话、任务、问题和授权，不存角色聊天全文。
+- **workspaces/**：ROLE/WORK和角色产物，不是已确认业务的副本；原型不等于批准、交付声明不等于验收。
+- **templates/**：[期初模板](templates/期初盘点模板.xlsx)，用户已有未提交修改不随整理提交。
+- **archive/**：[旧阶段记录](archive/DEVELOPMENT_PLAN_HISTORY.md)、[旧问题证据](archive/ISSUE_LOG_HISTORY.md)、[旧协作记录](archive/COORDINATION_HISTORY.md)、[文档审查](archive/DOCUMENT_REVIEW.md)、[协作方法参考](archive/PROJECT_WORKING_METHOD.md)。仅查证具体历史时读取。
 
-## 已形成的业务共识
+应用代码仍在crm/config，脚本在scripts，不因资料分层改变。数据库、图片、运行时凭据和临时测试资产放忽略目录.local/，不提交Git。
 
-- [项目共识](PROJECT_CONSENSUS.md)：已确认的业务范围、流程与计算规则。
-- [商品档案](PRODUCT_CATALOG.md)：商品层级、字段、规格及搜索规则。
-- [采购入库](PURCHASE_RECEIVING.md)：到货入库、成本、人工预留解锁、破损处理及纠错审批。
-- [销售履约](SALES_FULFILLMENT.md)：下单占货、收款凭证、后置核对、发货交付及提成条件。
-- [登录与权限](ACCESS_CONTROL.md)：角色开关、兼任、管理员边界及最小权限记录。
-- [客户与报表](CUSTOMERS_REPORTS.md)：客户必填字段、多地址及四张报表范围。
-- [期初与导出](INITIAL_DATA.md)：用户重新盘点的模板规则及四张报表 Excel 导出。
-- [期初盘点模板](templates/期初盘点模板.xlsx)：商品档案及各仓库库存填写表，不含真实业务数据。
-- [协作规则](../AGENTS.md)：开发原则和代理工作约束。
+## 本地开发命令
 
-当前阶段：阶段1及盒规格增量、阶段2期初/采购/库存限制和查询已通过开发、独立测试与负责人审查；阶段3客户及销售下单修改取消也已验收，按用户授权推进阶段4凭证、核对、交付及提成。未上线，不连接生产服务。
+固定依赖由pyproject.toml/uv.lock维护。本地准备与启动：
 
-远程仓库：git@github.com:ChrisZqaq/crm-manager.git
+```sh
+uv sync --locked
+scripts/install-dev-postgres.sh
+scripts/dev-db.sh start
+uv run python manage.py migrate
+uv run python manage.py createsuperuser
+uv run python manage.py runserver 127.0.0.1:8000
+```
 
-阶段2最终应用版本898dc0f：独立35项回归、真实PostgreSQL并发锁等待及前轮浏览器流程通过。商品类型为补充包／周边／礼盒·预组，不设是否含卡牌字段；规格不自动换算。付款履约、提成复核、拆箱盘点纠错、四张报表及导出等后续阶段仍未完成，不用于真实业务切换。详细证据见开发计划。
-
-阶段3最终应用版本9b02fd2通过55项独立回归与负责人复审；客户多地址、个人生日开关、渠道、订单占货及成本快照可在本地开发环境使用。浏览器取消原生确认框因工具超时未验证，见ISSUE_LOG V03，不把API取消证据当成浏览器交互通过。
+这组命令面向默认开发库，不是演示库或生产部署。用户本机演示配置和重启方法见[当前计划](project/DEVELOPMENT_PLAN.md#本机演示供用户试用)。只清理自己启动的服务。
