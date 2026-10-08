@@ -237,7 +237,18 @@ def _inventory_data(actor, query):
         ("damaged", "破损数量", "integer"), ("lock_reasons", "限制原因", "text"),
         ("cost_amount", "库存成本金额", "amount"), ("average_cost", "平均单位成本", "amount"),
     ]
-    return items, columns, {}
+    quantities_by_unit = defaultdict(lambda: {field: 0 for field in ("on_hand", "available", "occupied", "reserved", "damaged")})
+    for item in items:
+        quantities = quantities_by_unit[item["unit"]]
+        for field in quantities:
+            quantities[field] += item[field]
+    summary = {
+        "by_unit": [
+            {"unit": unit, **quantities_by_unit[unit]}
+            for unit in sorted(quantities_by_unit)
+        ],
+    }
+    return items, columns, summary
 
 
 def _sales_date_query(orders, period):
@@ -256,7 +267,18 @@ def _sales_data(actor, query, *, today=None):
     scope = query.get("scope", "delivered") or "delivered"
     if scope not in ("delivered", "unshipped"):
         raise OperationError("销售范围无效。", fields={"scope": "请选择已交付销售或未交付订单。"})
+    series_kind = query.get("series", "")
+    if series_kind not in ("", "day"):
+        raise OperationError("销售序列类型无效。", fields={"series": "请选择day或移除序列筛选。"})
     period = _date_criteria(query, today=today)
+    series_start = series_end = None
+    if series_kind == "day":
+        if scope != "delivered" or period["period"] != "custom":
+            raise OperationError("逐日序列需要已交付销售的自定义日期范围。", fields={"series": "请使用已交付销售及自定义起止日期。"})
+        series_start = date.fromisoformat(period["start_date"])
+        series_end = date.fromisoformat(period["end_date"])
+        if (series_end - series_start).days + 1 > 366:
+            raise OperationError("逐日序列最多查询366天。", fields={"end_date": "请将自定义日期范围缩小到366天以内。"})
     if scope == "unshipped" and period["period"] != "all":
         raise OperationError("未交付订单没有交付日期，不能按交付周期筛选。", fields={"period": "请将周期设为全部；未交付订单按其他条件查询。"})
     orders = _order_filters(_order_queryset(actor), query).exclude(status=SalesOrder.Status.CANCELLED)
@@ -272,8 +294,13 @@ def _sales_data(actor, query, *, today=None):
         if value is not None:
             lines = lines.filter(**{model_field: value})
     groups = {}
+    daily_revenue = defaultdict(lambda: ZERO) if series_kind == "day" else None
     for line in lines.iterator():
         order, sku = line.order, line.sku
+        if daily_revenue is not None:
+            delivered_at = order.shipped_at if order.delivery_mode == SalesOrder.DeliveryMode.SHIPMENT else order.completed_at
+            day = delivered_at.astimezone(REPORT_TIME_ZONE).date().isoformat()
+            daily_revenue[day] += line.revenue_amount
         key = (
             sku.pk, line.warehouse_id, order.salesperson_id, order.customer_id, order.channel_id,
             order.province_snapshot, order.city_snapshot,
@@ -321,11 +348,18 @@ def _sales_data(actor, query, *, today=None):
     quantity_by_unit = defaultdict(int)
     for row in items:
         quantity_by_unit[row["unit"]] += row["quantity"]
-    return items, columns, {
+    summary = {
         "totals": totals,
         "quantity_by_unit": [{"unit": unit, "quantity": quantity} for unit, quantity in sorted(quantity_by_unit.items())],
         "scope": scope,
     }
+    series = None
+    if daily_revenue is not None:
+        series = []
+        for offset in range((series_end - series_start).days + 1):
+            day = (series_start + timedelta(days=offset)).isoformat()
+            series.append({"date": day, "revenue_amount": _money(daily_revenue[day])})
+    return items, columns, summary, series
 
 
 def _payment_data(actor, query, *, today=None):
@@ -538,13 +572,14 @@ def build_report(actor, report, query):
     if report not in REPORTS:
         raise OperationError("报表不存在。", status=404, code="not_found")
     now = _now_local()
+    series = None
     if report == "inventory":
         if query.get("start_date") or query.get("end_date") or query.get("period") not in (None, "", "all"):
             raise OperationError("库存报表展示当前实时余额，不支持按销售日期筛选。", fields={"period": "请移除日期筛选。"})
         items, columns, summary = _inventory_data(actor, query)
         metadata = _with_query_metadata(report, query, basis="当前库存余额", date_filter=False)
     elif report == "sales":
-        items, columns, summary = _sales_data(actor, query, today=now.date())
+        items, columns, summary, series = _sales_data(actor, query, today=now.date())
         scope = query.get("scope", "delivered") or "delivered"
         basis = "未交付订单（无交付日期）" if scope == "unshipped" else "快递发货时间／现场交付时间"
         metadata = _with_query_metadata(report, query, basis=basis, today=now.date())
@@ -559,7 +594,7 @@ def build_report(actor, report, query):
         metadata = _with_query_metadata(report, query, basis="未首次计入按订单提交时间；正式计入按首次计入时间；调整差额按批准时间", today=now.date())
     metadata["queried_at"] = now.isoformat(timespec="seconds")
     metadata["filter_summary"] = _filter_summary(query, metadata)
-    return {
+    result = {
         "name": report,
         "title": REPORTS[report]["title"],
         "items": items,
@@ -568,6 +603,9 @@ def build_report(actor, report, query):
         "metadata": metadata,
         "filter_options": _filter_options(actor, report),
     }
+    if series is not None:
+        result["series"] = series
+    return result
 
 
 def page_report_data(query, data, page):

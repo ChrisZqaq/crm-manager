@@ -1,4 +1,5 @@
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
 from decimal import Decimal
 from io import BytesIO
 import json
@@ -6,6 +7,7 @@ import tempfile
 from threading import Barrier
 from unittest.mock import patch
 from uuid import uuid4
+from zoneinfo import ZoneInfo
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group, Permission
@@ -1158,3 +1160,200 @@ class OrderListStatusTests(Phase4Base):
         self.assertEqual(list(page.context["status_options"]), list(SalesOrder.Status.choices))
         for status, label in SalesOrder.Status.choices:
             self.assertContains(page, f'<option value="{status}">{label}</option>')
+
+
+class OrderListFilterTests(Phase4Base):
+    def setUp(self):
+        super().setUp()
+        self.balance.on_hand = 100
+        self.balance.cost_amount = Decimal("100.000")
+        self.balance.save(update_fields=("on_hand", "cost_amount"))
+
+    def test_home_is_login_only_and_renders_only_currently_authorized_data_blocks(self):
+        anonymous = Client().get("/")
+        self.assertEqual(anonymous.status_code, 302)
+
+        viewer = self.User.objects.create_user(username="workbench-permission-viewer", password="test-only-password")
+        permission = Permission.objects.get(content_type__app_label="crm", codename="view_salesorder")
+        viewer.user_permissions.add(permission)
+        client = Client()
+        client.force_login(viewer)
+        authorized = client.get("/")
+        self.assertEqual(authorized.status_code, 200, authorized.content)
+        self.assertContains(authorized, "今日已交付销售额")
+        self.assertContains(authorized, "/api/v1/orders")
+        self.assertEqual(client.get("/api/v1/orders").status_code, 200)
+
+        viewer.user_permissions.clear()
+        client = Client()
+        client.force_login(self.User.objects.get(pk=viewer.pk))
+        shell = client.get("/")
+        self.assertEqual(shell.status_code, 200, shell.content)
+        self.assertContains(shell, "工作台")
+        self.assertNotContains(shell, "今日已交付销售额")
+        self.assertNotContains(shell, "/api/v1/orders")
+        self.assertEqual(client.get("/api/v1/orders").status_code, 403)
+
+    def test_order_date_filter_uses_inclusive_beijing_created_at_bounds(self):
+        shanghai = ZoneInfo("Asia/Shanghai")
+        before = self.new_order()
+        start = self.new_order()
+        end = self.new_order()
+        after = self.new_order()
+        for order, created_at in (
+            (before, datetime(2025, 10, 1, 23, 59, 59, 999999, tzinfo=shanghai)),
+            (start, datetime(2025, 10, 2, 0, 0, tzinfo=shanghai)),
+            (end, datetime(2025, 10, 3, 23, 59, 59, 999999, tzinfo=shanghai)),
+            (after, datetime(2025, 10, 4, 0, 0, tzinfo=shanghai)),
+        ):
+            SalesOrder.objects.filter(pk=order.pk).update(created_at=created_at)
+
+        client = Client()
+        client.force_login(self.sales)
+        first_page = client.get("/api/v1/orders", {
+            "start_date": "2025-10-02",
+            "end_date": "2025-10-03",
+            "page": 1,
+            "page_size": 1,
+        })
+        self.assertEqual(first_page.status_code, 200, first_page.content)
+        self.assertEqual(first_page.json()["total"], 2)
+        second_page = client.get("/api/v1/orders", {
+            "start_date": "2025-10-02",
+            "end_date": "2025-10-03",
+            "page": 2,
+            "page_size": 1,
+        })
+        self.assertEqual(second_page.status_code, 200, second_page.content)
+        ids = [item["id"] for page in (first_page.json(), second_page.json()) for item in page["items"]]
+        self.assertEqual(set(ids), {start.pk, end.pk})
+
+        incomplete = client.get("/api/v1/orders", {"start_date": "2025-10-02"})
+        self.assertEqual(incomplete.status_code, 400)
+        self.assertIn("end_date", incomplete.json()["error"]["fields"])
+        reversed_dates = client.get("/api/v1/orders", {
+            "start_date": "2025-10-03",
+            "end_date": "2025-10-02",
+        })
+        self.assertEqual(reversed_dates.status_code, 400)
+        self.assertIn("start_date", reversed_dates.json()["error"]["fields"])
+
+    def test_order_number_salesperson_and_payment_status_filters(self):
+        pending = self.new_order()
+        self.register(pending)
+        problem = self.new_order()
+        self.register(problem)
+        self.verify(problem, result=PaymentRecord.Status.PROBLEM, problem_reason="Synthetic mismatch")
+        passed = self.new_order()
+        self.register(passed)
+        self.verify(passed, result=PaymentRecord.Status.PASSED)
+        no_evidence = self.new_order()
+        other_salesperson = self.preview_and_confirm(self.order_payload(), actor=self.sales_two)[2]
+
+        viewer = self.sales
+        viewer.user_permissions.add(
+            Permission.objects.get(content_type__app_label="crm", codename="view_all_sales_orders")
+        )
+        client = Client()
+        client.force_login(viewer)
+
+        for status, expected in (
+            (PaymentRecord.Status.PENDING, pending),
+            (PaymentRecord.Status.PROBLEM, problem),
+            (PaymentRecord.Status.PASSED, passed),
+        ):
+            with self.subTest(verification_status=status):
+                response = client.get("/api/v1/orders", {"verification_status": status})
+                self.assertEqual(response.status_code, 200, response.content)
+                data = response.json()
+                self.assertEqual(data["total"], 1)
+                self.assertEqual(data["items"][0]["id"], expected.pk)
+        pending_ids = {
+            item["id"]
+            for item in client.get("/api/v1/orders", {"verification_status": PaymentRecord.Status.PENDING}).json()["items"]
+        }
+        self.assertNotIn(no_evidence.pk, pending_ids)
+
+        salesperson = client.get("/api/v1/orders", {"salesperson_id": self.sales_two.pk}).json()
+        self.assertEqual(salesperson["total"], 1)
+        self.assertEqual(salesperson["items"][0]["id"], other_salesperson.pk)
+
+        pending.refresh_from_db()
+        for query, expected in ((str(pending.last_sequence), pending), (str(no_evidence.pk), no_evidence)):
+            response = client.get("/api/v1/orders", {"q": query})
+            self.assertEqual(response.status_code, 200, response.content)
+            self.assertIn(expected.pk, {item["id"] for item in response.json()["items"]})
+
+        invalid_status = client.get("/api/v1/orders", {"verification_status": "none"})
+        self.assertEqual(invalid_status.status_code, 400)
+        self.assertIn("verification_status", invalid_status.json()["error"]["fields"])
+        invalid_id = client.get("/api/v1/orders", {"warehouse_id": "abc"})
+        self.assertEqual(invalid_id.status_code, 400)
+        self.assertIn("warehouse_id", invalid_id.json()["error"]["fields"])
+
+    def test_customer_filter_uses_exact_id_and_enforces_both_visibility_scopes(self):
+        first_customer = self.create_customer(self.sales, name="Synthetic Same Name")
+        second_customer = self.create_customer(self.sales, name="Synthetic Same Name")
+        first_order = self.preview_and_confirm(self.order_payload(customer_id=first_customer.pk))[2]
+        second_order = self.preview_and_confirm(self.order_payload(customer_id=second_customer.pk))[2]
+        client = Client()
+        client.force_login(self.sales)
+
+        for customer, expected in ((first_customer, first_order), (second_customer, second_order)):
+            response = client.get("/api/v1/orders", {"customer_id": customer.pk})
+            self.assertEqual(response.status_code, 200, response.content)
+            data = response.json()
+            self.assertEqual(data["total"], 1)
+            self.assertEqual(data["items"][0]["id"], expected.pk)
+
+        Customer.objects.filter(pk=second_customer.pk).update(owner=self.sales_two)
+        hidden_customer = client.get("/api/v1/orders", {"customer_id": second_customer.pk})
+        self.assertEqual(hidden_customer.status_code, 404)
+        self.assertEqual(hidden_customer.json()["error"]["message"], "客户不存在或不在可见范围。")
+
+        second_client = Client()
+        second_client.force_login(self.sales_two)
+        visible_customer_orders = second_client.get("/api/v1/orders", {"customer_id": second_customer.pk})
+        self.assertEqual(visible_customer_orders.status_code, 200, visible_customer_orders.content)
+        self.assertEqual(visible_customer_orders.json()["total"], 0)
+
+    def test_warehouse_filter_uses_active_lines_and_paginates_unique_orders(self):
+        second_sku = self.new_sku(2)
+        self.add_balance(self.sku, self.second_warehouse, 20, "1.000")
+        self.add_balance(second_sku, self.warehouse, 20, "1.000")
+        self.add_balance(second_sku, self.second_warehouse, 20, "1.000")
+        multi_warehouse = self.new_order(lines=[
+            {"sku_id": self.sku.pk, "warehouse_id": self.warehouse.pk, "quantity": 1, "sale_price": "5.000"},
+            {"sku_id": self.sku.pk, "warehouse_id": self.second_warehouse.pk, "quantity": 1, "sale_price": "5.000"},
+            {"sku_id": second_sku.pk, "warehouse_id": self.second_warehouse.pk, "quantity": 1, "sale_price": "5.000"},
+        ])
+        second_order = self.new_order(lines=[
+            {"sku_id": self.sku.pk, "warehouse_id": self.second_warehouse.pk, "quantity": 1, "sale_price": "5.000"},
+        ])
+        amended = self.new_order(lines=[
+            {"sku_id": second_sku.pk, "warehouse_id": self.second_warehouse.pk, "quantity": 1, "sale_price": "5.000"},
+        ])
+        old_line = amended.lines.get(active=True)
+        amendment = self.amendment_payload(amended)
+        amendment["lines"][0]["warehouse_id"] = self.warehouse.pk
+        self.amend(amended, amendment)
+        self.assertFalse(amended.lines.filter(pk=old_line.pk, active=True).exists())
+
+        client = Client()
+        client.force_login(self.sales)
+        first_page = client.get("/api/v1/orders", {
+            "warehouse_id": self.second_warehouse.pk,
+            "page": 1,
+            "page_size": 1,
+        })
+        self.assertEqual(first_page.status_code, 200, first_page.content)
+        self.assertEqual(first_page.json()["total"], 2)
+        second_page = client.get("/api/v1/orders", {
+            "warehouse_id": self.second_warehouse.pk,
+            "page": 2,
+            "page_size": 1,
+        })
+        self.assertEqual(second_page.status_code, 200, second_page.content)
+        ids = [item["id"] for page in (first_page.json(), second_page.json()) for item in page["items"]]
+        self.assertEqual(set(ids), {multi_warehouse.pk, second_order.pk})
+        self.assertEqual(len(ids), len(set(ids)))

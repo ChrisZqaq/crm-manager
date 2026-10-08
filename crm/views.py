@@ -45,6 +45,7 @@ from .operations import (
     create_hold,
     damaged_rows,
     hold_rows,
+    identifier,
     inventory_rows,
     release_hold,
     update_global_low_stock,
@@ -94,11 +95,12 @@ from .sales import (
     update_birthday_preference,
     update_customer,
 )
-from .reports import REPORTS, build_report, page_report_data, workbook_bytes
+from .reports import REPORTS, _date_criteria, build_report, page_report_data, workbook_bytes
 
 
+@login_required
 def home(request):
-    return redirect("catalog-search")
+    return render(request, "crm/workbench.html")
 
 
 def _request_id(request):
@@ -700,6 +702,7 @@ def reports_api(request, report_name):
             "queried_at": data["metadata"]["queried_at"],
             "filter_summary": data["metadata"]["filter_summary"],
             "summary": data["summary"],
+            **({"series": result["series"]} if "series" in result else {}),
             "columns": [{"key": key, "label": label, "type": kind} for key, label, kind in data["columns"]],
             **{key: result[key] for key in ("items", "total", "page", "page_size", "has_previous", "has_next")},
         })
@@ -1125,9 +1128,62 @@ def orders_api(request):
         if status_value not in SalesOrder.Status.values:
             return _api_error(request, 400, "invalid_filter", "订单状态无效。", {"status": "请选择支持的订单状态。"})
         items = items.filter(status=status_value)
+    customer_value = request.GET.get("customer_id", "")
+    if customer_value != "":
+        error = _require_api_access(request, (("crm", "view_customer"),))
+        if error:
+            return error
+        try:
+            customer_id = identifier(customer_value, "customer_id")
+        except OperationError as exc:
+            return _api_error(request, exc.status, exc.code, str(exc), exc.fields)
+        customer = customer_queryset_for(request.user).filter(pk=customer_id).first()
+        if customer is None:
+            return _api_error(request, 404, "not_found", "客户不存在或不在可见范围。")
+        items = items.filter(customer_id=customer_id)
+    for field, lookup in (("warehouse_id", "lines__warehouse_id"), ("salesperson_id", "salesperson_id")):
+        value = request.GET.get(field, "")
+        if value == "":
+            continue
+        try:
+            value = identifier(value, field)
+        except OperationError as exc:
+            return _api_error(request, exc.status, exc.code, str(exc), exc.fields)
+        if field == "warehouse_id":
+            items = items.filter(lines__active=True, **{lookup: value}).distinct()
+        else:
+            items = items.filter(**{lookup: value})
+    start_date = request.GET.get("start_date", "")
+    end_date = request.GET.get("end_date", "")
+    if start_date or end_date:
+        try:
+            period = _date_criteria({"period": "custom", "start_date": start_date, "end_date": end_date})
+        except OperationError as exc:
+            return _api_error(request, exc.status, exc.code, str(exc), exc.fields)
+        items = items.filter(created_at__gte=period["start_at"], created_at__lt=period["end_before"])
+    verification_status = request.GET.get("verification_status", "")
+    if verification_status:
+        if verification_status not in PaymentRecord.Status.values:
+            return _api_error(
+                request,
+                400,
+                "invalid_filter",
+                "收款核对状态无效。",
+                {"verification_status": "请选择pending、problem或passed。"},
+            )
+        items = items.filter(payment_record__status=verification_status)
     query = request.GET.get("q", "").strip()
     if query:
-        items = items.filter(Q(customer_name_snapshot__icontains=query) | Q(channel__name__icontains=query) | Q(salesperson__username__icontains=query))
+        search = (
+            Q(customer_name_snapshot__icontains=query)
+            | Q(channel__name__icontains=query)
+            | Q(salesperson__username__icontains=query)
+        )
+        if query.isascii() and query.isdigit() and len(query) <= 19:
+            order_number = int(query)
+            if order_number <= 2**63 - 1:
+                search |= Q(last_sequence=order_number) | Q(pk=order_number)
+        items = items.filter(search)
     try:
         page = paginate(items.order_by("-last_sequence", "-id"), request.GET)
     except CatalogQueryError as exc:

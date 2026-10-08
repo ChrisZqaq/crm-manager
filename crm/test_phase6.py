@@ -9,6 +9,7 @@ from django.test import SimpleTestCase
 from django.utils import timezone
 
 from .models import (
+    BusinessControl,
     BusinessOperation,
     CommissionAdjustment,
     CommissionReview,
@@ -105,7 +106,35 @@ class ReportPhase6Tests(Phase4Base):
             "period": "custom", "start_date": "2025-10-02", "end_date": "2025-10-02",
         })
         self.assertEqual(outside["items"], [])
+
+        daily_query = {
+            "period": "custom",
+            "start_date": "2025-09-30",
+            "end_date": "2025-10-02",
+            "series": "day",
+        }
+        daily = build_report(self.sales, "sales", daily_query)
+        self.assertEqual(daily["series"], [
+            {"date": "2025-09-30", "revenue_amount": "0.000"},
+            {"date": "2025-10-01", "revenue_amount": "25.000"},
+            {"date": "2025-10-02", "revenue_amount": "0.000"},
+        ])
+        self.assertEqual(
+            sum((Decimal(point["revenue_amount"]) for point in daily["series"]), Decimal("0.000")),
+            Decimal(daily["summary"]["totals"]["revenue_amount"]),
+        )
         self.client.force_login(self.sales)
+        series_response = self.client.get("/api/v1/reports/sales", daily_query)
+        self.assertEqual(series_response.status_code, 200, series_response.content)
+        self.assertEqual(series_response.json()["series"], daily["series"])
+        too_many_days = self.client.get("/api/v1/reports/sales", {
+            "period": "custom",
+            "start_date": "2024-01-01",
+            "end_date": "2025-01-01",
+            "series": "day",
+        })
+        self.assertEqual(too_many_days.status_code, 400)
+        self.assertIn("end_date", too_many_days.json()["error"]["fields"])
         page = self.client.get("/reports/sales/?period=custom&start_date=2025-10-01&end_date=2025-10-01")
         self.assertEqual(page.status_code, 200)
         self.assertContains(page, "杭州市")
@@ -130,10 +159,42 @@ class ReportPhase6Tests(Phase4Base):
             balance=self.balance, type=InventoryHold.Type.HOARD, initial_quantity=2, remaining_quantity=2,
             reason="Synthetic event stock", created_by=self.user,
         )
+        second_balance = InventoryBalance.objects.create(
+            sku=self.sku, warehouse=self.second_warehouse, on_hand=5, cost_amount=Decimal("5.000")
+        )
+        pack_sku = self.new_sku(2)
+        pack_sku.unit = "包"
+        pack_sku.save(update_fields=("unit",))
+        InventoryBalance.objects.create(sku=pack_sku, warehouse=self.warehouse, on_hand=4, cost_amount=Decimal("4.000"))
         data = build_report(self.sales, "inventory", {})
         row = next(item for item in data["items"] if item["id"] == str(self.balance.pk))
         self.assertEqual(row["available"], 18)
         self.assertIn("囤货（Synthetic event stock） 2 盒", row["lock_reasons"])
+        self.assertEqual(data["summary"]["by_unit"], [
+            {"unit": "包", "on_hand": 4, "available": 4, "occupied": 0, "reserved": 0, "damaged": 0},
+            {"unit": "盒", "on_hand": 25, "available": 23, "occupied": 0, "reserved": 0, "damaged": 0},
+        ])
+
+        control = BusinessControl.objects.get(pk=1)
+        control.low_stock_enabled = True
+        control.default_threshold = 5
+        control.save(update_fields=("low_stock_enabled", "default_threshold"))
+        low_stock = build_report(self.sales, "inventory", {"low_stock": "true"})
+        self.assertEqual(low_stock["summary"]["by_unit"], [
+            {"unit": "包", "on_hand": 4, "available": 4, "occupied": 0, "reserved": 0, "damaged": 0},
+            {"unit": "盒", "on_hand": 5, "available": 5, "occupied": 0, "reserved": 0, "damaged": 0},
+        ])
+        pack_sku.low_stock_enabled = False
+        pack_sku.save(update_fields=("low_stock_enabled",))
+        sku_disabled = build_report(self.sales, "inventory", {"low_stock": "true"})
+        self.assertEqual(sku_disabled["summary"]["by_unit"], [
+            {"unit": "盒", "on_hand": 5, "available": 5, "occupied": 0, "reserved": 0, "damaged": 0},
+        ])
+        control.low_stock_enabled = False
+        control.save(update_fields=("low_stock_enabled",))
+        global_disabled = build_report(self.sales, "inventory", {"low_stock": "true"})
+        self.assertEqual(global_disabled["items"], [])
+        self.assertEqual(global_disabled["summary"]["by_unit"], [])
         self.assertFalse(data["metadata"]["date_filter_available"])
         self.client.force_login(self.sales)
         page = self.client.get("/reports/inventory/")
