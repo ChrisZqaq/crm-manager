@@ -44,7 +44,7 @@
   let page=Number(new URLSearchParams(location.search).get('page')||1), pageCount=1;
   async function load(){
     message.textContent='';body.setAttribute('aria-busy','true');
-    const params=new URLSearchParams();for(const control of controls)if(control.value)params.set(control.name,control.value);params.set('page',String(page));params.set('page_size','50');
+    const params=new URLSearchParams();for(const control of controls){const value=control.dataset.requestedValue??control.value;if(value)params.set(control.name,value);}params.set('page',String(page));params.set('page_size','50');
     try{
       const response=await fetch(`/api/v1/orders?${params}`,{credentials:'same-origin'}), data=await response.json();
       if(!response.ok)throw new Error(data.error?.message||'订单加载失败。');
