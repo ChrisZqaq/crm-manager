@@ -161,3 +161,25 @@ static-v3六页已获用户批准；以下是精确查询/获批筛选的接入�
 - GET销售报表支持可选 `series=day`，必须与custom周期及成对start_date/end_date一起；顶层额外返回 `series: [{date, revenue_amount}]`，金额固定3位，日期按升序且有效零日填0。使用同一未分页、已授权、已交付筛选集，原summary.totals/默认响应不变。日序列最多366个自然日，超限按现有400校验返回；此容量限制不改变非series报表周期。
 - GET库存报表的summary补充 `by_unit: [{unit, on_hand, available, occupied, reserved, damaged}]`，数量为整数，来自当前授权/筛选全集，在库与各限制概念沿现有字段。摘要不随page变化，不产生跨售卖单位数量总和。已有total仍是仓库×SKU记录数；当low_stock=true时它是低库存记录数。
 - home沿用已有 `/` 路由渲染独立工作台模板，现有数据接口仍执行各原权限；不新建聚合端点或修改数据库模型。
+
+
+## UI-LIST-FILTERS接入补充契约（2026-10-08，待写入交接）
+
+依据为获批static-v3客户/订单销售选择及收款搜索，非新业务模块；此段是待实施契约，不代表接口已可用。
+
+- GET customers增加 `owner_id` 精确筛选，权限查询集先限定，再按ID过滤，再total/分页。非法ID沿原校验返回400，权限范围外ID只得到空结果，不授予其他客户可见性。
+- GET customers/orders响应均补充 `filter_options.salespeople: [{id, label}]`，ID为字符串、label为既有显示姓名。客户从当前可见客户owner集合取得，订单从当前可见订单salesperson集合取得，完整来源不限当前页、不读取全系统用户列表，两种归属不可混用；选项源在各列表的可见范围内、在交互搜索/销售筛选之前生成，避免筛选结果截断选择项。前端显示姓名下拉，内部ID只作为接口值。
+- GET payments report及其同源页面/导出支持 `q` 搜索，UI冻结图文案已定义为“搜索订单编号、客户名称”。使用报表当前展示的既有订单编号/ID、订单客户名称快照；沿用现有文本搜索约定，不新增编号规则，不扩到联系方式、SKU或全局客户检索。
+- 收款q与已有账户、首次成功凭证登记日期、核对状态等条件组合，在原授权订单范围内过滤后生成完整报表结果、total/分页或导出。日期口径和核对写入权限不变，客户搜索不使用全局客户表扩大结果。
+- 不新建通用用户API、权限项、数据库字段或平行报表；后端只在前端固定停写后恢复指定应用写入。
+
+
+UI-LIST-FILTERS集中核对补充（待实施）：orders.filter_options另含 `warehouses:[{id,label}]`，来自原可见订单当前活动行的供货仓集合，不扩大仓库查看权限、不从当前页推断。GET库存报表直接提供已有内部 `filter_options` 元数据（warehouses/skus/brands的id/label形状沿现有实现），供库存页面按完整授权余额集选择；不新建通用选项端点。用户已确认商品档案按SKU启用/停用筛选并可查看停用SKU，保留既有Product/IP范围和下单选品约束，不新增产品状态规则。目录的显式状态参数及兼容默认值由后端只读核查后冻结；列表/行内/详情使用一致SKU筛选，全部显示两类并标状态。
+
+### UI-LIST-FILTERS最小结构冻结
+
+- GET products增加目录专用 `sku_status=active/inactive/all`；缺省保留原启用SKU行为，非法值按既有目录筛选错误返回400。显式筛选时产品须至少有一个匹配SKU，嵌套SKU同筛选，保留is_active字段；Product/IP原启用范围不变。GET skus及下单启用校验不放宽。
+- 收款页面已有服务端渲染的 `filter_options.accounts` 和账户选择器，直接复用，不为本轮新增API账户选项输出。支付行补独立 `order_status/order_status_label` 和“履约状态”列；原status/status_label继续指收款核对状态，不新加履约筛选或改变状态流转。页面/API/导出同源。
+- 此冻结仅定义待实施接口；QA结束17870126固定检查前，后端不得开始应用写入。无模型、迁移、新路由或权限项。
+
+实现状态：UI-LIST-FILTERS已固定a2073d14并通过服务端独立定向检查及负责人审查；前端接入和真实六页验收仍待完成。缺省products响应保留旧行为（无匹配启用SKU的产品仍可含空SKU列表）；显式sku_status才要求至少一个匹配SKU，避免改变旧消费者。
