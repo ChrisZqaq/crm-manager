@@ -1,23 +1,51 @@
+{% load static %}
 <!doctype html>
 <html lang="zh-Hans">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>登录 · CRM</title>
+  <meta name="theme-color" content="#302C6C">
+  <title>登录 · 阿罗拉潮玩空间</title>
+  <link rel="stylesheet" href="{% static 'crm/login.css' %}">
+  <script src="{% static 'crm/login.js' %}" defer></script>
 </head>
-<body>
-  <main>
-    <h1>CRM 登录</h1>
-    {% if form.errors %}<p role="alert">账号或密码不正确，或账号已停用。</p>{% endif %}
-    <form method="post">
-      {% csrf_token %}
-      <label for="id_username">账号</label>
-      {{ form.username }}
-      <label for="id_password">密码</label>
-      {{ form.password }}
-      <input type="hidden" name="next" value="{{ next }}">
-      <button type="submit">登录</button>
-    </form>
+<body class="login-page">
+  <main class="login-main">
+    <div class="login-shell">
+      <section class="brand-panel" aria-label="阿罗拉品牌">
+        <div class="brand-center">
+          <div class="logo-box"><img src="{% static 'crm/brand-logo.png' %}" alt="阿罗拉潮玩空间" width="2354" height="966"></div>
+          <p class="brand-label">门店业务管理</p>
+          <div class="accent-line" aria-hidden="true"></div>
+        </div>
+        <div class="brand-foot">ALOLA · 阿罗拉潮玩空间</div>
+      </section>
+      <section class="form-panel" aria-labelledby="login-heading">
+        <p class="eyebrow">阿罗拉潮玩空间</p>
+        <h1 id="login-heading">欢迎登录</h1>
+        <form id="login-form" method="post">
+          {% csrf_token %}
+          <div class="field">
+            <label for="{{ form.username.id_for_label }}">账号</label>
+            {{ form.username }}
+            <p id="username-error" class="error" aria-live="polite"></p>
+          </div>
+          <div class="field">
+            <label for="{{ form.password.id_for_label }}">密码</label>
+            <div class="password-control">
+              {{ form.password }}
+              <button class="password-toggle" id="toggle-password" type="button" aria-label="显示密码" aria-pressed="false" aria-controls="{{ form.password.id_for_label }}">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
+            <p id="password-error" class="error" aria-live="polite"></p>
+          </div>
+          {% if form.errors %}<p id="login-server-error" class="error server-error" role="alert">账号或密码不正确，或账号已停用。</p>{% endif %}
+          <input type="hidden" name="next" value="{{ next }}">
+          <button class="submit" type="submit">登录</button>
+        </form>
+      </section>
+    </div>
   </main>
 </body>
 </html>

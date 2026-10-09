@@ -129,3 +129,10 @@ UI-QUERY-1契约冻结（负责人同步，2026-10-08；后端仍实施中，不
 - 定向合成浏览器验证：工作台、客户创建/编辑、订单新建/编辑及服务端回读、商品创建和目录SKU×仓库库存明细、Django后台入口；无客户查看权限的账号订单页不显示客户查找且控制台无错误。1280×720与390×844检查无页面级横向溢出，客户原生编辑对话框在390px下可滚动且焦点落在姓名字段。期初入口仅只读查看，未执行开关操作。
 - 检查通过：`manage.py check`；隔离测试库 `crm.test_ui` 6项；Python编译、`node --check crm/static/crm/app.js`、`git diff --check`。浏览器仅使用本轮独立本机数据库、测试账号和合成记录；未触碰8001/8765或其他角色服务、数据库与用户资料。最终复核后清理本轮隔离数据库、设置、媒体/日志及服务。
 - 固定提交后交QA定向独立复核并同步负责人；本次不推送、不部署。
+## UI-LOGIN-1009 登录页最小改版固定交付（2026-10-09）
+
+- 依据负责人在恢复写入窗口内的派发及UI审批记录。开发基线为应用提交 `febc1042aee9ab5ffe424064705f63f0dab95b64`；获批登录源 `docs/workspaces/ui/revision-v1/login.html` SHA-256 为 `41e3bd3d2e15e77be3daa92c4e49ce5c4af6d5b9c564a4aaed762da2d4591080`，当前一致。Logo SHA-256 `1d67cd449cbfd6ded521a5ef989b57b7c8e1fff7217d0d8b565f01946e761ac7`，当前一致，白底版本保留。
+- 仅改登录模板与新登录CSS/JS。沿用Django现有LoginView、AuthenticationForm、CSRF、session与安全next；提供空字段本地提示、服务端登录错误、密码显隐、可见焦点和桌面/移动布局。没有增加认证路径或业务页功能。
+- 浏览器使用隔离PostgreSQL数据库和合成账号实测：错误凭据显示Django服务端错误；正确凭据建立会话并进入站内首页；`next=https://example.com` 被拒绝并回退到本站商品档案页。两字段为空及仅缺密码时，字段提示与焦点符合预期；密码显隐和键盘顺序正常。桌面1280×720及移动390×844均已视觉检查，无页面级横向溢出。登录浏览器未发现console错误/警告；开发服务器另有既存缺少`/favicon.ico`的404日志。
+- 检查通过：Django system check；独立测试数据库上的 `crm.tests.CatalogTestCase.test_csrf_protects_password_login` 与 `crm.test_ui` 共7项；`node --check crm/static/crm/login.js`；目标文件 `git diff --check`。默认测试库 `test_aluola_crm_dev` 已存在，本轮未触碰，定向测试改用独立库并已由Django销毁。
+- 本提交待QA/UI独立复核；不推送、不部署。固定后前端停止应用写入；待负责人按流程安排后续。
