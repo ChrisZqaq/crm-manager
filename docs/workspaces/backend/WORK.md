@@ -261,17 +261,25 @@ UV_PROJECT_ENVIRONMENT=/Users/chrisz/.cache/aluola-crm-uiquery1-venv CRM_DB_NAME
 
 - 客户排行按本月已交付金额（快递按发货、现场按完成日期）；销售额增速比较北京时间今天与昨天全天，昨天为零时显示“—”。
 - 在售IP＋语言组合不含零库存；空语言周边仍按该IP的一组计，不按SKU拆分。销售日期继续按快递发货／现场交付时间，时区为 `Asia/Shanghai`，客户排行仅使用原授权订单范围。
+- 客户排行仅含有 `customer_id` 的档案客户，不读客户档案权限外的数据；名称复用授权订单名称快照。同一客户有多个名称时，取本期最近交付订单快照，以交付时间降序、订单ID降序稳定排序。原型显示Top3，金额3位。
+- 增速用高精度 `Decimal` 计算后四舍五入至2位；昨日金额为0时返回 `null`，页面显示“—”。
 - 尚未确认“零库存”以 `on_hand`（在库）还是 `available`（可售）为准。组合卡依赖此判断，当前字段应省略或为 `null`，页面显示“—”，不能推定为0。
 
 ### 已有逻辑及最小返回形状建议
 
-1. **客户本月排行**：沿用 `/api/v1/reports/sales` → `reports_api` → `build_report` → `_sales_data`。以 `scope=delivered`、自定义北京时间本月1日至今天筛选；不要用 `period=1m`，它是滚动一个月。订单范围由 `_order_queryset`／`sales_order_queryset_for` 维持具备 `view_all_sales_orders` 的用户查看全部、其他用户查看本人订单，取消订单和非活动明细沿用现有排除规则。可在 `_sales_data` 当前明细遍历中按 `customer_id` 用 `Decimal` 累计，避免让浏览器下载全量行后聚合。建议在显式工作台查询时增加 `summary.workbench.customer_ranking: [{rank, customer_id, customer, revenue_amount}]`；金额复用 `_money` 的3位小数字符串，排行行数（Top N）待前端卡片与负责人冻结。现有 `customer` 展示名来自订单客户快照。空 `customer_id` 的散客不宜合并成一个客户排行组，是否完全排除散客及名称冲突时取哪条快照仍待负责人冻结。
-2. **今日对昨日增速**：同一销售报表另用自定义日期“昨天至今天”并传 `series=day`。已有 `_sales_date_query` 按发货／现场完成时间筛选；`_sales_data` 已按北京时间生成含零日的 `series: [{date, revenue_amount}]`，最多366天。建议由服务端在同一遍历中用 `Decimal` 返回 `summary.workbench.day_over_day: {today_date, today_revenue_amount, yesterday_date, yesterday_revenue_amount, growth_percent}`，公式为 `(today / yesterday - 1) × 100`；昨日金额为零则 `growth_percent: null`。金额沿用3位字符串；百分比精度需在接口冻结时确定，不能在浏览器用浮点数重算业务结果。与月排行用两次同源报表请求，日期范围清晰，且月初也能正确包含上月最后一天。
-3. **在售IP＋语言组合数**：沿用 `/api/v1/reports/inventory`、`inventory_rows` 与 `_inventory_data` 的当前余额和原 `view_inventorybalance` 权限。可在当前授权余额全集上按 `(brand_id, language_id)` 去重；一个组合只要任一仓库／SKU余额满足已批准的正库存条件就计1，不累加不同单位，不造缺失余额行。建议字段为 `summary.workbench.in_stock_ip_language_combination_count`（整数）；空语言即 `(brand_id, null)`，因此同一IP下所有空语言SKU只算一组。待库存谓词确认前不生成数值。
+1. **客户本月排行**：沿用 `/api/v1/reports/sales` → `reports_api` → `build_report` → `_sales_data`。请求 `workbench=customer_ranking`、`scope=delivered`，并用自定义北京时间本月1日至今天筛选；不要用 `period=1m`，它是滚动一个月。订单范围由 `_order_queryset`／`sales_order_queryset_for` 维持具备 `view_all_sales_orders` 的用户查看全部、其他用户查看本人订单，取消订单和非活动明细沿用现有排除规则；不查客户表，不扩展读取权限。建议响应 `summary.workbench.customer_ranking: [{rank, customer_id, customer, revenue_amount}]`，只含 `customer_id` 非空客户，按金额降序、`customer_id` 升序稳定取Top3；`customer` 从本期授权订单快照取，按有效交付时间降序、订单ID降序决胜。金额复用 `_money` 的3位字符串。可在 `_sales_data` 现有明细遍历中按客户 `Decimal` 累计并跟踪最近快照，避免浏览器下载或聚合全量报表行。
+2. **今日对昨日增速**：请求 `workbench=day_over_day`、`scope=delivered`、`series=day`，自定义日期只取北京时间昨天和今天。已有 `_sales_date_query` 按发货／现场完成时间筛选；`_sales_data` 已生成含零日的顶层 `series: [{date, revenue_amount}]`，且两日范围在现有366日限制内。建议服务端在同一遍历中返回 `summary.workbench.day_over_day: {today_date, today_revenue_amount, yesterday_date, yesterday_revenue_amount, growth_percent}`；金额复用3位字符串，增速为 `(today / yesterday - 1) × 100`，用高精度 `Decimal` 后以 `ROUND_HALF_UP` 四舍五入到2位并返回字符串，昨日金额为零时返回 `null`。月排行和两日增速使用两次同源报表请求，这样月初也包含上月最后一天，且不把业务计算移到浏览器。
+3. **在售IP＋语言组合数**：沿用 `/api/v1/reports/inventory`、`inventory_rows` 与 `_inventory_data` 的当前余额和原 `view_inventorybalance` 权限。待库存谓词获确认后，请求 `workbench=ip_language_stock_count`；建议响应 `summary.workbench.in_stock_ip_language_combination_count: <整数>`。服务端在授权余额全集按 `(brand_id, language_id)` 去重，一个组合只要任一仓库／SKU余额满足已批准的正库存条件就计1，不累加不同单位，不造缺失余额行。空语言即 `(brand_id, null)`；同一IP下所有空语言SKU只算一组。谓词确认前不请求此指标、不返回数值。
+
+### 原报表兼容性与消费者使用
+
+- `_sales_data` 现有行按SKU×仓库×销售×客户×渠道×省市分组，`summary.totals` 是全销售报表汇总，二者都不能直接当客户排行。可复用相同授权过滤及明细遍历，增加并行的客户累计/最近名称快照；无需重建报表或扫客户表。`series=day` 已可提供两日金额，增速仅需服务器端补充摘要计算。
+- `_inventory_data.summary.by_unit` 是不同售卖单位的当前数量汇总，不能给出不同单位无关的IP×语言组合数；当前余额行带有SKU到商品/IP及语言关联，可在同次库存处理内维护一组 `(brand_id, language_id)`。待定的唯一业务判断仍是正库存采用 `on_hand > 0` 还是 `available > 0`。
+- 工作台消费者只读 `summary.workbench`，不聚合 `items`。建议销售排行请求 `workbench=customer_ranking&period=custom&start_date=本月首日&end_date=北京时间今天&scope=delivered&page_size=1`；增速请求 `workbench=day_over_day&period=custom&start_date=北京时间昨天&end_date=北京时间今天&scope=delivered&series=day&page_size=1`。库存谓词确认后再请求 `/api/v1/reports/inventory?workbench=ip_language_stock_count&page_size=1`。日期由消费者按 `Asia/Shanghai` 构造；`page_size=1` 只缩小返回的报表行，不改变完整查询摘要。
+- `workbench` 应仅接受各报表支持的显式值，未知或跨报表值沿用现有400错误格式。新增摘要只在对应opt-in时返回，原报表默认 `items`、分页、权限及响应保持不变；销售仍需 `view_salesorder`，库存仍需 `view_inventorybalance`，没有新工作台/客户档案读取权限。消费者无对应权限时沿用无权数据块不渲染行为。
 
 ### 范围与交接
 
-- 不新建聚合端点、模型／统计表或前端聚合；仅建议给已有两个报表的显式工作台请求增加摘要字段，原权限、日期筛选和分页响应保持兼容。具体查询标记与字段名均为提案，待负责人冻结后才能实施。
-- 已确认的用户答复比 `docs/specs/API_CONTRACT.md` 第202、208行的旧“统计口径未定”占位更新；该公共合同由负责人维护，本轮不改。冻结字段时请负责人同步清理旧占位，并补齐零库存谓词、散客排行处理、Top N及百分比精度。
+- 不新建聚合端点、模型／统计表或前端聚合；上文 `workbench` 值及 `summary.workbench` 字段是给负责人冻结的接口提案，不代表已实施合同。公共合同 `docs/specs/API_CONTRACT.md` 第202、208行仍有旧的统计未定占位，由负责人冻结时同步更新并补入零库存谓词。
 - 代码依据：`crm/views.py:775-805`（报表权限／响应）、`crm/reports.py:79-123`（日期与北京时间）、`:131-132`（订单范围）、`:208-258`（库存摘要）、`:261-270`（交付日期）、`:273-369`（销售金额与日报表序列）、`:589-626`（报表路由）、`crm/sales.py:54-59`（本人／全部订单范围）、`crm/operations.py:1151-1152`、`:1155-1229`（可售量与库存余额行）。这些位置已只读核对。
-- 后端不改应用文件、不测试；负责人在前端写入窗口结束后冻结最小接口及零库存口径，再安排单一应用写入者实施。
+- 后端不改应用文件、不测试；负责人在前端写入窗口结束后冻结查询参数、响应字段及零库存口径，再安排单一应用写入者实施。
