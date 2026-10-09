@@ -252,3 +252,26 @@ UV_PROJECT_ENVIRONMENT=/Users/chrisz/.cache/aluola-crm-uiquery1-venv CRM_DB_NAME
 - `compileall`、目标文件 `git diff --check`、`makemigrations --check --dry-run` 均通过；后者显示 `No changes detected`，本修复无模型迁移。
 
 负责人及QA已收到固定应用SHA和测试证据；等待QA按固定提交独立确认。本轮不推送、不部署，也未触碰其他角色文档、期初模板、用户库或服务。
+
+## UI-DASHBOARD-STATS｜只读数据接入方案（2026-10-09）
+
+依据：用户在 `docs/project/USER_REVISION_20261009.md` 的直接答复；开发计划当前指定前端为唯一应用写入者。此项只读核对，不改应用或公共API合同，不运行测试。
+
+### 已确认口径与待决项
+
+- 客户排行按本月已交付金额（快递按发货、现场按完成日期）；销售额增速比较北京时间今天与昨天全天，昨天为零时显示“—”。
+- 在售IP＋语言组合不含零库存；空语言周边仍按该IP的一组计，不按SKU拆分。销售日期继续按快递发货／现场交付时间，时区为 `Asia/Shanghai`，客户排行仅使用原授权订单范围。
+- 尚未确认“零库存”以 `on_hand`（在库）还是 `available`（可售）为准。组合卡依赖此判断，当前字段应省略或为 `null`，页面显示“—”，不能推定为0。
+
+### 已有逻辑及最小返回形状建议
+
+1. **客户本月排行**：沿用 `/api/v1/reports/sales` → `reports_api` → `build_report` → `_sales_data`。以 `scope=delivered`、自定义北京时间本月1日至今天筛选；不要用 `period=1m`，它是滚动一个月。订单范围由 `_order_queryset`／`sales_order_queryset_for` 维持具备 `view_all_sales_orders` 的用户查看全部、其他用户查看本人订单，取消订单和非活动明细沿用现有排除规则。可在 `_sales_data` 当前明细遍历中按 `customer_id` 用 `Decimal` 累计，避免让浏览器下载全量行后聚合。建议在显式工作台查询时增加 `summary.workbench.customer_ranking: [{rank, customer_id, customer, revenue_amount}]`；金额复用 `_money` 的3位小数字符串，排行行数（Top N）待前端卡片与负责人冻结。现有 `customer` 展示名来自订单客户快照。空 `customer_id` 的散客不宜合并成一个客户排行组，是否完全排除散客及名称冲突时取哪条快照仍待负责人冻结。
+2. **今日对昨日增速**：同一销售报表另用自定义日期“昨天至今天”并传 `series=day`。已有 `_sales_date_query` 按发货／现场完成时间筛选；`_sales_data` 已按北京时间生成含零日的 `series: [{date, revenue_amount}]`，最多366天。建议由服务端在同一遍历中用 `Decimal` 返回 `summary.workbench.day_over_day: {today_date, today_revenue_amount, yesterday_date, yesterday_revenue_amount, growth_percent}`，公式为 `(today / yesterday - 1) × 100`；昨日金额为零则 `growth_percent: null`。金额沿用3位字符串；百分比精度需在接口冻结时确定，不能在浏览器用浮点数重算业务结果。与月排行用两次同源报表请求，日期范围清晰，且月初也能正确包含上月最后一天。
+3. **在售IP＋语言组合数**：沿用 `/api/v1/reports/inventory`、`inventory_rows` 与 `_inventory_data` 的当前余额和原 `view_inventorybalance` 权限。可在当前授权余额全集上按 `(brand_id, language_id)` 去重；一个组合只要任一仓库／SKU余额满足已批准的正库存条件就计1，不累加不同单位，不造缺失余额行。建议字段为 `summary.workbench.in_stock_ip_language_combination_count`（整数）；空语言即 `(brand_id, null)`，因此同一IP下所有空语言SKU只算一组。待库存谓词确认前不生成数值。
+
+### 范围与交接
+
+- 不新建聚合端点、模型／统计表或前端聚合；仅建议给已有两个报表的显式工作台请求增加摘要字段，原权限、日期筛选和分页响应保持兼容。具体查询标记与字段名均为提案，待负责人冻结后才能实施。
+- 已确认的用户答复比 `docs/specs/API_CONTRACT.md` 第202、208行的旧“统计口径未定”占位更新；该公共合同由负责人维护，本轮不改。冻结字段时请负责人同步清理旧占位，并补齐零库存谓词、散客排行处理、Top N及百分比精度。
+- 代码依据：`crm/views.py:775-805`（报表权限／响应）、`crm/reports.py:79-123`（日期与北京时间）、`:131-132`（订单范围）、`:208-258`（库存摘要）、`:261-270`（交付日期）、`:273-369`（销售金额与日报表序列）、`:589-626`（报表路由）、`crm/sales.py:54-59`（本人／全部订单范围）、`crm/operations.py:1151-1152`、`:1155-1229`（可售量与库存余额行）。这些位置已只读核对。
+- 后端不改应用文件、不测试；负责人在前端写入窗口结束后冻结最小接口及零库存口径，再安排单一应用写入者实施。
