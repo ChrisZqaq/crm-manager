@@ -74,12 +74,12 @@
     {% endif %}
     {% if report_name == "payments" %}
       <label>搜索订单编号、客户名称<input type="search" name="q" value="{{ request.GET.q }}" maxlength="120"></label>
-      <input type="hidden" name="status" value="{{ request.GET.status }}">
+      <input id="payment-status" type="hidden" name="status" value="{{ request.GET.status }}">
       <nav class="tab-list" aria-label="按收款核对状态筛选">
-        <button type="submit" name="status" value="" aria-pressed="{% if not request.GET.status %}true{% else %}false{% endif %}" class="{% if not request.GET.status %}is-active{% endif %}">全部</button>
-        <button type="submit" name="status" value="pending" aria-pressed="{% if request.GET.status == 'pending' %}true{% else %}false{% endif %}" class="{% if request.GET.status == 'pending' %}is-active{% endif %}">待核对</button>
-        <button type="submit" name="status" value="problem" aria-pressed="{% if request.GET.status == 'problem' %}true{% else %}false{% endif %}" class="{% if request.GET.status == 'problem' %}is-active{% endif %}">待处理</button>
-        <button type="submit" name="status" value="passed" aria-pressed="{% if request.GET.status == 'passed' %}true{% else %}false{% endif %}" class="{% if request.GET.status == 'passed' %}is-active{% endif %}">核对通过</button>
+        <button type="submit" data-payment-status="" aria-pressed="{% if not request.GET.status %}true{% else %}false{% endif %}" class="{% if not request.GET.status %}is-active{% endif %}">全部</button>
+        <button type="submit" data-payment-status="pending" aria-pressed="{% if request.GET.status == 'pending' %}true{% else %}false{% endif %}" class="{% if request.GET.status == 'pending' %}is-active{% endif %}">待核对</button>
+        <button type="submit" data-payment-status="problem" aria-pressed="{% if request.GET.status == 'problem' %}true{% else %}false{% endif %}" class="{% if request.GET.status == 'problem' %}is-active{% endif %}">待处理</button>
+        <button type="submit" data-payment-status="passed" aria-pressed="{% if request.GET.status == 'passed' %}true{% else %}false{% endif %}" class="{% if request.GET.status == 'passed' %}is-active{% endif %}">核对通过</button>
       </nav>
       {% if filter_options.accounts %}<label>收款账户<select name="account_id"><option value="">全部</option>{% for option in filter_options.accounts %}<option value="{{ option.id }}" {% if request.GET.account_id == option.id %}selected{% endif %}>{{ option.label }}</option>{% endfor %}</select></label>{% endif %}
       <label>暂停状态<select name="paused"><option value="">全部</option><option value="true" {% if request.GET.paused == "true" %}selected{% endif %}>暂停</option><option value="false" {% if request.GET.paused == "false" %}selected{% endif %}>未暂停</option></select></label>
@@ -122,6 +122,7 @@
 {% if report_name == "payments" %}
 <script>
 (() => {
+  document.querySelector('.tab-list')?.addEventListener('click',event=>{const button=event.target.closest('[data-payment-status]');if(button)document.getElementById('payment-status').value=button.dataset.paymentStatus;});
   const panel=document.getElementById('payment-detail'),detail=document.getElementById('payment-detail-body'),layout=panel.closest('.split-layout'),verifyKeys=new Map();
   const table=panel.parentElement.querySelector('table'),headers=[...table.querySelectorAll('thead th')],labelIndex=label=>headers.findIndex(header=>header.textContent.trim()===label),priority=['订单编号','订单金额','登记收款金额（非实收核实）','收款账户','登记应收金额','登记差额（收款−应收）'],order=[...priority.map(labelIndex).filter(index=>index>=0),...headers.map((_,index)=>index).filter(index=>!priority.includes(headers[index].textContent.trim()))];
   for(const row of table.querySelectorAll('tr')){const cells=[...row.children];if(cells.length===headers.length)row.replaceChildren(...order.map(index=>cells[index]));}

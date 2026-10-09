@@ -69,10 +69,11 @@ class ApprovedWorkbenchAndPaymentUITests(TestCase):
 
         response = self.client.get("/reports/payments/", {"status": "problem", "q": "sample", "paused": "true"})
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'name="status" value="problem"')
-        self.assertContains(response, 'name="status" value="problem" aria-pressed="true" class="is-active">待处理</button>')
+        self.assertContains(response, 'id="payment-status" type="hidden" name="status" value="problem"')
+        self.assertContains(response, 'data-payment-status="problem" aria-pressed="true" class="is-active">待处理</button>')
         for value, label in PaymentRecord.Status.choices:
-            self.assertContains(response, f'name="status" value="{value}"')
+            self.assertContains(response, f'data-payment-status="{value}"')
             self.assertContains(response, label)
+        self.assertEqual(response.content.count(b'name="status"'), 1)
         self.assertContains(response, 'name="q" value="sample"')
         self.assertContains(response, 'name="paused"')

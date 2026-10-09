@@ -47,12 +47,18 @@
     function csrfToken() { return document.cookie.split('; ').find(x => x.startsWith('csrftoken='))?.split('=')[1] || ''; }
     async function readResponse(response) {
       const result = await response.json();
-      if (!response.ok) throw new Error(JSON.stringify(result));
+      if (!response.ok) {
+        const error = new Error(result.error?.message || '请求失败。');
+        error.code = result.error?.code;
+        throw error;
+      }
       return result;
     }
     const lineTemplate = document.querySelector('.line').cloneNode(true);
     const lines = document.getElementById('lines');
     let previewToken = null;
+    let operationKey = null;
+    let confirming = false;
     let imageIds = [];
     const resultBox = document.getElementById('result');
     const status = document.getElementById('status');
@@ -80,7 +86,7 @@
       event.target.value = '';
     });
     document.getElementById('receipt-form').addEventListener('submit', async event => {
-      event.preventDefault(); previewToken = null; document.getElementById('confirm').hidden = true;
+      event.preventDefault(); previewToken = null; operationKey = null; document.getElementById('confirm').hidden = true;
       const data = {
         warehouse_id: document.getElementById('warehouse').value,
         supplier_id: document.getElementById('supplier').value,
@@ -99,20 +105,37 @@
         const response = await fetch('/api/v1/receipts/preview', {method: 'POST', credentials: 'same-origin', headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrfToken()}, body: JSON.stringify(data)});
         const result = await readResponse(response);
         previewToken = result.preview_token;
+        operationKey = crypto.randomUUID();
         resultBox.textContent = JSON.stringify(result, null, 2);
         document.getElementById('confirm').hidden = !previewToken;
         status.textContent = '请核对仓库、供应商、数量、价格、运费与限制数量。';
       } catch (error) { resultBox.textContent = error.message; status.textContent = '预览未通过。'; }
     });
     document.getElementById('confirm').addEventListener('click', async () => {
-      if (!previewToken) return;
+      if (!previewToken || confirming) return;
+      confirming = true;
+      const confirmButton = document.getElementById('confirm');
+      confirmButton.disabled = true;
+      status.textContent = '正在确认入库…';
       try {
-        const response = await fetch('/api/v1/receipts/confirm', {method: 'POST', credentials: 'same-origin', headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrfToken()}, body: JSON.stringify({preview_token: previewToken, operation_key: crypto.randomUUID()})});
+        const response = await fetch('/api/v1/receipts/confirm', {method: 'POST', credentials: 'same-origin', headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrfToken()}, body: JSON.stringify({preview_token: previewToken, operation_key: operationKey})});
         const result = await readResponse(response);
-        resultBox.textContent = JSON.stringify(result, null, 2); previewToken = null; imageIds = [];
-        document.getElementById('confirm').hidden = true;
+        resultBox.textContent = JSON.stringify(result, null, 2); previewToken = null; operationKey = null; imageIds = [];
+        confirmButton.hidden = true;
         status.textContent = '入库已确认。';
-      } catch (error) { resultBox.textContent = error.message; status.textContent = '入库未确认，请重新预览。'; }
+      } catch (error) {
+        if (error.code === 'stale_preview') {
+          previewToken = null;
+          operationKey = null;
+          confirmButton.hidden = true;
+          status.textContent = `预览已失效，请重新预览：${error.message}`;
+        } else {
+          status.textContent = `入库确认失败：${error.message}。可以使用相同预览安全重试。`;
+        }
+      } finally {
+        confirming = false;
+        confirmButton.disabled = false;
+      }
     });
   </script>
 </div>
