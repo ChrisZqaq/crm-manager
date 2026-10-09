@@ -39,11 +39,23 @@ class ApprovedWorkbenchAndPaymentUITests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertNotContains(response, "/api/v1/reports/sales")
         self.assertNotContains(response, "/api/v1/reports/inventory")
+        self.assertNotContains(response, "workbench=customer_ranking")
+        self.assertNotContains(response, "workbench=day_over_day")
+        self.assertNotContains(response, "workbench=ip_language_stock_count")
         self.assertContains(response, "当前账号无权查看此数据")
+
+        self.client.force_login(self.orders)
+        response = self.client.get("/")
+        self.assertContains(response, "workbench=customer_ranking")
+        self.assertContains(response, "workbench=day_over_day")
+        self.assertContains(response, "/api/v1/customers?page_size=1")
+        self.assertContains(response, "loadOrders('awaiting_payment'")
+        self.assertNotContains(response, "workbench=ip_language_stock_count")
 
         self.client.force_login(self.inventory)
         response = self.client.get("/")
         self.assertContains(response, "/api/v1/reports/inventory?low_stock=true")
+        self.assertContains(response, "workbench=ip_language_stock_count")
         self.assertNotContains(response, "/api/v1/reports/sales")
 
     def test_customer_editor_and_catalog_inventory_are_permission_gated(self):

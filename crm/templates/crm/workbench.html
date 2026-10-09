@@ -8,9 +8,9 @@
   {% if perms.crm.add_salesorder %}<div class="page-actions"><a class="button-primary" href="{% url 'order-new' %}">新建订单</a></div>{% endif %}
 </section>
 <section class="summary-grid workbench-summary" aria-label="业务摘要">
-  <article class="data-card summary-card"><span class="summary-label">今日销售额</span><div class="summary-horizontal"><strong id="today-sales">—</strong><span class="summary-side">增速<br>—</span></div><span class="summary-note">已交付销售；北京时间</span></article>
-  <article class="data-card summary-card"><span class="summary-label">客户</span><div class="summary-horizontal"><strong id="customer-total">—</strong><span class="summary-side">新增<br>—</span></div><span class="summary-note">新增统计口径待确认</span></article>
-  <article class="data-card summary-card"><span class="summary-label">在售商品组合</span><div class="summary-horizontal"><strong id="product-total">—</strong><span class="summary-side">IP × 语言</span></div><span class="summary-note">组合与新增口径待确认</span></article>
+  <article class="data-card summary-card"><span class="summary-label">今日销售额</span><div class="summary-horizontal"><strong id="today-sales">—</strong><span class="summary-side">增速<br><span id="today-growth" aria-live="polite">—</span></span></div><span class="summary-note" id="today-sales-status" role="status" aria-live="polite">已交付销售；北京时间</span></article>
+  <article class="data-card summary-card"><span class="summary-label">客户</span><div class="summary-horizontal"><strong id="customer-total">—</strong><span class="summary-side">新增<br>—</span></div><span class="summary-note">新增统计口径待确认</span>{% if perms.crm.view_salesorder %}<span class="summary-note">本月消费排行</span><ol id="customer-ranking" class="status-preview" aria-label="本月客户购买金额排行" aria-live="polite"><li class="muted">加载中…</li></ol>{% endif %}</article>
+  <article class="data-card summary-card"><span class="summary-label">在售商品组合</span><div class="summary-horizontal"><strong id="product-total">—</strong><span class="summary-side">IP × 语言</span></div><span class="summary-note" id="product-total-status" role="status" aria-live="polite">组合与新增口径待确认</span></article>
   <article class="data-card summary-card"><span class="summary-label">低库存提醒</span><div class="summary-horizontal"><strong id="low-stock-total">—</strong><span class="summary-side">条</span></div><span class="summary-note">当前账号可见库存记录</span></article>
 </section>
 
@@ -59,13 +59,13 @@
     for(const item of rows){const li=document.createElement('li'),link=document.createElement('a');link.href=`/orders/${encodeURIComponent(item.order_id||item.id)}/`;link.textContent=makeLabel(item);li.append(link);list.append(li);}
   };
   const localDate = new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
-  const startDate = new Date(`${localDate}T00:00:00Z`);startDate.setUTCDate(startDate.getUTCDate()-6);
+  const dateAtOffset = days => { const date=new Date(`${localDate}T00:00:00Z`);date.setUTCDate(date.getUTCDate()+days);return date.toISOString().slice(0,10); };
+  const monthStart = `${localDate.slice(0,7)}-01`, yesterday = dateAtOffset(-1), startDate = dateAtOffset(-6);
   const chart = document.getElementById('workbench-trend');
   {% if perms.crm.view_salesorder %}
   (async()=>{
     try {
-      const series=await get(`/api/v1/reports/sales?scope=delivered&period=custom&start_date=${startDate.toISOString().slice(0,10)}&end_date=${localDate}&series=day&page_size=1`);
-      const today=series.series?.find(item=>item.date===localDate);set('today-sales',today?`¥${today.revenue_amount}`:'—');
+      const series=await get(`/api/v1/reports/sales?scope=delivered&period=custom&start_date=${startDate}&end_date=${localDate}&series=day&page_size=1`);
       chart.replaceChildren();const points=series.series||[];
       if(points.length){
         chart.setAttribute('aria-label',`近7天每日已交付销售额：${points.map(item=>`${item.date} ¥${item.revenue_amount}`).join('；')}`);
@@ -76,7 +76,33 @@
         points.forEach((item,index)=>{const group=document.createElementNS(svg.namespaceURI,'g'),dot=document.createElementNS(svg.namespaceURI,'circle'),title=document.createElementNS(svg.namespaceURI,'title');dot.setAttribute('cx',xAt(index));dot.setAttribute('cy',yAt(values[index]));dot.setAttribute('r','4');dot.setAttribute('class','chart-point');title.textContent=`${item.date}：¥${item.revenue_amount}`;group.append(dot,title);svg.append(group);const label=document.createElement('span');label.className='chart-date';label.textContent=item.date.slice(5);chart.append(label);});
         chart.prepend(svg);
       } else {chart.textContent='暂无已交付销售数据。';}
-    }catch(error){set('today-sales','暂不可用');chart.textContent='销售趋势暂不可用。';set('workbench-trend-status',error.message);}
+    }catch(error){chart.textContent='销售趋势暂不可用。';set('workbench-trend-status',error.message);}
+  })();
+  (async()=>{
+    const growth=document.getElementById('today-growth'), status=document.getElementById('today-sales-status');
+    try {
+      const data=await get(`/api/v1/reports/sales?workbench=day_over_day&scope=delivered&period=custom&start_date=${yesterday}&end_date=${localDate}&series=day&page_size=1`);
+      const summary=data.summary?.workbench?.day_over_day;
+      if(!summary||typeof summary.today_amount!=='string'||(summary.growth_percent!==null&&(typeof summary.growth_percent!=='string'||!summary.growth_percent.trim()||!Number.isFinite(Number(summary.growth_percent))))) throw new Error('增速数据格式无效。');
+      set('today-sales',`¥${summary.today_amount}`);
+      const rate=summary.growth_percent;
+      growth.textContent=rate===null?'—':`${rate}%`;
+      growth.style.color=rate===null?'':Number(rate)>0?'var(--danger)':Number(rate)<0?'var(--success)':'';
+      status.textContent='已交付销售；北京时间';
+    } catch(error) {
+      set('today-sales','暂不可用');growth.textContent='暂不可用';growth.style.color='';status.textContent=`${error.message}；刷新页面重试。`;
+    }
+  })();
+  (async()=>{
+    const list=document.getElementById('customer-ranking');
+    try {
+      const data=await get(`/api/v1/reports/sales?workbench=customer_ranking&scope=delivered&period=custom&start_date=${monthStart}&end_date=${localDate}&page_size=1`);
+      const rows=data.summary?.workbench?.customer_ranking;
+      if(!Array.isArray(rows)||rows.some(row=>!row||typeof row.customer_name!=='string'||typeof row.amount!=='string')) throw new Error('客户排行数据格式无效。');
+      list.replaceChildren();
+      if(!rows.length){noRows('customer-ranking','暂无客户消费排行。');return;}
+      rows.forEach((row,index)=>{const item=document.createElement('li');item.textContent=`${index+1}. ${row.customer_name} · ¥${row.amount}`;list.append(item);});
+    } catch(error) { noRows('customer-ranking',`${error.message}；刷新页面重试。`); }
   })();
   const loadOrders = async (status, countId, listId, statusId) => {
     try{const data=await get(`/api/v1/orders?status=${status}&page_size=2`);set(countId,data.total);showOrderRows(listId,data.items||[],item=>`订单 ${item.id} · ${item.customer_name||'门店散客'} · ¥${item.revenue_amount}`);}
@@ -96,6 +122,7 @@
   {% endif %}
   {% if perms.crm.view_inventorybalance %}
   (async()=>{try{const data=await get('/api/v1/reports/inventory?low_stock=true&page_size=1');set('low-stock-total',data.total);}catch{set('low-stock-total','暂不可用');}})();
+  (async()=>{try{const data=await get('/api/v1/reports/inventory?workbench=ip_language_stock_count&page_size=1');const count=data.summary?.workbench?.in_stock_ip_language_combination_count;if(!Number.isInteger(count)||count<0)throw new Error('组合数量数据格式无效。');set('product-total',count);set('product-total-status','启用IP × 语言；所有仓可售数量大于0');}catch(error){set('product-total','暂不可用');set('product-total-status',`${error.message}；刷新页面重试。`);}})();
   {% endif %}
 })();
 </script>

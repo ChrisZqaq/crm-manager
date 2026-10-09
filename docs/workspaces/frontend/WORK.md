@@ -136,3 +136,21 @@ UI-QUERY-1契约冻结（负责人同步，2026-10-08；后端仍实施中，不
 - 浏览器使用隔离PostgreSQL数据库和合成账号实测：错误凭据显示Django服务端错误；正确凭据建立会话并进入站内首页；`next=https://example.com` 被拒绝并回退到本站商品档案页。两字段为空及仅缺密码时，字段提示与焦点符合预期；密码显隐和键盘顺序正常。桌面1280×720及移动390×844均已视觉检查，无页面级横向溢出。登录浏览器未发现console错误/警告；开发服务器另有既存缺少`/favicon.ico`的404日志。
 - 检查通过：Django system check；独立测试数据库上的 `crm.tests.CatalogTestCase.test_csrf_protects_password_login` 与 `crm.test_ui` 共7项；`node --check crm/static/crm/login.js`；目标文件 `git diff --check`。默认测试库 `test_aluola_crm_dev` 已存在，本轮未触碰，定向测试改用独立库并已由Django销毁。
 - 本提交待QA/UI独立复核；不推送、不部署。固定后前端停止应用写入；待负责人按流程安排后续。
+## UI-DASHBOARD-STATS 前端只读接入准备（2026-10-09）
+
+- 依据当前 HEAD `37bd181dd064062d7efae46b697d1bde9b63ad06` 的负责人派发及 `docs/specs/API_CONTRACT.md`“工作台统计接入合同（2026-10-09最终收口，待实现）”。后端是唯一应用写入者；本轮只读，无应用改动、迁移、HTTP请求或测试。只采用公共最终合同字段，不沿用后端旧方案字段（如排行 `customer/revenue_amount`、增速 `today_revenue_amount`）。
+- 三项数据分别消费：
+  1. 客户本月排行：sales报表请求 `workbench=customer_ranking&period=custom&start_date=北京时间本月1日&end_date=今天&scope=delivered&page_size=1`；读取 `summary.workbench.customer_ranking[{customer_id,customer_name,amount}]`。只在 `view_salesorder` 下请求和渲染；服务器沿本人/全部授权范围，空数组是真实空态，不能转成0或从客户目录另查名称。
+  2. 今日对昨日增速：sales报表请求昨天至今天、`workbench=day_over_day&scope=delivered&series=day&page_size=1`；读取 `summary.workbench.day_over_day` 的 `today_amount/yesterday_amount/growth_percent`。同样仅在 `view_salesorder` 下请求，不在浏览器计算。昨日为0时 `growth_percent=null`，只把增速显示为“—”；今日金额仍按返回金额显示。现有7日series请求继续服务趋势/今日销售额，因为日期窗口与此opt-in不同。
+  3. 在售IP×语言组合数：inventory报表请求 `workbench=ip_language_stock_count&page_size=1`；读取 `summary.workbench.in_stock_ip_language_combination_count`。仅在 `view_inventorybalance` 下请求和渲染；正库存条件为所有仓可售数量合计大于0，按启用IP＋商品＋SKU的brand_id/language_id去重，空语言按各自IP单独成组。服务端summary是完整授权筛选集，不受page_size限制。
+- 权限继续拆分：客户总数沿现有 `view_customer` 的 `/api/v1/customers?page_size=1` 请求；排行/销售额/增速沿 `view_salesorder`；商品组合/低库存沿 `view_inventorybalance`。无对应权限时不发请求、不渲染受限数据块；不得将403当作0。真实返回的组合计数0可显示0；缺字段/请求失败显示现有“暂不可用”状态。排行空数组显示明确空列表，加载或失败不冒充空结果。
+- 对照获批 `revision-v1/HANDOFF.md`：客户卡右侧应显示本月购买金额排行；当前 `crm/templates/crm/workbench.html` 只消费客户总数，尚无排行列表。商品卡目前无组合统计消费；增速目前保持占位。下次获准的前端最小窗口需在既有卡片内部补排行/组合摘要，并把增速接入，不另增业务卡片。当前产品统计编号是 `product-total`，实施前需按批准布局确认是否替换为去重组合数显示；不扩为SKU或商品数。
+- 当前已有顾客总数、低库存与近7日趋势请求分别 gated 于 `view_customer`、`view_inventorybalance`、`view_salesorder`；匿名请求由登录中间件阻断，工作台本身只要求登录。API合同没有剩余后端字段歧义，本轮没有给后端提问。实施依赖后端固定提交及定向QA通过，再由负责人安排前端唯一接入窗口；届时和后端、趋势/权限测试一起交完整QA/UI，不重复单测移动布局。
+
+## UI-DASHBOARD-STATS 前端接入固定交付（2026-10-10）
+
+- 依据负责人派发、后端固定版本 `5f04dfc9cd074c314197c84383dfc04d2bf39adb` 与已收口API合同；本提交只改 `crm/templates/crm/workbench.html`、`crm/test_ui.py` 和本记录。客户总数、订单卡片、7日趋势原请求保留；新增客户本月Top 3、服务端返回的今日销售额/对昨日增速、启用IP×语言有库存组合数。没有新增卡片或客户端业务计算。
+- 权限按现有权限拆分：排行和销售额/增速仅由 `view_salesorder` 请求，客户总数仍需 `view_customer`，库存组合只需 `view_inventorybalance`。保留加载、真实空态、0值和API错误状态；正增长红、负增长绿、昨日为0的增速为空横线。日期使用Asia/Shanghai，不受浏览器本地时区影响。
+- 自动验证：Django system check通过；独立测试设置下 `crm.test_ui` 六项通过；`git diff --check` 通过。测试覆盖原工作台和新opt-in请求权限门控。
+- 浏览器用独立合成PostgreSQL数据库/账号在1280宽实际登录验证：客户总数4、本月排行A/B/C为¥301.010/¥90.000/¥80.000，今日¥101.010、增速1.01%（红色），IP×语言组合4，原待处理订单卡和7日图正常。空态账号验证客户0、今日¥0.000、昨日0时增速“—”、空排行说明、库存组合0；UI DOM无脚本报错迹象。截图曾发现客户总数与排行同行重叠，已将排行移至客户数字下方并复看1280布局消除重叠。
+- 限制：当前CUA浏览器接口没有viewport覆盖能力，390×844移动视口未能实际验证；未做独立QA/UI复验。浏览器初次加载有Django开发站缺少favicon的既有404，与本改动无关。隔离运行库和临时设置已在交付前清理；不推送、不部署。固定本提交后停止应用写入，待负责人确认完整SHA后再交QA/UI验证。
