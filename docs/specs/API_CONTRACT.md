@@ -189,7 +189,7 @@ UI-LIST-FILTERS集中核对补充（待实施）：orders.filter_options另含 `
 | 接口 | 约定 |
 | --- | --- |
 | 客户GET/POST/PATCH | note1/note2及invoice_title/invoice_credit_code/invoice_email取代旧生日/兴趣/爱好字段；沿用版本、幂等、归属范围。删除birthdays及me/preferences生日端点、生日筛选和页面动作；不能留可用兼容开关。q补别名。 |
-| orders/preview、orders、amend/preview、amend | 输入增requires_invoice及invoice_title/invoice_credit_code/invoice_email；新增订单可用new_customer替代customer_id，两者互斥，均空即散客。new_customer使用客户基本字段（不接addresses），姓名/contact必填，非销售代建仍明确owner_id。快递地址仅来自order.address_snapshot，原样保存订单快照及新客首条CustomerAddress，客户姓名/contact与收件人/contact分别输入、不推断相同；后续多地址仍用客户API。开票仅抬头必填；散客开票拒绝。新客只在确认事务内创建，预览只读，失败全部回滚，同键重放同客同单。实际改变已有客户开票资料才须change_customer及当前维护范围；选择与客户现有资料相同的值仅存快照，不要求更新权限。requires_invoice=false清本单快照但不清客户资料，不能借订单越权。订单GET返回需求和快照。 |
+| orders/preview、orders、amend/preview、amend | 输入增requires_invoice及invoice_title/invoice_credit_code/invoice_email；新增订单可用new_customer替代customer_id，两者互斥，均空即散客。new_customer使用客户基本字段（不接addresses，若传入则返回400及new_customer.addresses字段错误，不静默忽略），姓名/contact必填，非销售代建仍明确owner_id。快递地址仅来自order.address_snapshot，原样保存订单快照及新客首条CustomerAddress，客户姓名/contact与收件人/contact分别输入、不推断相同；后续多地址仍用客户API。开票仅抬头必填；散客开票拒绝。新客只在确认事务内创建，预览只读，失败全部回滚，同键重放同客同单。实际改变已有客户开票资料才须change_customer及当前维护范围；选择与客户现有资料相同的值仅存快照，不要求更新权限。requires_invoice=false清本单快照但不清客户资料，不能借订单越权。订单GET返回需求和快照。 |
 | GET inventory | 可传order_id辅助编辑（必须有相应订单维护范围）；基础available保持真实未占可售，额外available_for_order=available＋该订单此仓此SKU原活动占货。普通查询不改变口径；预览/确认使用共享相同计算，最终锁内校验。 |
 | GET product-languages | 登录商品查看范围，返回id/name选项；普通录商品不支持新增选项。老板/超级管理员在原生管理后台维护。商品读取language仍为名称，筛选language仍接受名称，期初文字精确解析现有选项，未知值报行字段错误。 |
 | POST products | 产品共有字段含language_id，skus数组为实际SKU字段；operation_key。同事务创建产品及SKU，至少一个SKU，所有行复用现有格式、语言、单位/条码重复确认和模型校验，要求add_product及add_sku。结果product_id/sku_ids，同键重放不重建。保留输入并报告并发编号冲突。 |
