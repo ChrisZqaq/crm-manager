@@ -210,3 +210,13 @@ UI-LIST-FILTERS集中核对补充（待实施）：orders.filter_options另含 `
 客户地址API使用phone字段，订单address_snapshot使用contact字段；前端明确映射，不默认客户联系方式等于收件电话。
 
 订单确认若当次实际更新了已有客户开票资料，同键重放仍须重新检查change_customer及该客户当前维护范围；不能因资料已被首次提交更新为相同值而跳过。未更新客户资料的订单重放不额外要求客户修改权限；新建客户重放仍检查add_customer。沿用已批准的当前权限及撤权重放拒绝规则，历史成功结果不授予新访问权限。
+
+### 工作台统计接入合同（2026-10-09最终收口，待实现）
+
+复用现有reports/sales及reports/inventory的授权筛选与服务端聚合，不新增统计表/端点，不把报告items拉全库到前端计算。默认报表响应和Excel不变，只有指定workbench标记新增summary.workbench；未知标记400字段错误。
+
+- sales的workbench=customer_ranking：period=custom，start_date为北京时间自然月1日、end_date今天、scope=delivered；summary.workbench.customer_ranking返回[{customer_id,customer_name,amount}] Top3。只统计有客户档案ID的已发货/现场交付销售金额，原本人／全部订单授权范围，金额3位；同客户多个历史名称用本期最近发货订单（时间及稳定ID排序）的名称快照，不读取额外客户档案。空结果数组空，已接入后无记录可显示真实空态。
+- sales的workbench=day_over_day：period=custom，昨天至今天、scope=delivered、series=day；summary.workbench.day_over_day返回{today_amount,yesterday_amount,growth_percent}。金额3位；今日至当前已发货金额与昨日全天比较，百分比用Decimal高精度计算后ROUND_HALF_UP保留2位字符串，昨日0为null／—。增长红、下降绿是显示，不代表利润；原series保留。
+- inventory的workbench=ip_language_stock_count：summary.workbench返回in_stock_ip_language_combination_count。保留view_inventorybalance和原查询授权范围；仅启用IP/商品/SKU，所有仓可售合计大于0的SKU参与brand_id＋language_id去重，同组合多仓/多SKU只计一次；空语言按该IP下一组，不跨IP混成一组。与用户最终“可售数量”口径一致。
+
+销售/库存原列表仍正常分页；工作台可page_size=1降低items响应，summary是全部当前筛选授权结果，不受分页影响。前端发上述明确查询，服务端拒绝不支持标记或与其口径不符的scope/日期，不能借标记额外扩权。
