@@ -1,5 +1,8 @@
 # 第一版网页与API合同
 
+> 2026-10-09增量开发合同已收口，见本文新增章节及[本轮需求](../project/USER_REVISION_20261009.md)。获批UI见revision-v1/HANDOFF；下列增量是开发目标，尚未实现或发布。既有金额、库存及权限规则继续有效，旧阶段验收状态以开发计划为准。
+
+
 状态：2026-10-05阶段1—6已通过负责人验收，固定应用fd3c991；四报表、Excel导出及Q07收款日期筛选已实现并独立验证。本地验收不代表上线。
 
 ## 1. 公共格式和权限
@@ -26,12 +29,11 @@
 | GET `customers`、`customers/{id}` | q包含匹配姓名／别名／公司／联系方式；返回当前授权档案，不跨销售合并 | 本人／查看全部客户 |
 | GET `orders`、`orders/{id}` | salesperson_id、customer_id、status、channel_id、日期；详情含行、凭证授权引用、核对及提成状态 | 本人／查看全部订单 |
 | GET `regions` | 固定初始化省市列表，城市从属于省份 | 登录人员 |
-| POST／PATCH `customers`及`customers/{id}` | name、contact、company、aliases、birthday、interests、hobbies、addresses；地址含recipient、phone、province、city、detail；代建指定owner_id | 本人维护／授权代建 |
+| POST／PATCH `customers`及`customers/{id}` | name、contact、company、aliases、note1、note2、invoice_title、invoice_credit_code、invoice_email、addresses；地址含recipient、phone、province、city、detail；代建指定owner_id | 本人维护／授权代建 |
 | POST `customers/{id}/archive`、`transfer` | archive操作；transfer传owner_id，不改历史订单销售 | 归档按维护权限；转交仅老板／管理员 |
-| PATCH `me/preferences` | birthday_reminder_enabled；只影响本人页面 | 本人 |
 | PATCH `settings/low-stock`、`skus/{id}/low-stock` | 全局enabled、threshold；SKU enabled、nullable threshold，不提供三种模式 | 已确认设置权限 |
 
-基础资料普通增改停用使用框架后台，API不必重复全部CRUD；禁止后台直接改有效库存、成交成本和已确认业务单据。商品`type`为booster、merchandise、gift_set三个固定值，页面对应补充包、周边、礼盒·预组；不提供`contains_cards`字段或选择项；booster及gift_set语言必填，merchandise可空，由人工选择正确类型。
+除本次商品创建接口外，其他基础资料普通增改停用使用框架后台，API不必重复全部CRUD；禁止后台直接改有效库存、成交成本和已确认业务单据。商品`type`为booster、merchandise、gift_set三个固定值，页面对应补充包、周边、礼盒·预组；不提供`contains_cards`字段或选择项；booster及gift_set语言必填，merchandise可空，由人工选择正确类型。
 
 库存无该仓库SKU余额时查询可返回数量0、成本0、均价空值；不可因此允许无货下单。低库存仅对已有库存管理记录判断，不创建所有SKU×仓库笛卡尔积。
 
@@ -67,11 +69,9 @@
 | --- | --- |
 | GET `/api/v1/regions` | 返回固定JSON省市层级及行政区划代码；仅登录人员可读。 |
 | GET `/api/v1/channels` | 返回启用渠道；需`view_channel`。渠道名称在Django Admin维护。 |
-| GET／POST `/api/v1/customers` | 列表支持`q`、`include_archived=true/false`、`birthday_today=true/false`及标准分页；`q`匹配姓名、公司、联系方式。列表默认只含有效客户。生日筛选要求个人提醒开启。POST创建客户，销售归属本人，其他有权人员须提交`owner_id`及完整地址。 |
+| GET／POST `/api/v1/customers` | 列表支持`q`、`include_archived=true/false`及标准分页；`q`匹配姓名、别名、公司、联系方式。列表默认只含有效客户。POST创建客户，销售归属本人，其他有权人员须提交`owner_id`及完整地址。 |
 | GET／PATCH `/api/v1/customers/{id}` | 查看或维护当前授权范围客户；维护传`expected_version`、`operation_key`，地址可多条。 |
 | POST `/api/v1/customers/{id}/archive`、`/transfer` | 归档传版本及操作标识；转交仅老板／管理员，另传新`owner_id`，不改订单销售人或历史地址快照。 |
-| GET／PATCH `/api/v1/me/preferences` | 读取或修改本人生日提醒开关；PATCH传版本及操作标识。 |
-| GET `/api/v1/birthdays` | 返回北京时间当天、当前用户可查看且未归档客户的生日；关闭个人提醒时返回空列表。 |
 | GET `/api/v1/orders` | 支持`q`、`status`和标准分页，2026-10-08增量增加精确客户/仓库/销售/核对状态及下单日期筛选（完整参数见文末）；销售默认只见本人订单，获`view_all_sales_orders`者可查看全部；仓管默认见全部订单。`status`保留原状态枚举，另返回由模型`get_status_display()`生成的`status_label`；支持全部五种现有状态筛选。 |
 | POST `/api/v1/orders/preview`、POST `/api/v1/orders` | 先提交订单输入获取短时签名预览，再以`preview_token`和`operation_key`确认并占货。现场散客可不关联客户或收货地址；快递须有完整收件快照。 |
 | GET `/api/v1/orders/{id}` | 返回授权范围内订单、活动明细、成交／订单成本／毛利、付款核对状态及物流供货仓；`status`保留原枚举并返回模型生成的`status_label`。提成预估、正式批准及差额状态仅向本人销售、`view_all_commissions`或管理员提供；不符合条件时从JSON完全省略对应字段。图片仍使用受控image_id读取。 |
@@ -183,3 +183,20 @@ UI-LIST-FILTERS集中核对补充（待实施）：orders.filter_options另含 `
 - 此冻结仅定义待实施接口；QA结束17870126固定检查前，后端不得开始应用写入。无模型、迁移、新路由或权限项。
 
 实现状态：UI-LIST-FILTERS已固定a2073d14并通过服务端独立定向检查及负责人审查；前端接入和真实六页验收仍待完成。缺省products响应保留旧行为（无匹配启用SKU的产品仍可含空SKU列表）；显式sku_status才要求至少一个匹配SKU，避免改变旧消费者。
+
+## 2026-10-09增量接口（开发目标，尚未发布）
+
+| 接口 | 约定 |
+| --- | --- |
+| 客户GET/POST/PATCH | note1/note2及invoice_title/invoice_credit_code/invoice_email取代旧生日/兴趣/爱好字段；沿用版本、幂等、归属范围。删除birthdays及me/preferences生日端点、生日筛选和页面动作；不能留可用兼容开关。q补别名。 |
+| orders/preview、orders、amend/preview、amend | 输入增requires_invoice及invoice_title/invoice_credit_code/invoice_email；新增订单可用new_customer替代customer_id，两者互斥，均空即散客。new_customer使用客户字段及地址结构，姓名/contact必填，非销售代建仍明确owner_id。开票仅抬头必填；散客开票拒绝。新客只在确认事务内创建，预览只读，失败全部回滚，同键重放同客同单。更新已有客户开票资料须客户维护权限，沿用当前归属，不能借订单越权。订单GET返回需求和快照。 |
+| GET inventory | 可传order_id辅助编辑（必须有相应订单维护范围）；基础available保持真实未占可售，额外available_for_order=available＋该订单此仓此SKU原活动占货。普通查询不改变口径；预览/确认使用共享相同计算，最终锁内校验。 |
+| GET product-languages | 登录商品查看范围，返回id/name选项；普通录商品不支持新增选项。老板/超级管理员在原生管理后台维护。商品读取language仍为名称，筛选language仍接受名称，期初文字精确解析现有选项，未知值报行字段错误。 |
+| POST products | 产品共有字段含language_id，skus数组为实际SKU字段；operation_key。同事务创建产品及SKU，至少一个SKU，所有行复用现有格式、语言、单位/条码重复确认和模型校验，要求add_product及add_sku。结果product_id/sku_ids，同键重放不重建。保留输入并报告并发编号冲突。 |
+| POST skus | 为已有product_id新增SKU，沿用SKU字段、重复条码明确确认及operation_key，要求add_sku，不修改已有产品身份或编号。 |
+| GET skus/number-suggestion | brand_id；仅商品创建权限可查。按既定IP前缀数字后缀找最大号，返回current_max_code/suggested_code（无已有编号时最大为空，建议从0001开始）。只读建议，不预占、不自动分配；保存仍唯一校验。 |
+| GET/PATCH opening/control | GET返回enabled/completed/version及可执行动作；PATCH传enabled、expected_version、operation_key，version沿用control.last_sequence。manage_opening权限且老板身份，超级管理员按既有规则；普通获权限者不满足身份仍拒绝。仅未入账可关闭/重开，不要求关入口时空库存；已入账不可重开。确认/开关同锁，关闭后preview/confirm均拒绝，原入账保护保留。 |
+
+新客户建档需add_customer；更新已有客户资料需change_customer及维护范围；订单动作仍需原权限。订单提交输入与开票/新客数据一起绑定预览哈希，禁止确认时替换。新的开票资料没有完整度/税务/开具状态。共用已有错误、权限、事务和日志方案，不新增搜索服务/审计框架。
+
+工作台新布局已批准；客户排行金额、在售组合/新增口径及销售额增速比较周期尚未全部收口，未明确的数据显示—，不得猜值或虚构0。订单卡映射及权限在实施前列明；布局批准不新增状态。

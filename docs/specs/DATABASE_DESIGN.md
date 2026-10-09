@@ -1,5 +1,8 @@
 # 数据库设计
 
+> 2026-10-09增量开发合同已收口，见本文新增章节及[本轮需求](../project/USER_REVISION_20261009.md)。获批UI见revision-v1/HANDOFF；下列增量是开发目标，尚未实现或发布。既有金额、库存及权限规则继续有效，旧阶段验收状态以开发计划为准。
+
+
 状态：**已批准的第一版开发基线**。批准日期：2026-10-03。技术栈为 Django＋PostgreSQL；以下表和字段按阶段实施，批准不代表数据库或迁移已创建。业务规则见 [PRD](PRD.md)，执行规则见 [SPEC](SPEC.md)。
 
 ## 1. 设计原则
@@ -29,13 +32,13 @@
 | supplier | 名称、启用状态 | 建议最小名称档案，复用选项；单据保留名称快照 |
 | channel | 名称、启用状态 | 销售渠道选项，独立于销售人员 |
 | payment_account | 名称、方式、对公／私账责任类型、启用状态 | 不保存登录秘密；核对责任类型不能由普通销售改写 |
-| customer | 所属销售user_id、姓名、联系方式、公司、别名、生日、兴趣、爱好、归档状态 | 联系方式必填文本，可为电话或微信等；销售创建默认本人，代建明确选择销售；归属变更仅老板／管理员，不改变历史订单销售及提成；无全局姓名或联系方式唯一约束；无逐客户提醒开关 |
+| customer | 所属销售user_id、姓名、联系方式、公司、别名、备注1/2、发票抬头、信用代码、电子邮箱、归档状态 | 联系方式必填文本，可为电话或微信等；销售创建默认本人，代建明确选择销售；归属变更仅老板／管理员，不改变历史订单销售及提成；无全局姓名或联系方式唯一约束；不开票及选填缺失不标不完整 |
 | customer_address | customer_id、收件人、联系电话、省份、城市、详细地址 | 地址各字段必填；电话文本、不强制大陆手机号格式；一客户多地址，省市联动选择，仅中国大陆；客户建档与首地址一并提交，无区县选择器 |
-| account_profile | user_id、birthday_reminder_enabled、version | 一用户一行；开关默认开启，只影响本人生日页面；不保存生日提醒任务或逐客户开关 |
+| account_profile | user_id、version | 仅保留历史业务操作外键目标；删除生日偏好字段，不提供新的偏好功能 |
 
 SKU增加可空专用预警阈值及提醒关闭标记；一个全局默认阈值由后台修改，具体存储用最小单项设置，不建立通用配置规则平台。专用值为空时取全局默认，关闭时不判断，设置各仓共用；阈值非负整数，库存查询比较各仓可售数量≤有效值。初始默认值为5，并保存一个全局提醒启用开关；全局关闭优先于SKU配置，保留配置以便恢复。不增加单位默认表、仓库覆盖表或提醒任务表。
 
-生日仅保存选填公历日期，客户列表按当天月日计算今天生日标记，不保存冗余提醒状态或新增提醒任务表。已确认每个账号保存一个生日提醒启用布尔值，默认开启，关闭仅影响本人页面，保留客户生日且不影响其他人员；复用账号资料保存，不建立通用偏好平台或逐客户提醒开关。2月29日生日仅当天匹配，非闰年不另日提醒，查看范围沿用客户权限。
+2026-10-09替代：删除客户生日数据及全部生日提醒，旧兴趣／爱好分别迁为备注1／备注2；客户一套选填开票资料，订单记录开票需求及当次快照，不执行开票。迁移保留历史业务目标关联，具体增量约束见文末。
 
 低库存全局及SKU提醒默认开启；全局开关与默认阈值由老板／管理员管理，SKU专用阈值及关闭／恢复由仓管、老板／管理员管理，普通销售只查看，兼任仓管时取得SKU设置权限。
 
@@ -146,12 +149,12 @@ erDiagram
 
 | 模型／新增字段 | 类型及默认 | 必要约束 |
 | --- | --- | --- |
-| 原生User／Group／Permission及account_profile | profile.user一对一；birthday_reminder_enabled=true | 复用原生密码会话；仅管理员改superuser；员工停用后禁止新会话及业务动作 |
-| business_control | 固定主键1，last_sequence=0，low_stock_enabled=true，default_threshold=5，opening_completed=false | 单例，由业务服务锁定，不开放普通后台编辑序号；低库存设置独立授权 |
+| 原生User／Group／Permission及account_profile | profile.user一对一；保留历史引用，移除生日偏好字段 | 复用原生密码会话；仅管理员改superuser；员工停用后禁止新会话及业务动作 |
+| business_control | 固定主键1，last_sequence=0，low_stock_enabled=true，default_threshold=5，opening_completed=false、opening_enabled=true | 单例，由业务服务锁定，不开放普通后台编辑序号；低库存设置独立授权 |
 | product.type | booster／merchandise／gift_set，显示补充包／周边／礼盒·预组；不存contains_cards | booster及gift_set的language非空且无默认值；merchandise可空；由人工选择商品类型，不猜名称；无多级分类 |
 | sku预警 | threshold可空、reminder_enabled=true | threshold≥0；入库留空更新为继承默认，开关单独明确提交；已有SKU单位及产品身份有业务后不允许静默改写历史 |
 | inventory_balance | on_hand、occupied、reserved、hoarded、damaged默认0，cost_amount=0，version=1，quantity_version=1 | 仓库SKU唯一，均非负，四类受限之和≤on_hand，on_hand=0要求cost_amount=0；只改变成本不增quantity_version，在库变化增该版本 |
-| business_operation | sequence可空且唯一；operation_key UUID唯一；actor_id、action、input_hash、payload JSON、created_at；具体target外键一项 | 库存／客户／订单写操作目标恰一非空，包含customer、sales_order、account_profile；业务事件序号在BusinessControl锁内分配，纯个人提醒偏好sequence为空，不消耗业务序号 |
+| business_operation | sequence可空且唯一；operation_key UUID唯一；actor_id、action、input_hash、payload JSON、created_at；具体target外键一项 | 库存／客户／订单写操作目标恰一非空，包含customer、sales_order、account_profile；业务事件序号在BusinessControl锁内分配，旧个人提醒偏好历史sequence可空，仅保留关联，不继续提供该动作 |
 | inventory_movement补全 | operation_id、balance_id、event_kind、entry_key、on_hand_delta及四类受限delta、cost_delta、cost_revision=1；具体来源外键 | operation＋balance＋event_kind＋entry_key唯一；entry_key为该次输入中稳定行ID／拆箱端，实际来源外键恰一；来源FK含锁定记录，不能用任意表名字符串代替 |
 | inventory_hold补全 | initial_quantity、remaining_quantity、type、reason、creator_id、version | 0≤remaining≤initial；释放按具体记录，余额对应数量等于所有未释放记录合计；预留可写普通原因，囤货必须原因 |
 | opening_line补全 | unit_cost、cost_amount、reserved、hoarded、damaged、hoard_reason | 新建期初服务校验受限数量不超过实盘数量，cost_amount=round3(quantity×unit_cost)；通过确认创建对应hold和damaged记录，不只写余额。纠正历史来源时保留之后释放／处理事件，约束最终重放状态合法，不以当前来源字段重建过去时点限制 |
@@ -180,3 +183,11 @@ erDiagram
 图片不级联删除文件；修改收款重新上传旧图仍保留关联记录，当前核对凭证集合在payment输入及版本中明确。备份保护业务输入、有效流水、纠错记录与关联图片；日志轮转不清理这些业务数据。
 
 2026-10-05 Q07：payment_record保存系统首次成功登记收款凭证的时间，修改收款资料或重新核对不覆盖；用于收款报表周期筛选。现有开发记录若缺该字段，仅从可验证的首次成功业务记录补回，不用今天、订单日期、最后更新时间或可空实际收款时间伪造；无法恢复时上报。正式业务尚未切换。
+
+## 10. 2026-10-09增量数据合同
+
+- Customer将interests/hobbies迁为note1/note2，删除birthday；新增可空invoice_title/invoice_credit_code/invoice_email。AccountProfile删除birthday_reminder_enabled，但保留模型及BusinessOperation目标外键、原历史记录。迁移不能破坏其他客户字段及历史关系。普通单独建客继续原地址规则；订单内现场新客允许仅姓名/联系方式，快递必须完整地址并同事务保存。无完整度字段或跨销售自动合并。
+- SalesOrder新增requires_invoice=false及三个同名开票快照字段。未选择开票时快照为空；散客不建档且拒绝开票。客户一套资料，订单内成功新填同步客户，历史快照不随客户更新，开票资料变化不重算成本/付款版本/提成。
+- ProductLanguageOption最小名称唯一表，初始简中/日文/英文/韩文；Product.language变为nullable PROTECT外键，无默认。补充包/礼盒·预组必选、周边可空。显示/筛选及Excel仍用名称；写接口可用language_id。旧值先只读列明，非标准值必须明确核对后迁移，不猜测，不丢弃。选项仅老板/超级管理员维护。
+- BusinessControl新增opening_enabled，已有入账状态初始化为关闭。老板/超级管理员在未入账时可开关；成功入账原子写opening_completed=true、opening_enabled=false。开关不重置完成标记/批次/库存；关闭无需库存为空，预览/确认仍受原有期初准入限制。与确认共用控制行锁及现有业务操作幂等、版本。
+- 新建客户/订单/地址/占货/客户开票更新须同事务；商品产品及其SKU创建同事务，复用模型/表单约束，BusinessOperation以现有control目标及结果ID解释幂等，不增产品历史平台或多套审计。
