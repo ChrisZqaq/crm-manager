@@ -222,3 +222,22 @@ UV_PROJECT_ENVIRONMENT=/Users/chrisz/.cache/aluola-crm-uiquery1-venv CRM_DB_NAME
 ```
 
 隔离测试基库 `aluola_crm_revision_backend_20261009` 已删除；测试运行器创建的 `test_aluola_crm_revision_backend_20261009` 已自动删除。下一步由QA以应用固定提交SHA为基线，在自建隔离PostgreSQL库独立验证非标准旧语言迁移回滚、完整客户/订单事务和期初竞态；不连接或复制用户/演示数据。负责人和QA交接后等待独立测试结果。
+
+## USER-REVISION-INVOICE-REPLAY-AUTH｜只读缺陷定位（2026-10-09）
+
+依据：QA对固定应用提交 `e1f81ebd3b26bf79899a1e1f852bdbc19364dd92` 的独立测试反馈；负责人要求只读定位，待QA完整报告后统一开放修复窗口。本次没有恢复应用写入，也没有运行测试。
+
+### 根因与最小修复建议
+
+- `crm/sales.py` 的 `confirm_sales_order` 在 `_operation_replay` 命中后直接返回结果，未复核原订单操作中嵌套的客户资料修改权限。
+- 首次确认若实际修改已有客户开票资料，同一事务已写入 `BusinessOperation(action="customer_order_invoice_update")`；其 `payload` 保存 `order_operation_key`、`customer_id`、`changed_fields`，并通过 `customer` 外键关联客户。若字段没有实际变化，则不会创建该嵌套操作。
+- 返工只需在 `confirm_sales_order` 的原样重放分支、返回前查找 `action="customer_order_invoice_update"` 且 `payload.order_operation_key=str(key)` 的记录。仅找到该记录时，重新要求当前 `change_customer` 并通过 `customer_queryset_for(actor, changing=True)` 验证客户当前维护范围；权限不足返回403，已超出范围按现有客户维护路径返回404。检查通过后返回原结果。
+- 不改通用 `_operation_replay`，不按订单上的 `customer_id` 一概要求客户权限；未更新客户资料的既有客户订单及新客创建不额外要求 `change_customer`，不新增表或迁移。
+
+### 建议回归边界
+
+1. 已有客户开票资料确实被订单更新后撤销 `change_customer`，使用新会话以同一操作键和预览令牌重放：返回403，客户字段/版本、订单和操作记录均无变化。
+2. 客户开票资料本来与订单输入一致，没有嵌套更新操作；撤销 `change_customer` 后原样重放仍成功。
+3. 保留 `change_customer`，但将客户转出操作者当前维护范围；原样重放返回404。
+
+建议在 `crm/test_phase3.py` 现有客户开票/订单确认测试附近覆盖；当前等待QA完整结果及负责人安排唯一应用写入者。
