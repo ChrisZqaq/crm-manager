@@ -70,6 +70,7 @@ UI-QUERY-1契约冻结（负责人同步，2026-10-08；后端仍实施中，不
 - 检查：`manage.py check`通过；相关6个模板内联JS `node --check`通过，customers模板JS在真实渲染的浏览器页面实际执行；`git diff --check`通过。独立合成DB确认order pk=1、last_sequence已变为2、状态passed、收款登记/核对各1条。没有运行全套回归。
 - QA复测环境：仅本机`127.0.0.1:18766`、独立数据库`crm_ui_usability_fix_20261008`、合成账号`ui-demo`，媒体位于忽略目录`.local/ui-usability-media`；服务及测试数据暂留给QA/UI复核，不连接或改动8765用户演示服务及其数据库。测试账号核对角色仅存在于该隔离数据库。viewport已恢复。
 - 固定提交 `a978aee`（本次只含上述9个应用文件及本工作记录）；未推送。已停止应用写入，等待QA与UI独立复核和负责人验收。
+- 历史指针更正：最终提交为 `51f5d8f`，由 `a978aee` amend 得到；两提交的应用文件内容相同，amend 仅更新本 `WORK.md` 历史记录，不含应用改动。
 
 ## UI-USABILITY-REWORK 固定交付（2026-10-09）
 
