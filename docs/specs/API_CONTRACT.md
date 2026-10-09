@@ -204,5 +204,9 @@ UI-LIST-FILTERS集中核对补充（待实施）：orders.filter_options另含 `
 ### 增量接入细节（2026-10-09已收口）
 
 - GET products可传include_inventory=true，仍按产品分页，total仍为产品数。请求必须有view_inventorybalance，无权opt-in拒绝；默认响应不变。当前页products→skus[].inventory为[{warehouse_id,warehouse,available,unit}]，只含已有余额、批量查询；无余额数组空，SKU仍显示，有库存查看权限时可售0／仓库—，无权限不可伪装0。不建SKU×仓库记录或拉全库拼接。
-- POST products中各skus行及POST skus复用confirm_duplicate_barcode布尔确认。未确认重复条码返回409 duplicate_barcode_confirmation_required，返回已授权候选SKU ID/code/product/language/unit；失败不记录成功操作，可沿同operation_key重试并确认相关行。成功后同键不同输入仍409 idempotency_conflict。服务端在事务内重查条码与确认，竞态不能静默绕过提示；详细原子实现及回归由后端固定交付。
+- POST products中各skus行及POST skus复用confirm_duplicate_barcode布尔确认。未确认重复条码返回409 duplicate_barcode_confirmation_required，返回已授权候选SKU ID/code/product/language/unit；同次请求内前序尚未保存的SKU候选id=null，按“本次表单前序SKU”及code显示、不生成已有SKU链接。失败不记录成功操作，可沿同operation_key重试并确认相关行。成功后同键不同输入仍409 idempotency_conflict。服务端在事务内重查条码与确认，竞态不能静默绕过提示；详细原子实现及回归由后端固定交付。
 - home不新增聚合接口/统计表；有真实已定数据的卡片沿用原接口及权限，排行／商品组合／增速等未定口径显示—。需要后续业务确认的指标单独列明，不阻断已批准页面接入。
+
+客户地址API使用phone字段，订单address_snapshot使用contact字段；前端明确映射，不默认客户联系方式等于收件电话。
+
+订单确认若当次实际更新了已有客户开票资料，同键重放仍须重新检查change_customer及该客户当前维护范围；不能因资料已被首次提交更新为相同值而跳过。未更新客户资料的订单重放不额外要求客户修改权限；新建客户重放仍检查add_customer。沿用已批准的当前权限及撤权重放拒绝规则，历史成功结果不授予新访问权限。
