@@ -4,6 +4,7 @@ from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import Group, Permission
 from django.core.exceptions import ValidationError
 
+from .catalog import duplicate_barcode_candidates
 from .models import Product, SKU, Warehouse
 from .permissions import MANAGEABLE_PERMISSIONS, ROLE_NAMES
 
@@ -93,13 +94,8 @@ class SKUAdminForm(AliasFormMixin, forms.ModelForm):
         barcode = (cleaned.get("barcode") or "").strip()
         original = self.initial.get("barcode", "")
         if barcode and barcode != original:
-            candidates = (
-                SKU.objects.filter(barcode=barcode)
-                .exclude(pk=self.instance.pk)
-                .select_related("product__brand")
-                .order_by("id")
-            )
-            if candidates.exists() and not cleaned.get("confirm_duplicate_barcode"):
+            candidates = duplicate_barcode_candidates(barcode, exclude_id=self.instance.pk)
+            if candidates and not cleaned.get("confirm_duplicate_barcode"):
                 descriptions = "; ".join(
                     f"{item.product.brand.name} / {item.product.name}"
                     f" {item.product.language} / {item.code}（{item.unit}）"

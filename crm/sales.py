@@ -1,5 +1,5 @@
-from datetime import date, datetime
 from decimal import Decimal, ROUND_HALF_UP, localcontext
+from uuid import uuid4
 
 from django.core import signing
 from django.db import transaction
@@ -7,7 +7,6 @@ from django.db.models import Q
 from django.utils import timezone
 
 from .models import (
-    AccountProfile,
     BusinessControl,
     BusinessOperation,
     Channel,
@@ -24,6 +23,7 @@ from .models import (
 from .operations import (
     OperationError,
     _check_balance_result,
+    available_quantity,
     _lock_control,
     _next_sequence,
     _operation_replay,
@@ -86,24 +86,6 @@ def _normalize_aliases(value, field="aliases"):
     return list(dict.fromkeys(item.strip() for item in value if item.strip()))
 
 
-def _normalize_birthday(value, field="birthday"):
-    if value in (None, ""):
-        return None
-    if isinstance(value, datetime):
-        raise OperationError("生日格式无效。", fields={field: "请使用YYYY-MM-DD。"})
-    if isinstance(value, date):
-        return value
-    if not isinstance(value, str):
-        raise OperationError("生日格式无效。", fields={field: "请使用YYYY-MM-DD。"})
-    try:
-        normalized = date.fromisoformat(value)
-    except ValueError:
-        raise OperationError("生日格式无效。", fields={field: "请使用YYYY-MM-DD。"}) from None
-    if normalized.isoformat() != value:
-        raise OperationError("生日格式无效。", fields={field: "请使用YYYY-MM-DD。"})
-    return normalized
-
-
 def _normalize_addresses(value):
     if not isinstance(value, list) or not value:
         raise OperationError("客户至少需要一个完整地址。", fields={"addresses": "请填写至少一个完整地址。"})
@@ -139,7 +121,10 @@ def _normalize_addresses(value):
 def _normalize_customer_fields(data, *, creating=False):
     if not isinstance(data, dict):
         raise OperationError("客户资料格式无效。")
-    allowed = {"name", "contact", "company", "aliases", "birthday", "interests", "hobbies", "addresses"}
+    allowed = {
+        "name", "contact", "company", "aliases", "note1", "note2",
+        "invoice_title", "invoice_credit_code", "invoice_email", "addresses",
+    }
     if creating:
         allowed |= {"owner_id"}
     unknown = set(data) - allowed
@@ -150,13 +135,14 @@ def _normalize_customer_fields(data, *, creating=False):
         values["name"] = _text(data.get("name"), "name", required=True, max_length=200)
     if creating or "contact" in data:
         values["contact"] = _text(data.get("contact"), "contact", required=True)
-    for field, limit in (("company", 200), ("interests", None), ("hobbies", None)):
+    for field, limit in (
+        ("company", 200), ("note1", None), ("note2", None),
+        ("invoice_title", 255), ("invoice_credit_code", 100), ("invoice_email", 254),
+    ):
         if field in data or creating:
             values[field] = _text(data.get(field), field, max_length=limit)
     if "aliases" in data or creating:
         values["aliases"] = _normalize_aliases(data.get("aliases", []))
-    if "birthday" in data or creating:
-        values["birthday"] = _normalize_birthday(data.get("birthday"))
     if "addresses" in data or creating:
         values["addresses"] = _normalize_addresses(data.get("addresses"))
     return values
@@ -387,54 +373,45 @@ def transfer_customer(actor, customer_id, data, request_id=""):
     return _run_write("customer_transfer", actor, request_id, write)
 
 
-def update_birthday_preference(actor, data):
-    if not isinstance(data, dict):
-        raise OperationError("个人设置格式无效。")
-    if set(data) - {"birthday_reminder_enabled", "expected_version", "operation_key"}:
-        raise OperationError("个人设置包含不支持的字段。")
-    enabled = data.get("birthday_reminder_enabled")
-    if not isinstance(enabled, bool):
-        raise OperationError("生日提醒开关格式无效。", fields={"birthday_reminder_enabled": "请输入布尔值。"})
-    expected_version = quantity(data.get("expected_version"), "expected_version", positive=True)
-    key = operation_uuid(data.get("operation_key"))
-    input_hash = canonical_hash({"action": "birthday_preference", "enabled": enabled, "expected_version": expected_version})
-    with transaction.atomic():
-        profile, _ = AccountProfile.objects.get_or_create(user=actor)
-        profile = AccountProfile.objects.select_for_update().get(pk=profile.pk)
-        replay = _operation_replay(actor, key, "birthday_preference", input_hash)
-        if replay is not None:
-            return replay
-        if profile.version != expected_version:
-            raise OperationError("个人设置已变化，请刷新后重试。", status=409, code="version_conflict")
-        if profile.birthday_reminder_enabled != enabled:
-            profile.birthday_reminder_enabled = enabled
-            profile.version += 1
-            profile.save(update_fields=("birthday_reminder_enabled", "version"))
-        operation = BusinessOperation.objects.create(
-            operation_key=key,
-            sequence=None,
-            actor=actor,
-            action="birthday_preference",
-            input_hash=input_hash,
-            payload={"account_profile_id": profile.pk, "birthday_reminder_enabled": enabled},
-            account_profile=profile,
-        )
-        result = {"birthday_reminder_enabled": profile.birthday_reminder_enabled, "version": profile.version}
-        operation.result = result
-        operation.save(update_fields=("result",))
-        return result
-
-
 def _optional_identifier(value, field):
     return None if value in (None, "") else identifier(value, field)
 
 
-def _normalize_order_input(data, order=None):
+def _normalize_new_order_customer(data, actor):
+    if not isinstance(data, dict):
+        raise OperationError("新客户资料格式无效。", fields={"new_customer": "请输入客户资料对象。"})
+    if "addresses" in data:
+        raise OperationError(
+            "订单新客户地址请填写在address_snapshot中。",
+            fields={"new_customer.addresses": "此处不接收地址；快递地址使用订单的address_snapshot。"},
+        )
+    allowed = {
+        "name", "contact", "company", "aliases", "note1", "note2", "owner_id",
+    }
+    unknown = set(data) - allowed
+    if unknown:
+        field = f"new_customer.{next(iter(sorted(unknown)))}"
+        raise OperationError("新客户资料包含不支持的字段。", fields={field: "此字段不能修改。"})
+    _require(actor, "add_customer")
+    owner = _customer_owner(actor, data.get("owner_id"))
+    return {
+        "owner_id": owner.pk,
+        "name": _text(data.get("name"), "new_customer.name", required=True, max_length=200),
+        "contact": _text(data.get("contact"), "new_customer.contact", required=True),
+        "company": _text(data.get("company"), "new_customer.company", max_length=200),
+        "aliases": _normalize_aliases(data.get("aliases", []), "new_customer.aliases"),
+        "note1": _text(data.get("note1"), "new_customer.note1"),
+        "note2": _text(data.get("note2"), "new_customer.note2"),
+    }
+
+
+def _normalize_order_input(actor, data, order=None):
     if not isinstance(data, dict):
         raise OperationError("订单数据格式无效。")
     allowed = {
         "customer_id", "customer_address_id", "channel_id", "delivery_mode", "address_snapshot",
-        "remarks", "lines", "expected_version", "order_id",
+        "remarks", "lines", "expected_version", "order_id", "new_customer",
+        "requires_invoice", "invoice_title", "invoice_credit_code", "invoice_email",
     }
     unknown = set(data) - allowed
     if unknown:
@@ -448,7 +425,16 @@ def _normalize_order_input(data, order=None):
         "detail": order.detail_snapshot,
     } if order else {}
     customer_id = _optional_identifier(field("customer_id", order.customer_id if order else None), "customer_id")
+    if order is not None and data.get("new_customer") is not None:
+        raise OperationError("修改订单不能新建客户。", fields={"new_customer": "请先维护客户档案。"})
+    new_customer = _normalize_new_order_customer(data["new_customer"], actor) if data.get("new_customer") is not None else None
+    if customer_id is not None and new_customer is not None:
+        raise OperationError("客户档案与新客户资料不能同时提交。", fields={"new_customer": "请只选择一种客户来源。"})
+    if new_customer is not None:
+        _require(actor, "add_customer")
     address_id = _optional_identifier(data.get("customer_address_id"), "customer_address_id")
+    if new_customer is not None and address_id is not None:
+        raise OperationError("新客户地址使用订单收货快照。", fields={"customer_address_id": "新客户不能引用已有地址。"})
     if "order_id" in data:
         supplied_order_id = _optional_identifier(data.get("order_id"), "order_id")
         if supplied_order_id != (order.pk if order else None):
@@ -504,15 +490,33 @@ def _normalize_order_input(data, order=None):
         expected_version = quantity(data.get("expected_version"), "expected_version", positive=True)
     elif data.get("expected_version") not in (None, ""):
         raise OperationError("新订单不需要版本号。", fields={"expected_version": "请移除此字段。"})
+    requires_invoice = data.get("requires_invoice", order.requires_invoice if order else False)
+    if not isinstance(requires_invoice, bool):
+        raise OperationError("开票标记格式无效。", fields={"requires_invoice": "请输入布尔值。"})
+    invoice_values = {}
+    for name in ("invoice_title", "invoice_credit_code", "invoice_email"):
+        if not requires_invoice:
+            invoice_values[name] = ""
+        elif name in data:
+            invoice_values[name] = _text(data[name], name, max_length={"invoice_title": 255, "invoice_credit_code": 100, "invoice_email": 254}[name])
+        elif order is not None and order.requires_invoice:
+            invoice_values[name] = getattr(order, name)
+        elif order is not None and not requires_invoice:
+            invoice_values[name] = ""
+        else:
+            invoice_values[name] = None
     return {
         "order_id": order.pk if order else None,
         "expected_version": expected_version,
         "customer_id": customer_id,
+        "new_customer": new_customer,
         "customer_address_id": address_id,
         "channel_id": channel_id,
         "delivery_mode": delivery_mode,
         "address_snapshot": address_snapshot,
         "remarks": _text(field("remarks", order.remarks if order else ""), "remarks"),
+        "requires_invoice": requires_invoice,
+        **invoice_values,
         "lines": lines,
     }
 
@@ -532,6 +536,10 @@ def _order_references(actor, payload, order, *, lock_balances=False):
         raise OperationError("请选择启用中的订单渠道。", status=409, code="inactive_reference", fields={"channel_id": "渠道已停用或不存在。"})
 
     customer = None
+    new_customer_owner = None
+    if payload["new_customer"] is not None:
+        _require(actor, "add_customer")
+        new_customer_owner = _customer_owner(actor, payload["new_customer"]["owner_id"])
     if payload["customer_id"] is not None:
         customer_id = payload["customer_id"]
         unchanged_customer = customer_id == existing_customer_id
@@ -603,7 +611,10 @@ def _order_references(actor, payload, order, *, lock_balances=False):
 
     dependencies = {
         "channel": [channel.pk, channel.name, channel.is_active],
-        "customer": [customer.pk, customer.owner_id, customer.name, customer.is_active, customer.version] if customer else None,
+          "customer": [customer.pk, customer.owner_id, customer.name, customer.is_active, customer.version,
+                       customer.invoice_title, customer.invoice_credit_code, customer.invoice_email] if customer else None,
+          "new_customer_owner": [new_customer_owner.pk, new_customer_owner.is_active]
+                                if new_customer_owner else None,
         "address": [address.pk, address.is_active, address.recipient, address.contact, address.province, address.city, address.detail] if address else None,
         "skus": [
             [sku.pk, sku.is_active, sku.unit, sku.product.is_active, sku.product.brand.is_active]
@@ -639,6 +650,19 @@ def _plan_order(actor, payload, order, *, lock_balances=False):
     channel, customer, address, snapshot, old_lines, old_by_id, skus, warehouses, balances, dependencies = _order_references(
         actor, payload, order, lock_balances=lock_balances
     )
+    invoice_values = {name: "" for name in ("invoice_title", "invoice_credit_code", "invoice_email")}
+    if payload["requires_invoice"]:
+        if customer is None and payload["new_customer"] is None:
+            raise OperationError("散客订单不能开票。", fields={"requires_invoice": "请选择客户档案后再开票。"})
+        for name in invoice_values:
+            value = payload[name]
+            invoice_values[name] = getattr(customer, name) if value is None and customer else value or ""
+        if not invoice_values["invoice_title"]:
+            raise OperationError("开票抬头不能为空。", fields={"invoice_title": "勾选开票时此项必填。"})
+        if customer and any(getattr(customer, name) != value for name, value in invoice_values.items()):
+            _require(actor, "change_customer")
+            if not customer.is_active or not customer_queryset_for(actor, changing=True).filter(pk=customer.pk).exists():
+                raise OperationError("客户不存在、已归档或不在维护范围。", status=404, code="not_found")
     old_totals = {}
     for line in old_lines:
         key = (line.warehouse_id, line.sku_id)
@@ -661,8 +685,7 @@ def _plan_order(actor, payload, order, *, lock_balances=False):
 
     for key in sorted(new_totals.keys() | old_totals.keys()):
         balance = balances.get(key)
-        available = 0 if balance is None else balance.on_hand - balance.occupied - balance.reserved - balance.hoarded - balance.damaged
-        available += old_totals.get(key, 0)
+        available = 0 if balance is None else available_quantity(balance, add_back=old_totals.get(key, 0))
         if new_totals.get(key, 0) > available:
             raise OperationError("可售库存不足，请调整商品数量或仓库。", status=409, code="stock_conflict", fields={"lines": f"仓库{key[0]}、SKU {key[1]}可售数量不足。"})
 
@@ -722,7 +745,11 @@ def _plan_order(actor, payload, order, *, lock_balances=False):
                 or old.unit_cost_snapshot != item["unit_cost_snapshot"]
             ):
                 amount_changed = True
-    customer_name = customer.name if customer and (not order or customer.pk != order.customer_id) else order.customer_name_snapshot if order else ""
+    customer_name = (
+        payload["new_customer"]["name"] if payload["new_customer"] else
+        customer.name if customer and (not order or customer.pk != order.customer_id) else
+        order.customer_name_snapshot if order else ""
+    )
     if address:
         customer_name = customer.name
     return {
@@ -742,6 +769,7 @@ def _plan_order(actor, payload, order, *, lock_balances=False):
         "cost_amount": cost_amount,
         "margin_amount": margin_amount,
         "commission_estimate": commission_estimate,
+        "invoice_values": invoice_values,
     }
 
 
@@ -750,6 +778,9 @@ def _order_preview_result(token, control, plan, payload):
         "preview_token": token,
         "sequence": control.last_sequence,
         "order_id": payload["order_id"],
+        "customer_id": payload["customer_id"],
+        "requires_invoice": payload["requires_invoice"],
+        **plan["invoice_values"],
         "lines": [
             {
                 "line_id": item["line_id"],
@@ -776,6 +807,27 @@ def _order_preview_result(token, control, plan, payload):
     }
 
 
+def _record_order_customer_operation(actor, order_operation_key, action, customer, changed_fields):
+    changed_fields = sorted(changed_fields)
+    BusinessOperation.objects.create(
+        operation_key=uuid4(),
+        sequence=None,
+        actor=actor,
+        action=action,
+        input_hash=canonical_hash({
+            "order_operation_key": str(order_operation_key),
+            "customer_id": customer.pk,
+            "changed_fields": changed_fields,
+        }),
+        payload={
+            "customer_id": customer.pk,
+            "order_operation_key": str(order_operation_key),
+            "changed_fields": changed_fields,
+        },
+        customer=customer,
+    )
+
+
 def preview_sales_order(actor, data, order_id=None):
     is_amend = order_id is not None
     _require(actor, "change_salesorder" if is_amend else "add_salesorder")
@@ -790,10 +842,11 @@ def preview_sales_order(actor, data, order_id=None):
                 raise OperationError("订单不存在或不在可维护范围。", status=404, code="not_found")
             if order.status not in (SalesOrder.Status.AWAITING_PAYMENT, SalesOrder.Status.READY_TO_SHIP):
                 raise OperationError("只有未交付订单可以修改。", status=409, code="state_conflict")
-        payload = _normalize_order_input(data, order)
+        payload = _normalize_order_input(actor, data, order)
         if order and payload["expected_version"] != order.version:
             raise OperationError("订单已变化，请刷新后重试。", status=409, code="version_conflict")
         plan = _plan_order(actor, payload, order)
+        payload.update(plan["invoice_values"])
         action = "sales_order_amend" if order else "sales_order_submit"
         input_hash = canonical_hash(payload)
         token = signing.dumps(
@@ -832,6 +885,8 @@ def confirm_sales_order(actor, operation_key_value, preview_token, request_id=""
     action = preview["action"]
     is_amend = action == "sales_order_amend"
     _require(actor, "change_salesorder" if is_amend else "add_salesorder")
+    if preview["payload"].get("new_customer") is not None:
+        _require(actor, "add_customer")
     key = operation_uuid(operation_key_value)
     input_hash = canonical_hash({"action": action, "input_hash": preview["input_hash"]})
 
@@ -854,12 +909,48 @@ def confirm_sales_order(actor, operation_key_value, preview_token, request_id=""
                     raise OperationError("只有未交付订单可以修改。", status=409, code="state_conflict")
                 if order.version != preview["payload"]["expected_version"]:
                     raise OperationError("订单已变化，请重新预览。", status=409, code="version_conflict")
-            payload = _normalize_order_input(preview["payload"], order)
+            payload = _normalize_order_input(actor, preview["payload"], order)
             plan = _plan_order(actor, payload, order, lock_balances=True)
             if canonical_hash(plan["dependencies"]) != preview["dependencies"]:
                 raise OperationError("订单预览依赖资料已变化，请重新预览。", status=409, code="stale_preview")
 
             sequence = _next_sequence(control)
+            if payload["new_customer"] is not None:
+                customer_values = {name: value for name, value in payload["new_customer"].items() if name != "owner_id"}
+                customer_values.update(plan["invoice_values"])
+                customer = Customer.objects.create(
+                    owner=_customer_owner(actor, payload["new_customer"]["owner_id"]),
+                    **customer_values,
+                )
+                address = None
+                if all(plan["snapshot"].values()):
+                    address = CustomerAddress.objects.create(
+                        customer=customer,
+                        recipient=plan["snapshot"]["recipient"],
+                        contact=plan["snapshot"]["contact"],
+                        province=plan["snapshot"]["province"],
+                        city=plan["snapshot"]["city"],
+                        detail=plan["snapshot"]["detail"],
+                    )
+                _record_order_customer_operation(
+                    actor, key, "customer_order_create", customer,
+                    (*customer_values.keys(), *(('address',) if address else ())),
+                )
+                plan["customer"] = customer
+                plan["customer_name_snapshot"] = customer.name
+            elif plan["customer"] is not None and payload["requires_invoice"]:
+                customer = Customer.objects.select_for_update().get(pk=plan["customer"].pk)
+                changed_fields = [
+                    name for name, value in plan["invoice_values"].items()
+                    if getattr(customer, name) != value
+                ]
+                if changed_fields:
+                    for name in changed_fields:
+                        setattr(customer, name, plan["invoice_values"][name])
+                    customer.version += 1
+                    customer.save(update_fields=(*changed_fields, "version", "updated_at"))
+                    _record_order_customer_operation(actor, key, "customer_order_invoice_update", customer, changed_fields)
+                plan["customer"] = customer
             if order is None:
                 order = SalesOrder.objects.create(
                     salesperson=actor,
@@ -873,6 +964,10 @@ def confirm_sales_order(actor, operation_key_value, preview_token, request_id=""
                     province_snapshot=plan["snapshot"]["province"],
                     city_snapshot=plan["snapshot"]["city"],
                     detail_snapshot=plan["snapshot"]["detail"],
+                    requires_invoice=payload["requires_invoice"],
+                    invoice_title=plan["invoice_values"]["invoice_title"],
+                    invoice_credit_code=plan["invoice_values"]["invoice_credit_code"],
+                    invoice_email=plan["invoice_values"]["invoice_email"],
                     remarks=payload["remarks"],
                     revenue_amount=plan["revenue_amount"],
                     cost_amount=plan["cost_amount"],
@@ -945,6 +1040,10 @@ def confirm_sales_order(actor, operation_key_value, preview_token, request_id=""
                 order.province_snapshot = plan["snapshot"]["province"]
                 order.city_snapshot = plan["snapshot"]["city"]
                 order.detail_snapshot = plan["snapshot"]["detail"]
+                order.requires_invoice = payload["requires_invoice"]
+                order.invoice_title = plan["invoice_values"]["invoice_title"]
+                order.invoice_credit_code = plan["invoice_values"]["invoice_credit_code"]
+                order.invoice_email = plan["invoice_values"]["invoice_email"]
                 order.remarks = payload["remarks"]
                 order.revenue_amount = plan["revenue_amount"]
                 order.cost_amount = plan["cost_amount"]
@@ -988,7 +1087,9 @@ def confirm_sales_order(actor, operation_key_value, preview_token, request_id=""
                 payload={
                     "order_id": order.pk,
                     "expected_version": payload["expected_version"],
-                    "customer_id": payload["customer_id"],
+                    "customer_id": order.customer_id,
+                    "requires_invoice": payload["requires_invoice"],
+                    **plan["invoice_values"],
                     "channel_id": payload["channel_id"],
                     "delivery_mode": payload["delivery_mode"],
                     "lines": operation_lines,
@@ -1008,7 +1109,7 @@ def confirm_sales_order(actor, operation_key_value, preview_token, request_id=""
                     cost_revision=balance.version,
                 )
             set_operation_document_id(order.pk)
-            result = {"document_id": order.pk, "order_id": order.pk, "sequence": sequence, "version": order.version, "status": order.status}
+            result = {"document_id": order.pk, "order_id": order.pk, "customer_id": order.customer_id, "sequence": sequence, "version": order.version, "status": order.status}
             operation.result = result
             operation.save(update_fields=("result",))
             return result

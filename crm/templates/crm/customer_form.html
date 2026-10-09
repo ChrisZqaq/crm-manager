@@ -12,9 +12,11 @@
     <label>联系方式 <textarea id="contact" required></textarea></label>
     <label>公司 <input id="company" maxlength="200"></label>
     <label>别名（每行一个） <textarea id="aliases"></textarea></label>
-    <label>生日 <input id="birthday" type="date"></label>
-    <label>兴趣 <textarea id="interests"></textarea></label>
-    <label>爱好 <textarea id="hobbies"></textarea></label>
+    <label>备注1 <textarea id="note1"></textarea></label>
+    <label>备注2 <textarea id="note2"></textarea></label>
+    <label>发票抬头 <input id="invoice_title" maxlength="255"></label>
+    <label>统一社会信用代码 <input id="invoice_credit_code" maxlength="100"></label>
+    <label>发票邮箱 <input id="invoice_email" maxlength="254"></label>
     {% if customer and can_transfer %}
       <fieldset><legend>转交负责人</legend>
         <label>销售人员 <select id="owner_id">{% for person in salespeople %}<option value="{{ person.pk }}" {% if person.pk == customer.owner_id %}selected{% endif %}>{{ person.get_username }}</option>{% endfor %}</select></label>
@@ -36,7 +38,7 @@
     }
     const initial=JSON.parse(document.getElementById('customer-initial').textContent||'null');
     const addresses=document.getElementById('addresses'),status=document.getElementById('status');let regions=[];
-    for(const field of ['name','contact','company','birthday','interests','hobbies'])document.getElementById(field).value=initial?.[field]||'';
+    for(const field of ['name','contact','company','note1','note2','invoice_title','invoice_credit_code','invoice_email'])document.getElementById(field).value=initial?.[field]||'';
     document.getElementById('aliases').value=(initial?.aliases||[]).join('\n');
     function addAddress(value={}) {
       const card=document.createElement('fieldset');card.className='address';
@@ -57,7 +59,7 @@
     document.getElementById('customer-form').addEventListener('submit',async event=>{
       event.preventDefault();
       const addressRows=[...addresses.querySelectorAll('.address')].map(card=>({...(card.dataset.id?{id:Number(card.dataset.id)}:{}),recipient:card.querySelector('[data-field="recipient"]').value,phone:card.querySelector('[data-field="phone"]').value,province:card.querySelector('[data-field="province"]').value,city:card.querySelector('[data-field="city"]').value,detail:card.querySelector('[data-field="detail"]').value}));
-      const data={name:document.getElementById('name').value,contact:document.getElementById('contact').value,company:document.getElementById('company').value,aliases:document.getElementById('aliases').value.split(/[\n;；]/).map(x=>x.trim()).filter(Boolean),birthday:document.getElementById('birthday').value||null,interests:document.getElementById('interests').value,hobbies:document.getElementById('hobbies').value,addresses:addressRows,operation_key:crypto.randomUUID()};
+      const data={name:document.getElementById('name').value,contact:document.getElementById('contact').value,company:document.getElementById('company').value,aliases:document.getElementById('aliases').value.split(/[\n;；]/).map(x=>x.trim()).filter(Boolean),note1:document.getElementById('note1').value,note2:document.getElementById('note2').value,invoice_title:document.getElementById('invoice_title').value,invoice_credit_code:document.getElementById('invoice_credit_code').value,invoice_email:document.getElementById('invoice_email').value,addresses:addressRows,operation_key:crypto.randomUUID()};
       const owner=document.getElementById('owner_id');if(owner&&!initial)data.owner_id=owner.value;
       if(initial){data.expected_version=initial.version;try{await api(`/api/v1/customers/${initial.id}`,'PATCH',data);location.href='/customers/';}catch(error){status.textContent=error.message;}}
       else {try{await api('/api/v1/customers','POST',data);location.href='/customers/';}catch(error){status.textContent=error.message;}}

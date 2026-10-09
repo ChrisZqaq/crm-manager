@@ -21,6 +21,7 @@ from .models import (
     OpeningBatch,
     OpeningLine,
     Product,
+    ProductLanguageOption,
     SKU,
     Warehouse,
 )
@@ -361,6 +362,11 @@ def _resolve_opening(rows, mappings, *, lock=False):
     requirements = []
     products_in_file = rows["products"]
     stock_in_file = rows["stock"]
+    languages_by_name = {
+        item.name: item for item in ProductLanguageOption.objects.filter(
+            name__in={row["language"] for row in products_in_file if row["language"]}
+        )
+    }
     brands_by_name = {}
     brand_names = sorted({item["brand_name"] for item in products_in_file})
     brand_qs = Brand.objects.filter(name__in=brand_names).order_by("id")
@@ -401,6 +407,13 @@ def _resolve_opening(rows, mappings, *, lock=False):
     identity_matches = {}
     product_bindings = {}
     for key, item in product_groups.items():
+        language = languages_by_name.get(item["language"]) if item["language"] else None
+        if item["language"] and language is None:
+            errors.append({"sheet": PRODUCT_SHEET, "row": item["row_number"], "field": "语言版本", "message": "该语言尚未在商品语言选项中维护。"})
+            continue
+        if item["type"] in (Product.Type.BOOSTER, Product.Type.GIFT_SET) and language is None:
+            errors.append({"sheet": PRODUCT_SHEET, "row": item["row_number"], "field": "语言版本", "message": "补充包及礼盒·预组必须填写已维护的语言。"})
+            continue
         brand = brands_by_name.get(item["brand_name"])
         if not brand:
             identity_matches[key] = []
@@ -410,7 +423,7 @@ def _resolve_opening(rows, mappings, *, lock=False):
             type=item["type"],
             series=item["series"],
             name=item["name"],
-            language=item["language"],
+            language=language,
             official_code=item["official_code"],
         ).order_by("id")
         if lock:
@@ -567,7 +580,7 @@ def _resolve_opening(rows, mappings, *, lock=False):
 
     dependencies = {
         "brands": [[item.pk, item.name, item.sku_prefix, item.is_active] for item in brands_by_name.values()],
-        "products": [[item.pk, item.brand_id, item.type, item.series, item.name, item.language, item.official_code, item.aliases, item.is_active] for matches in identity_matches.values() for item in matches],
+        "products": [[item.pk, item.brand_id, item.type, item.series, item.name, item.language.name if item.language_id else "", item.official_code, item.aliases, item.is_active] for matches in identity_matches.values() for item in matches],
         "skus": [[item.pk, item.code, item.product_id, item.box_spec, item.inner_box_spec, item.pack_spec, item.pack_type, item.unit, item.barcode, item.aliases, item.is_active] for item in existing_skus.values()],
         "warehouses": [[item.pk, item.name, item.address, item.is_active] for group in name_matches.values() for item in group],
         "existing_barcodes": [[item.pk, item.code, item.barcode] for item in barcode_records],
@@ -599,7 +612,7 @@ def preview_opening(actor, content, filename, mappings=None):
     normalized_mappings = _mapping_payload(mappings or {})
     with _readonly_snapshot():
         control = BusinessControl.objects.get(pk=1)
-        if control.opening_completed:
+        if control.opening_completed or not control.opening_enabled:
             raise OperationError("正式期初入口已关闭。", status=409, code="opening_closed")
         if InventoryBalance.objects.exists():
             raise OperationError("已有库存记录，不能追加或覆盖期初。", status=409, code="opening_closed")
@@ -657,7 +670,7 @@ def confirm_opening(actor, operation_key, preview_token, request_id=""):
             if replay is not None:
                 return replay
             _require(actor, "confirm_opening")
-            if control.opening_completed:
+            if control.opening_completed or not control.opening_enabled:
                 raise OperationError("正式期初入口已关闭。", status=409, code="opening_closed")
             if control.last_sequence != token_data.get("sequence") or InventoryBalance.objects.exists():
                 raise OperationError("预览后库存或业务顺序已变化，请重新核对。", status=409, code="stale_preview")
@@ -693,7 +706,7 @@ def confirm_opening(actor, operation_key, preview_token, request_id=""):
                             type=item["type"],
                             series=item["series"],
                             name=item["name"],
-                            language=item["language"],
+                            language=ProductLanguageOption.objects.get(name=item["language"]) if item["language"] else None,
                             official_code=item["official_code"],
                             aliases=item["product_aliases"],
                         )
@@ -840,7 +853,8 @@ def confirm_opening(actor, operation_key, preview_token, request_id=""):
                     cost_revision=balance.version,
                 )
             control.opening_completed = True
-            control.save(update_fields=("opening_completed",))
+            control.opening_enabled = False
+            control.save(update_fields=("opening_completed", "opening_enabled"))
             result = {
                 "document_id": batch.pk,
                 "opening_batch_id": batch.pk,

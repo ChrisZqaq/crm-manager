@@ -13,8 +13,8 @@ from .forms import (
     SKUAdminForm,
     WarehouseAdminForm,
 )
-from .models import Brand, BusinessControl, Channel, PaymentAccount, PermissionChange, Product, SKU, Supplier, Warehouse
-from .permissions import ROLE_NAMES
+from .models import Brand, BusinessControl, Channel, PaymentAccount, PermissionChange, Product, ProductLanguageOption, SKU, Supplier, Warehouse
+from .permissions import ROLE_NAMES, ROLE_OWNER
 
 
 class NoAdminHistory:
@@ -53,6 +53,30 @@ class ProductAdmin(ArchiveAdmin):
     list_display = ("name", "brand", "type", "series", "language", "is_active")
     list_filter = ("brand", "type", "is_active")
     search_fields = ("name", "official_code", "series", "brand__name")
+
+
+@admin.register(ProductLanguageOption)
+class ProductLanguageOptionAdmin(ArchiveAdmin):
+    list_display = ("name",)
+    search_fields = ("name",)
+
+    def _is_owner(self, request):
+        return request.user.is_superuser or request.user.groups.filter(name=ROLE_OWNER).exists()
+
+    def has_module_permission(self, request):
+        return self._is_owner(request)
+
+    def has_view_permission(self, request, obj=None):
+        return self._is_owner(request)
+
+    def has_add_permission(self, request):
+        return self._is_owner(request)
+
+    def has_change_permission(self, request, obj=None):
+        return self._is_owner(request)
+
+    def has_delete_permission(self, request, obj=None):
+        return self._is_owner(request)
 
 
 @admin.register(SKU)

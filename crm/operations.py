@@ -12,24 +12,32 @@ from decimal import Decimal, InvalidOperation, ROUND_HALF_UP, localcontext
 from uuid import UUID
 
 from django.core import signing
-from django.db import connection, transaction
+from django.core.exceptions import ValidationError
+from django.db import IntegrityError, connection, transaction
 from django.utils import timezone
 
 from .models import (
+    Brand,
     BusinessControl,
     BusinessOperation,
     DamagedRecord,
     InventoryBalance,
     InventoryHold,
     InventoryMovement,
+    OpeningBatch,
     Product,
+    ProductLanguageOption,
     Receipt,
     ReceiptImage,
     ReceiptLine,
     SKU,
+    SalesOrder,
+    SalesOrderLine,
     Supplier,
     Warehouse,
 )
+from .catalog import duplicate_barcode_candidates
+from .permissions import ROLE_OWNER
 
 
 logger = logging.getLogger("crm.business")
@@ -41,11 +49,12 @@ PREVIEW_SALT = "crm.inventory-preview.v1"
 
 
 class OperationError(Exception):
-    def __init__(self, message, *, status=400, code="invalid_input", fields=None):
+    def __init__(self, message, *, status=400, code="invalid_input", fields=None, details=None):
         super().__init__(message)
         self.status = status
         self.code = code
         self.fields = fields or {}
+        self.details = details or {}
 
 
 def canonical_hash(value):
@@ -319,7 +328,7 @@ def _receipt_reference_data(payload, *, lock=False):
         "supplier": [supplier.pk, supplier.name, supplier.is_active],
         "brands": [[brand.pk, brand.name, brand.sku_prefix, brand.is_active] for brand in brands.values()],
         "products": [
-            [product.pk, product.brand_id, product.type, product.series, product.name, product.language, product.official_code, product.aliases, product.is_active]
+            [product.pk, product.brand_id, product.type, product.series, product.name, product.language.name if product.language_id else "", product.official_code, product.aliases, product.is_active]
             for product in products.values()
         ],
         "skus": [
@@ -372,7 +381,7 @@ def preview_receipt(actor, data):
                     "line_number": line["line_number"],
                     "sku_id": sku.pk,
                     "code": sku.code,
-                    "product": f"{brand.name} / {product.name} {product.language}",
+                    "product": f"{brand.name} / {product.name} {product.language.name if product.language_id else ''}",
                     "unit": sku.unit,
                     "quantity": line["quantity"],
                     "purchase_price": line["purchase_price"],
@@ -767,6 +776,324 @@ def update_global_low_stock(actor, data, operation_key, request_id=""):
     return _run_write("global_low_stock", actor, request_id, write)
 
 
+def _require_opening_manager(actor):
+    if not actor.is_authenticated:
+        _require(actor, "manage_opening")
+    if actor.is_superuser:
+        return
+    if not actor.groups.filter(name=ROLE_OWNER).exists():
+        raise OperationError("只有老板或管理员可以管理正式期初入口。", status=403, code="permission_denied")
+    _require(actor, "manage_opening")
+
+
+def opening_control_data(actor):
+    _require_opening_manager(actor)
+    control = BusinessControl.objects.get(pk=1)
+    can_toggle = not control.opening_completed
+    return {
+        "enabled": control.opening_enabled,
+        "completed": control.opening_completed,
+        "version": control.last_sequence,
+        "actions": {"can_enable": can_toggle and not control.opening_enabled, "can_disable": can_toggle and control.opening_enabled},
+    }
+
+
+def update_opening_control(actor, data, request_id=""):
+    _require_opening_manager(actor)
+    if not isinstance(data, dict) or set(data) != {"enabled", "expected_version", "operation_key"}:
+        raise OperationError("期初管理数据格式无效。", fields={"body": "请提供enabled、expected_version和operation_key。"})
+    enabled = data["enabled"]
+    if not isinstance(enabled, bool):
+        raise OperationError("期初开关格式无效。", fields={"enabled": "请输入布尔值。"})
+    expected_version = quantity(data["expected_version"], "expected_version")
+    key = operation_uuid(data["operation_key"])
+    input_hash = canonical_hash({"action": "opening_control", "enabled": enabled, "expected_version": expected_version})
+
+    def write():
+        with transaction.atomic():
+            control = _lock_control()
+            _require_opening_manager(actor)
+            replay = _operation_replay(actor, key, "opening_control", input_hash)
+            if replay is not None:
+                return replay
+            if expected_version != control.last_sequence:
+                raise OperationError("期初管理状态已变化，请刷新后重试。", status=409, code="version_conflict")
+            if control.opening_completed or OpeningBatch.objects.exists():
+                raise OperationError("正式期初已入账，不能再更改开关或重复导入。", status=409, code="opening_closed")
+            sequence = _next_sequence(control)
+            control.opening_enabled = enabled
+            control.save(update_fields=("opening_enabled",))
+            operation = BusinessOperation.objects.create(
+                operation_key=key,
+                sequence=sequence,
+                actor=actor,
+                action="opening_control",
+                input_hash=input_hash,
+                payload={"enabled": enabled, "expected_version": expected_version},
+                control=control,
+            )
+            result = {
+                "document_id": control.pk,
+                "sequence": sequence,
+                "enabled": control.opening_enabled,
+                "completed": control.opening_completed,
+            }
+            operation.result = result
+            operation.save(update_fields=("result",))
+            return result
+
+    return _run_write("opening_control", actor, request_id, write)
+
+
+def _catalog_text(value, field, *, required=False):
+    if value is None and not required:
+        return ""
+    if not isinstance(value, str):
+        raise OperationError("商品字段格式无效。", fields={field: "请输入文本。"})
+    result = value.strip()
+    if required and not result:
+        raise OperationError("请填写商品必填字段。", fields={field: "此项必填。"})
+    return result
+
+
+def _catalog_aliases(value, field):
+    if value is None:
+        return []
+    if not isinstance(value, list) or any(not isinstance(item, str) for item in value):
+        raise OperationError("别名格式无效。", fields={field: "请输入字符串列表。"})
+    return list(dict.fromkeys(item.strip() for item in value if item.strip()))
+
+
+def _catalog_sku_input(data, field):
+    if not isinstance(data, dict):
+        raise OperationError("SKU资料格式无效。", fields={field: "每行须为对象。"})
+    allowed = {
+        "code", "box_spec", "inner_box_spec", "pack_spec", "pack_type", "unit",
+        "barcode", "aliases", "confirm_duplicate_barcode",
+    }
+    unknown = set(data) - allowed
+    if unknown:
+        key = next(iter(sorted(unknown)))
+        raise OperationError("SKU包含不支持的字段。", fields={f"{field}.{key}": "此字段不能修改。"})
+    confirmed = data.get("confirm_duplicate_barcode", False)
+    if not isinstance(confirmed, bool):
+        raise OperationError("重复条码确认格式无效。", fields={f"{field}.confirm_duplicate_barcode": "请输入布尔值。"})
+    return {
+        "code": _catalog_text(data.get("code"), f"{field}.code", required=True),
+        "box_spec": _catalog_text(data.get("box_spec"), f"{field}.box_spec"),
+        "inner_box_spec": _catalog_text(data.get("inner_box_spec"), f"{field}.inner_box_spec"),
+        "pack_spec": _catalog_text(data.get("pack_spec"), f"{field}.pack_spec"),
+        "pack_type": _catalog_text(data.get("pack_type"), f"{field}.pack_type"),
+        "unit": _catalog_text(data.get("unit"), f"{field}.unit", required=True),
+        "barcode": _catalog_text(data.get("barcode"), f"{field}.barcode"),
+        "aliases": _catalog_aliases(data.get("aliases", []), f"{field}.aliases"),
+        "confirm_duplicate_barcode": confirmed,
+    }
+
+
+def _catalog_duplicate_candidates(actor, barcodes, skus):
+    if not barcodes:
+        return {}
+    candidates = SKU.objects.filter(barcode__in=barcodes).select_related(
+        "product__brand", "product__language"
+    ).order_by("id").select_for_update(of=("self",))
+    grouped = {}
+    for sku in candidates:
+        grouped.setdefault(sku.barcode, []).append({
+            "id": sku.pk,
+            "code": sku.code,
+            "product": sku.product.name,
+            "language": sku.product.language.name if sku.product.language_id else "",
+            "unit": sku.unit,
+        })
+    pending = {}
+    for index, item in enumerate(skus):
+        barcode = item["barcode"]
+        if not barcode:
+            continue
+        local = pending.setdefault(barcode, [])
+        candidate_rows = grouped.get(barcode, []) + local
+        if candidate_rows and not item["confirm_duplicate_barcode"]:
+            visible = actor.is_superuser or all(actor.has_perm(f"crm.{name}") for name in ("view_brand", "view_product", "view_sku"))
+            raise OperationError(
+                "该条码已有SKU，请先核对候选并确认后重试。",
+                status=409,
+                code="duplicate_barcode_confirmation_required",
+                fields={f"skus[{index}].barcode": "请核对重复条码候选并确认。"},
+                details={"candidates": candidate_rows if visible else []},
+            )
+        local.append({
+            "id": None,
+            "code": item["code"],
+            "product": item.get("product_name", ""),
+            "language": item.get("product_language", ""),
+            "unit": item["unit"],
+        })
+    return grouped
+
+
+def _catalog_model_validation(instance, *, field_prefix=""):
+    try:
+        instance.full_clean()
+    except ValidationError as exc:
+        errors = exc.message_dict if hasattr(exc, "message_dict") else {"non_field_errors": exc.messages}
+        if field_prefix:
+            errors = {f"{field_prefix}.{name}": messages for name, messages in errors.items()}
+        raise OperationError("商品资料未通过校验。", fields=errors) from None
+
+
+def create_catalog_product(actor, data, operation_key, request_id=""):
+    _require(actor, "add_product")
+    _require(actor, "add_sku")
+    if not isinstance(data, dict):
+        raise OperationError("商品资料格式无效。")
+    allowed = {"brand_id", "type", "series", "name", "language_id", "official_code", "aliases", "skus"}
+    unknown = set(data) - allowed
+    if unknown:
+        name = next(iter(sorted(unknown)))
+        raise OperationError("商品包含不支持的字段。", fields={name: "此字段不能修改。"})
+    sku_rows = data.get("skus")
+    if not isinstance(sku_rows, list) or not sku_rows:
+        raise OperationError("商品至少需要一个SKU。", fields={"skus": "请添加至少一个SKU。"})
+    skus = [_catalog_sku_input(item, f"skus[{index}]") for index, item in enumerate(sku_rows)]
+    brand_id = identifier(data.get("brand_id"), "brand_id")
+    language_id = identifier(data.get("language_id"), "language_id") if data.get("language_id") not in (None, "") else None
+    payload = {
+        "brand_id": brand_id,
+        "type": _catalog_text(data.get("type"), "type", required=True),
+        "series": _catalog_text(data.get("series"), "series"),
+        "name": _catalog_text(data.get("name"), "name", required=True),
+        "language_id": language_id,
+        "official_code": _catalog_text(data.get("official_code"), "official_code"),
+        "aliases": _catalog_aliases(data.get("aliases", []), "aliases"),
+        "skus": skus,
+    }
+    key = operation_uuid(operation_key)
+    input_hash = canonical_hash({"action": "catalog_product_create", "input": payload})
+
+    def write():
+        with transaction.atomic():
+            control = _lock_control()
+            _require(actor, "add_product")
+            _require(actor, "add_sku")
+            replay = _operation_replay(actor, key, "catalog_product_create", input_hash)
+            if replay is not None:
+                return replay
+            brand = Brand.objects.filter(pk=brand_id).first()
+            if brand is None:
+                raise OperationError("IP不存在。", status=404, code="not_found", fields={"brand_id": "请选择已有IP。"})
+            product = Product(
+                brand=brand,
+                type=payload["type"],
+                series=payload["series"],
+                name=payload["name"],
+                language_id=payload["language_id"],
+                official_code=payload["official_code"],
+                aliases=payload["aliases"],
+            )
+            _catalog_model_validation(product)
+            for item in skus:
+                item["product_name"] = product.name
+                item["product_language"] = product.language.name if product.language_id else ""
+            _catalog_duplicate_candidates(actor, {item["barcode"] for item in skus if item["barcode"]}, skus)
+            product.save()
+            saved_skus = []
+            for item in skus:
+                sku = SKU(product=product, **{name: value for name, value in item.items() if name not in ("confirm_duplicate_barcode", "product_name", "product_language")})
+                _catalog_model_validation(sku, field_prefix=f"skus[{len(saved_skus)}]")
+                try:
+                    with transaction.atomic():
+                        sku.save()
+                except IntegrityError:
+                    raise OperationError("SKU编号已被使用，请刷新候选后重试。", status=409, code="catalog_conflict", fields={f"skus[{len(saved_skus)}].code": "SKU编号冲突。"}) from None
+                saved_skus.append(sku.pk)
+            sequence = _next_sequence(control)
+            operation = BusinessOperation.objects.create(
+                operation_key=key,
+                sequence=sequence,
+                actor=actor,
+                action="catalog_product_create",
+                input_hash=input_hash,
+                payload={"product_id": product.pk, "sku_ids": saved_skus},
+                control=control,
+            )
+            result = {"product_id": product.pk, "sku_ids": saved_skus, "sequence": sequence}
+            operation.result = result
+            operation.save(update_fields=("result",))
+            return result
+
+    return _run_write("catalog_product_create", actor, request_id, write)
+
+
+def create_catalog_sku(actor, data, operation_key, request_id=""):
+    _require(actor, "add_sku")
+    if not isinstance(data, dict):
+        raise OperationError("SKU资料格式无效。")
+    allowed = {"product_id", "code", "box_spec", "inner_box_spec", "pack_spec", "pack_type", "unit", "barcode", "aliases", "confirm_duplicate_barcode"}
+    unknown = set(data) - allowed
+    if unknown:
+        name = next(iter(sorted(unknown)))
+        raise OperationError("SKU包含不支持的字段。", fields={name: "此字段不能修改。"})
+    product_id = identifier(data.get("product_id"), "product_id")
+    sku_data = _catalog_sku_input({name: value for name, value in data.items() if name != "product_id"}, "sku")
+    payload = {"product_id": product_id, **sku_data}
+    key = operation_uuid(operation_key)
+    input_hash = canonical_hash({"action": "catalog_sku_create", "input": payload})
+
+    def write():
+        with transaction.atomic():
+            control = _lock_control()
+            _require(actor, "add_sku")
+            replay = _operation_replay(actor, key, "catalog_sku_create", input_hash)
+            if replay is not None:
+                return replay
+            product = Product.objects.select_for_update(of=("self",)).select_related("language").filter(pk=product_id).first()
+            if product is None:
+                raise OperationError("产品不存在。", status=404, code="not_found", fields={"product_id": "请选择已有产品。"})
+            row = {**sku_data, "product_name": product.name, "product_language": product.language.name if product.language_id else ""}
+            _catalog_duplicate_candidates(actor, {row["barcode"]} if row["barcode"] else set(), [row])
+            sku = SKU(product=product, **{name: value for name, value in sku_data.items() if name != "confirm_duplicate_barcode"})
+            _catalog_model_validation(sku)
+            try:
+                with transaction.atomic():
+                    sku.save()
+            except IntegrityError:
+                raise OperationError("SKU编号已被使用，请刷新候选后重试。", status=409, code="catalog_conflict", fields={"code": "SKU编号冲突。"}) from None
+            sequence = _next_sequence(control)
+            operation = BusinessOperation.objects.create(
+                operation_key=key,
+                sequence=sequence,
+                actor=actor,
+                action="catalog_sku_create",
+                input_hash=input_hash,
+                payload={"product_id": product.pk, "sku_id": sku.pk},
+                control=control,
+            )
+            result = {"product_id": product.pk, "sku_id": sku.pk, "sequence": sequence}
+            operation.result = result
+            operation.save(update_fields=("result",))
+            return result
+
+    return _run_write("catalog_sku_create", actor, request_id, write)
+
+
+def sku_number_suggestion(actor, brand_id):
+    _require(actor, "add_product")
+    brand_id = identifier(brand_id, "brand_id")
+    brand = Brand.objects.filter(pk=brand_id).first()
+    if brand is None:
+        raise OperationError("IP不存在。", status=404, code="not_found", fields={"brand_id": "请选择已有IP。"})
+    numeric_codes = []
+    for code in SKU.objects.filter(product__brand=brand, code__startswith=brand.sku_prefix).values_list("code", flat=True):
+        suffix = code[len(brand.sku_prefix):]
+        if suffix.isascii() and suffix.isdigit():
+            numeric_codes.append((int(suffix), suffix, code))
+    if not numeric_codes:
+        return {"current_max_code": "", "suggested_code": f"{brand.sku_prefix}0001"}
+    maximum, suffix, code = max(numeric_codes)
+    return {"current_max_code": code, "suggested_code": f"{brand.sku_prefix}{str(maximum + 1).zfill(max(4, len(suffix)))}"}
+
+
 def update_sku_low_stock(actor, sku_id, data, operation_key, request_id=""):
     if not isinstance(data, dict) or not any(key in data for key in ("enabled", "threshold")):
         raise OperationError("请至少更新一项SKU提醒设置。")
@@ -821,9 +1148,27 @@ def update_sku_low_stock(actor, sku_id, data, operation_key, request_id=""):
     return _run_write("sku_low_stock", actor, request_id, write)
 
 
+def available_quantity(balance, *, add_back=0):
+    return balance.on_hand - balance.occupied - balance.reserved - balance.hoarded - balance.damaged + add_back
+
+
 def inventory_rows(actor, query):
     _require(actor, "view_inventorybalance")
     control = BusinessControl.objects.get(pk=1)
+    order_occupied = {}
+    order_id = query.get("order_id")
+    if order_id not in (None, ""):
+        _require(actor, "change_salesorder")
+        from .sales import sales_order_queryset_for
+
+        order = sales_order_queryset_for(actor, changing=True).filter(pk=identifier(order_id, "order_id")).first()
+        if order is None:
+            raise OperationError("订单不存在或不在可维护范围。", status=404, code="not_found")
+        if order.status not in (SalesOrder.Status.AWAITING_PAYMENT, SalesOrder.Status.READY_TO_SHIP):
+            raise OperationError("只有未交付订单可用于修改可售量查询。", status=409, code="state_conflict")
+        for warehouse_id, sku_id, quantity in order.lines.filter(active=True).values_list("warehouse_id", "sku_id", "quantity"):
+            key = (warehouse_id, sku_id)
+            order_occupied[key] = order_occupied.get(key, 0) + quantity
     balances = InventoryBalance.objects.select_related("warehouse", "sku__product__brand").order_by("id")
     if query.get("warehouse_id"):
         balances = balances.filter(warehouse_id=identifier(query.get("warehouse_id"), "warehouse_id"))
@@ -839,7 +1184,10 @@ def inventory_rows(actor, query):
         sku = balance.sku
         product = sku.product
         brand = product.brand
-        available = balance.on_hand - balance.occupied - balance.reserved - balance.hoarded - balance.damaged
+        available = available_quantity(balance)
+        available_for_order = available_quantity(
+            balance, add_back=order_occupied.get((balance.warehouse_id, balance.sku_id), 0)
+        )
         threshold = sku.low_stock_threshold if sku.low_stock_threshold is not None else control.default_threshold
         alert = control.low_stock_enabled and sku.low_stock_enabled and available <= threshold
         if low_stock_filter == "true" and not alert:
@@ -866,7 +1214,8 @@ def inventory_rows(actor, query):
                 "reserved": balance.reserved,
                 "hoarded": balance.hoarded,
                 "damaged": balance.damaged,
-                "available": available,
+                  "available": available,
+                  **({"available_for_order": available_for_order} if order_id not in (None, "") else {}),
                 "cost_amount": f"{balance.cost_amount:.3f}",
                 "average_cost": f"{average:.3f}" if average is not None else None,
                 "low_stock": alert,

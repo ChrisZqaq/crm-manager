@@ -1,3 +1,6 @@
+import json
+from uuid import uuid4
+
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group, Permission
 from django.core.exceptions import ValidationError
@@ -6,7 +9,7 @@ from django.test import Client, TestCase
 
 from .catalog import search_products, search_skus, search_warehouses
 from .forms import ProductAdminForm, SKUAdminForm, WarehouseAdminForm
-from .models import Brand, PermissionChange, Product, SKU, Warehouse
+from .models import Brand, BusinessOperation, InventoryBalance, PermissionChange, Product, ProductLanguageOption, SKU, Warehouse
 from .permissions import (
     PRE_D14_WAREHOUSE_DEFAULTS,
     ROLE_DEFAULTS,
@@ -24,12 +27,13 @@ class CatalogTestCase(TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.brand = Brand.objects.create(name="星海", sku_prefix="SEA")
+        language, _ = ProductLanguageOption.objects.get_or_create(name="简中")
         cls.product = Product.objects.create(
             brand=cls.brand,
             type=Product.Type.BOOSTER,
             series="第一弹",
             name="潮汐",
-            language="简体中文",
+            language=language,
             aliases=["潮汐盒"],
         )
         cls.sku = SKU.objects.create(
@@ -248,7 +252,7 @@ class CatalogTestCase(TestCase):
             type=Product.Type.MERCHANDISE,
             name="数据库周边",
         )
-        self.assertEqual(valid_merchandise.language, "")
+        self.assertIsNone(valid_merchandise.language_id)
 
     def test_product_api_and_catalog_use_current_display_labels(self):
         merchandise = Product.objects.create(
@@ -260,7 +264,7 @@ class CatalogTestCase(TestCase):
             brand=self.brand,
             type=Product.Type.GIFT_SET,
             name="星海预组",
-            language="日文",
+            language=ProductLanguageOption.objects.get_or_create(name="日文")[0],
         )
         slim_sku = SKU.objects.create(
             product=self.product,
@@ -319,6 +323,127 @@ class CatalogTestCase(TestCase):
         self.assertContains(catalog, "未设置")
         self.assertNotContains(catalog, ">slim<")
         self.assertNotContains(catalog, ">fat<")
+
+    def test_catalog_create_retries_duplicate_barcode_confirmation_and_replays(self):
+        sales_client = Client()
+        sales_client.force_login(self.make_user(ROLE_SALES))
+        payload = {
+            "brand_id": self.brand.pk,
+            "type": Product.Type.BOOSTER,
+            "series": "第二弹",
+            "name": "API新产品",
+            "language_id": self.product.language_id,
+            "official_code": "API01",
+            "aliases": ["API别名"],
+            "skus": [{
+                "code": "SEA1001",
+                "unit": "盒",
+                "barcode": self.sku.barcode,
+                "confirm_duplicate_barcode": False,
+            }],
+        }
+        key = str(uuid4())
+        denied = sales_client.post(
+            "/api/v1/products",
+            data=json.dumps({**payload, "operation_key": key}),
+            content_type="application/json",
+        )
+        self.assertEqual(denied.status_code, 403)
+
+        admin = User.objects.create_superuser(
+            username="catalog-write-admin", email="catalog-write-admin@example.test", password="admin password"
+        )
+        client = Client()
+        client.force_login(admin)
+        languages = client.get("/api/v1/product-languages")
+        self.assertEqual(languages.status_code, 200)
+        self.assertIn("简中", [row["name"] for row in languages.json()["items"]])
+        suggestion = client.get("/api/v1/skus/number-suggestion", {"brand_id": self.brand.pk})
+        self.assertEqual(suggestion.json()["suggested_code"], "SEA0002")
+
+        before = (Product.objects.count(), SKU.objects.count(), BusinessOperation.objects.count())
+        duplicate = client.post(
+            "/api/v1/products",
+            data=json.dumps({**payload, "operation_key": key}),
+            content_type="application/json",
+        )
+        self.assertEqual(duplicate.status_code, 409)
+        self.assertEqual(duplicate.json()["error"]["code"], "duplicate_barcode_confirmation_required")
+        self.assertEqual(duplicate.json()["error"]["details"]["candidates"][0]["code"], self.sku.code)
+        self.assertEqual((Product.objects.count(), SKU.objects.count(), BusinessOperation.objects.count()), before)
+
+        payload["skus"][0]["confirm_duplicate_barcode"] = True
+        confirmed = client.post(
+            "/api/v1/products",
+            data=json.dumps({**payload, "operation_key": key}),
+            content_type="application/json",
+        )
+        self.assertEqual(confirmed.status_code, 200, confirmed.content)
+        replay = client.post(
+            "/api/v1/products",
+            data=json.dumps({**payload, "operation_key": key}),
+            content_type="application/json",
+        )
+        self.assertEqual(replay.json(), confirmed.json())
+        self.assertEqual(Product.objects.count(), before[0] + 1)
+        self.assertEqual(SKU.objects.count(), before[1] + 1)
+
+        payload["name"] = "同键不同输入"
+        conflict = client.post(
+            "/api/v1/products",
+            data=json.dumps({**payload, "operation_key": key}),
+            content_type="application/json",
+        )
+        self.assertEqual(conflict.status_code, 409)
+        self.assertEqual(conflict.json()["error"]["code"], "idempotency_conflict")
+
+        sku_payload = {
+            "operation_key": str(uuid4()),
+            "product_id": confirmed.json()["product_id"],
+            "code": "SEA1002",
+            "unit": "盒",
+        }
+        new_sku = client.post(
+            "/api/v1/skus",
+            data=json.dumps(sku_payload),
+            content_type="application/json",
+        )
+        self.assertEqual(new_sku.status_code, 200, new_sku.content)
+        self.assertEqual(client.post(
+            "/api/v1/skus",
+            data=json.dumps(sku_payload),
+            content_type="application/json",
+        ).json(), new_sku.json())
+
+    def test_product_inventory_is_opt_in_and_requires_inventory_permission(self):
+        warehouse = Warehouse.objects.create(name="测试库存仓", address="合成地址")
+        InventoryBalance.objects.create(
+            sku=self.sku,
+            warehouse=warehouse,
+            on_hand=5,
+            occupied=1,
+            reserved=1,
+            cost_amount="10.000",
+        )
+        admin = User.objects.create_superuser(
+            username="catalog-inventory-admin", email="catalog-inventory-admin@example.test", password="admin password"
+        )
+        client = Client()
+        client.force_login(admin)
+        default = client.get("/api/v1/products", {"page_size": 1})
+        self.assertNotIn("inventory", default.json()["items"][0]["skus"][0])
+        included = client.get("/api/v1/products", {"page_size": 1, "include_inventory": "true"})
+        row = included.json()["items"][0]["skus"][0]["inventory"][0]
+        self.assertEqual((row["warehouse"], row["available"], row["unit"]), (warehouse.name, 3, self.sku.unit))
+
+        catalog_only = self.make_user()
+        catalog_only.user_permissions.set(Permission.objects.filter(
+            content_type__app_label="crm",
+            codename__in=("view_brand", "view_product", "view_sku"),
+        ))
+        client.force_login(catalog_only)
+        denied = client.get("/api/v1/products", {"include_inventory": "true"})
+        self.assertEqual(denied.status_code, 403)
 
     def test_product_api_filters_matching_sku_status_without_changing_default_or_order_skus(self):
         inactive_on_mixed = SKU.objects.create(
@@ -428,7 +553,7 @@ class CatalogTestCase(TestCase):
             "type": Product.Type.BOOSTER,
             "series": "第一弹",
             "name": "网页补充包",
-            "language": "简体中文",
+            "language": ProductLanguageOption.objects.get_or_create(name="简中")[0].pk,
             "official_code": "WEB01",
             "aliases": "17.5\n太晶",
             "is_active": "on",

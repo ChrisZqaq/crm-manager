@@ -118,3 +118,99 @@ CRM_DB_NAME=aluola_crm_ui_list_filters_20261008 CRM_DB_HOST=/Users/chrisz/Docume
 
 - 较宽回归使用同一独立 DB 环境，测试选择为 `crm.tests.CatalogTestCase crm.test_phase3.CustomerPhase3Tests crm.test_phase3.SalesOrderPhase3Tests.test_order_sku_search_and_preview_keep_inactive_sku_restriction crm.test_phase4.OrderListFilterTests crm.test_phase6.ReportPhase6Tests`；共 43 项，3 项既有 `/catalog/` HTML 断言失败。它们期待初始 HTML 静态包含“新建订单”“瘦包”及 SKU 文本；固定前端页面改为客户端加载后已不包含这些内容。未改模板或越界调整旧断言；6 项定向新用例通过。
 - 不涉及迁移。没有执行浏览器端 UI 检查；当前完成范围为后端 API/报表行为。提交后仅更新本工作记录，随后停止应用写入并交接。
+
+## PAYMENT-REPEAT-AUDIT｜只读核查（2026-10-08）
+
+依据：负责人任务表 `PAYMENT-REPEAT-AUDIT`；只读固定基线 `df63f34325056a9ce06eac0da92c61d216d60f6e`。应用唯一写入者为前端；未改应用代码。可复现的两项顺序合成探针保存在忽略目录 `.local/payment-repeat-audit-20261008/test_payment_repeat_probe.py`。
+
+### 结论与证据
+
+- `POST /api/v1/orders/{id}/payment`、`POST /api/v1/orders/{id}/verify-payment` 分别进入 `register_payment`、`verify_payment`。两者在事务内先锁 `BusinessControl`、再锁授权范围内的订单，检查操作键回放和订单 `expected_version`；核对另锁 `PaymentRecord`。相同键/相同输入返回原响应；同键不同输入返回 `idempotency_conflict`；新键携带旧订单版本返回 `version_conflict`。
+- 数据层 `PaymentRecord.order` 是 OneToOne，故一单只有一个当前收款记录；`ReceiptImage.payment` 是多对一，一单允许多张图（业务明确允许），并通过单据互斥约束避免图片同时关联入库和付款。重复提交相同已绑定 image ID 不会再建关联。图片内容没有摘要去重；重新上传同一文件会是新图片ID，当前业务允许多图，不能自行把它当成第二笔付款或禁止。
+- 同键重放：原有回归及合成探针通过；不新增 `BusinessOperation`，不增付款/订单版本，不重绑图片。
+- 新键＋旧版本：合成探针得到 `version_conflict`；第二张待上传图片保持未关联，操作数和序号不变。
+- 新键＋最新版本＋相同收款账户/金额/时间/已绑定图片：服务接受为一条新操作。合成探针观测到 `BusinessOperation(payment_register)`、`SalesOrder.version`、`last_sequence` 各前进；`PaymentRecord` 仍只有一条，金额、`PaymentRecord.version`、首次凭证时间、图片关联数不变。相同输入在已核对通过后重存仍保持通过，但仍增加操作序号。
+- 同键核对重放无副作用；新键＋最新版本重复通过核对会新建核对操作并增加 `PaymentRecord.version`、`SalesOrder.version` 和 `last_sequence`，更新核对人/时间；付款金额、首凭证时间、图片关联、`CommissionReview` 金额/版本/首次计入时间及 `CommissionAdjustment` 数量不变。复核提成是独立操作，服务端对同一订单同一金额版本已有 `already_reviewed` 拒绝。
+- 当前订单详情表单在付款已通过后仍渲染核对按钮；`runForm` 成功后整页重载，但重载后按钮仍存在。付款登记表单也会重载且继续显示（用于合法更新）。`actionData` 每次生成新 UUID，因此重载后的再次点击是新操作，不是幂等重放；订单详情标题使用会更新的 `last_sequence`，API `id` 则是稳定 `SalesOrder.pk`。所以用户看到的“订单号”变化是把最新操作序号显示成订单编号，数据库订单主键及付款关联没有变化。
+- `order_detail.html` 的 `received-at` 输入没有用现有付款资料回填；`paymentImageIds` 会保留已关联图片ID。合成探针验证：已有非空 `received_at` 在重载表单中为空后再次保存会将该可空时间清为 `NULL`，按真实资料变化重置核对状态为待核对并清除已核版本；付款记录和图片仍各自只有原记录/关联。这应由前端回填时间或明确保留字段解决，不是后端重复记账。
+- 本轮未运行付款登记并发探针。现有真实 PostgreSQL `test_postgresql_problem_and_ship_race_never_leaves_partial_state`（核对/发货竞态，不是双重登记）通过；负责人已安排 QA 在前端固定交付后独立验证实际重复登记并发，避免重复宽测。
+- 审查开始时目标是固定 `df63f34`，当时应用文件无本地改动；随后工作区出现前端对模板/CSS的未提交改动。未读取或触碰这些进行中的改动；本节模板观察仅指固定基线，不代表前端修复后的视觉/行为验收。
+
+### 验证环境
+
+只用合成数据和独立 Django/PostgreSQL 测试库。既有4项定向回归通过（包含收款同键幂等、重新登记状态、首次凭证时间/重核、核对与发货竞态）；一次性顺序探针2项通过。两次测试运行器分别创建并销毁 `test_aluola_crm_payment_repeat_audit_20261008`、`test_aluola_crm_payment_repeat_probe_20261008`；未触碰开发库、用户 demo 或其他角色资产，无服务重启。
+
+```sh
+CRM_DB_NAME=aluola_crm_payment_repeat_audit_20261008 CRM_DB_HOST=/Users/chrisz/Documents/projects/aluolaCRM/.local/postgres-socket CRM_DB_PORT=55439 UV_PROJECT_ENVIRONMENT=/Users/chrisz/.cache/aluola-crm-uiquery1-venv uv run --locked --python /Users/chrisz/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 manage.py test crm.test_phase4.PaymentPhase4Tests.test_payment_requires_images_and_reason_for_difference_then_is_idempotent crm.test_phase4.PaymentPhase4Tests.test_account_responsibility_and_pause_survive_re_registration crm.test_phase6.ReportPhase6Tests.test_payment_first_evidence_time_survives_failure_replay_updates_and_rechecks crm.test_phase4.FulfillmentPhase4Tests.test_postgresql_problem_and_ship_race_never_leaves_partial_state
+```
+
+```sh
+PYTHONPATH=/Users/chrisz/Documents/projects/aluolaCRM/.local/payment-repeat-audit-20261008 CRM_DB_NAME=aluola_crm_payment_repeat_probe_20261008 CRM_DB_HOST=/Users/chrisz/Documents/projects/aluolaCRM/.local/postgres-socket CRM_DB_PORT=55439 UV_PROJECT_ENVIRONMENT=/Users/chrisz/.cache/aluola-crm-uiquery1-venv uv run --locked --python /Users/chrisz/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 manage.py test test_payment_repeat_probe
+```
+
+### 最小处理建议（未实施）
+
+当前没有发现会因重复点击生成第二条付款记录、重复金额、重复绑同一图片或重复提成的服务端缺陷；不需要扩展为多笔付款。前端应提交中禁用/反馈、失败重试沿用同一操作键，成功后加载最新状态；通过核对后隐藏或锁定核对动作，并回填当前收款时间。若还希望“刷新后以新键再次提交完全相同内容”不再增加操作序号/版本，可在下一独立服务窗口对同输入当前状态做事务内无变化短路；这会改变当前每次新键都记业务操作的语义，需负责人确认。提成/收款的历史规则未因本审查修改。
+
+## USER-REVISION-1009｜只读后端方案（2026-10-09）
+
+依据：负责人当前任务表及 `docs/project/USER_REVISION_20261009.md`。应用基线 `73dd50c` 仍冻结验收。本工作区现有其他角色未提交改动；本轮没有读取或修改这些应用改动，只更新本角色工作记录，不运行测试。
+
+### 十项对应的后端事实
+
+| 项 | 现状与最小后端范围 |
+| --- | --- |
+| 客户字段 | `Customer` 当前有 `birthday/interests/hobbies`；客户序列化、创建/修改规范化、客户列表生日筛选、生日页/API、个人提醒偏好都仍在。迁移时 `interests→note1`、`hobbies→note2`，删除生日数据与提醒功能；另加一套可选客户开票资料、订单开票开关及资料快照。客户查看/修改沿用现有权限范围。 |
+| 查找 | `GET /api/v1/customers?q=` 只查姓名、公司、联系方式，不查已存别名；`GET /api/v1/skus?q=` 查 SKU/产品字段及两类别名；`GET /api/v1/warehouses?q=` 查名称、地址，仓库没有别名字段。三个列表均分页，订单表单只请求 `page=1&page_size=200` 并忽略 `has_next`，超过200条匹配结果会被截断。后续按获批表单把客户别名加入服务端搜索并保留账号可见范围；前端处理分页/空态。客户/订单动态筛选选项基于账号可见全集、在搜索和分页前生成，现有回归明确验证此行为，未发现选项从当前页错误推导或越权泄漏。 |
+| 表单布局 | 控件密度、层级、按钮和首页卡片属于UI/前端；无需改业务API。保留既有工作台指标口径与各数据源权限。 |
+| 可售量 | `GET /api/v1/inventory?sku_id=…&warehouse_id=…` 已返回 `available` 和 `unit`；公式为在库减订单占用、客户预留、囤货和破损。订单修改规划会把本单旧明细数量加回可用量，但通用库存GET没有订单上下文。最小接口建议给库存查询加经权限校验的可编辑 `order_id` 上下文，以便展示同一口径；最终预览/提交仍走现有事务锁与库存复核。 |
+| 本单开票 | `SalesOrder` 无开票字段。建议增加 `requires_invoice` 与抬头、信用代码、邮箱三个订单快照字段；`Customer` 保存同一套可选资料。勾选开票时服务端要求抬头，其他两项选填；散客模式无客户档案、不开票，服务拒绝 `requires_invoice=true`；只记录资料，不接税务系统。订单使用档案资料或本次新填资料，客户档案同步和订单快照必须在同一提交事务里完成，历史快照不回读客户当前值。 |
+| 订单内新客 | 现有 `POST /api/v1/customers` 与订单确认是独立事务；先建客再下单会留下孤立客户。建议在订单预览令牌中包含 `new_customer` 输入，最终 `confirm_sales_order` 的同一 `transaction.atomic()` 内创建客户及收货地址、订单、占货和操作记录；先检查订单操作键回放，失败全回滚，重放返回同一客户ID。不得先调用独立客户POST。客户联系方式与收件人联系方式是不同字段，不假设两者为同一人。 |
+| 后台语言 | `LANGUAGE_CODE="zh-hans"` 且 `USE_I18N=True`，已有业务错误和多数字段标签为简体中文，无需加语言依赖；录入的商品名/官方编号是普通文本，不会被翻译。标准Django Admin未配置品牌主题；多个模型没有 `Meta.verbose_name`，语言设置本身不能保证模型标题为中文，需作为UI/本地化检查点。 |
+| 商品创建 | 目录页没有写接口；`products_api`/`skus_api` 当前只列目录。`Product.language` 是可空自由文本，`Product.clean` 仅按商品类型要求非空；Django Admin 的 `ProductAdminForm` 使用该字段，SKU表单处理重复条码二次确认。目录新增产品/SKU API沿用 `add_product/add_sku`，不能让销售因入口前移获得新权限；现有默认配置仓管和老板都能维护商品。新增语言选项维护需单独受现有老板/管理员身份约束，不能直接复用仓管也持有的 `add_product` 来放开语言创建。 |
+| 期初关闭 | `BusinessControl.opening_completed` 表示已成功导入。增加独立 `opening_enabled` 服务端开关；切换服务必须同时执行既有老板身份检查及 `manage_opening` 授权（超级管理员可绕过），不能只因某普通人员被分配此可授权权限就放行。API 要求 `expected_version` 和操作键；仓管的 `confirm_opening` 不隐含开关管理权。预览/确认检查开关；`opening_completed` 或实际 `OpeningBatch` 后永久拒绝重开/重导入。切换不检查 `InventoryBalance` 是否为空，现有预览/确认库存限制保持原样。 |
+| 工作台 | 新版布局及开发注释清理不要求后端数据变更；保持既有汇总/权限合同。 |
+
+### 迁移与事务边界
+
+- 新客户字段按空字符串/空值默认，不加唯一的姓名/联系方式约束，不做跨销售自动合并，不建“档案不完整”字段。快递新客复用订单已有必填收件地址校验并建一个 `CustomerAddress`；客户联系方式仍单独必填。非销售代建沿用现有明确指定有效销售负责人的规则。
+- 客户迁移明确为 `interests→note1`、`hobbies→note2`，保留原值后再删除旧列及 `birthday` 数据；删除个人生日提醒字段/API/筛选/页面。`AccountProfile` 仍被 `BusinessOperation.account_profile` 与“恰好一个操作目标”数据库约束引用；删活动偏好字段、API和页面，但保留模型/目标关联及历史操作，不清理旧账本payload。未读取客户行或演示数据。
+- 订单新客及发票资料作为预览输入纳入规范化哈希，预览不写库；只在最终确认中写 Customer/CustomerAddress/SalesOrder。散客分支不创建 Customer/CustomerAddress，且服务端拒绝开票。`BusinessOperation` 单条只指一个业务目标，订单创建/客户同步若需分别记账，应在同一事务内写各自目标记录；订单的客户端操作键仍是唯一重放锚点，不能暴露独立客户创建步骤。
+- 同一操作键重试可用现有 `_operation_replay` 保证不重复；没有姓名/电话唯一约束，所以网络结果不明后必须重用同一 `operation_key`。新操作键代表新建行为，不能承诺按相似姓名自动去重。
+- 业务已确认：客户开票资料一套，档案字段选填；勾选时仅抬头必填；订单快照不随客户更新而改变；线下开票；散客不建档、不需要/不得开票；新客姓名/联系方式必填，快递收件人/电话/省市/详细地址必填，选填空白不标不完整；兴趣/爱好迁入备注1/备注2，删除生日；老板/管理员在入账前可关闭并重开期初，入账后永久禁止重开或重复导入。业务边界已收口，方案仍待负责人技术校准。
+
+### 最小迁移/API/权限方案（供负责人校准）
+
+- **单一迁移**：给 `Customer` 加 `note1/note2` 及 `invoice_title/invoice_credit_code/invoice_email`（空白默认）；给 `SalesOrder` 加 `requires_invoice=False` 与同名三项快照（空白默认）；给 `BusinessControl` 加 `opening_enabled=True`；移除 `Customer.birthday/interests/hobbies` 及 `AccountProfile.birthday_reminder_enabled`。数据迁移先把兴趣/爱好逐行复制到对应备注，再删三旧客户列；已有订单作为 `requires_invoice=False`、空快照；若已有导入记录/库存，开关初始化为关闭。保留 `AccountProfile`、`BusinessOperation.account_profile` FK 与互斥目标约束，避免破坏历史操作关系。
+- **商品语言数据**：现状 `Product.language` 是自由文本。最小受控结构为 `ProductLanguageOption(name UNIQUE)` 初始种入“简中、日文、英文、韩文”，`Product.language` 改为指向选项的可空 `PROTECT` 外键、不设默认；补充包/礼盒·预组仍需非空，周边可空。迁移前只读列出旧语言值（按值和类型计数，并列出受影响产品）及必填类型空值；仅精确保留四个已确认值或采用负责人/用户明确批准的映射。非标准值不得猜映射、静默丢弃或自动变成新选项；有未决值时阻断删除旧文本列，先核对后再迁移。当前没有读取任何商品行，不能断言旧值集合。
+- **订单 API**：沿用 `POST /api/v1/orders/preview` → `POST /api/v1/orders` 预览令牌/操作键，不建旁路客户创建API。预览规范化输入增加 `new_customer`（档案字段、选填发票资料和现有 `address_snapshot`），提交时验证 `customer_id` 与 `new_customer` 互斥；新客、客户地址、订单行、库存占用、客户/订单操作记录在一次现有确认事务中提交，失败整体回滚。成功后返回同一 `customer_id`；同键重试命中订单回放。散客（无 `customer_id` 且无 `new_customer`）强制不建档并拒绝开票。订单详情和列表仅读订单快照；新客户遵守 `add_customer` 与既有客户归属校验，修改现有客户资料须 `change_customer`，下单继续要求 `add_salesorder`。
+- **发票资料**：客户 API 序列化/规范化增客户开票资料。正式客户订单默认复制档案资料；用户在订单中本次填写/修改时，同事务更新客户档案并保存当单快照（更新现有客户须 `change_customer`，新客随 `add_customer` 创建）。始终要求后端校验勾选时抬头非空，信用代码/邮箱可空；发票资料变化不改金额、付款、库存或提成。
+- **库存/目录**：在既有 `/api/v1/inventory` 接受可选 `order_id`；仅订单有权且可编辑时把该单当前活动明细占货加回显示可售量。复用一个小的可售量计算函数供库存行与订单规划使用，最终提交仍用锁内复核。产品/SKU创建最小新增写服务/API，使用既有 Admin 表单/模型校验而非重复校验器，分别要求 `add_product`/`add_sku`，保留条码重复确认语义。事务内用操作键重放返回既存 `result`；复用 `BusinessOperation(control=BusinessControl)` 保存操作与新对象ID，不增加产品/SKU外键目标或通用审计框架。销售仍无维护权限。客户 `q` 加入已有别名匹配，继续先做账号权限范围裁剪。
+- **商品语言校验/权限/兼容**：Admin产品表单用选项外键下拉；写商品API可接收 `language_id` 并使用现有 `add_product/change_product`，走 `Product.full_clean`/类型校验；给获准录入者的目录只读选项API沿用现有商品查看范围。现有读取API的 `language` 字段继续返回语言显示名；现有 `GET /api/v1/products?language=` 仍以可读语言名做包含筛选，内部改为关联选项名称查询，不能改成ID参数。目录搜索、所有包含语言的序列化/导出显示名称。期初 `_resolve_opening` 将模板中的语言显示名精确解析为既有ID；模板标题及员工填写仍是可读语言名，不要求数字ID；未知值定位到行/语言字段并拒绝预览，不在导入时创建选项。所有写入路径使用同一个 `Product.full_clean`/类型校验及数据库非空约束，必填类型缺值拒绝、周边空值保留、无默认值。语言选项Admin维护只允许现有老板角色/管理员身份（超级管理员），不依赖仓管可拥有的 `add_product`，不添加独立权限组或普通角色开关；仓管录产品只能选既有语言。SKU创建继续复用 `add_sku/change_sku` 及原重复条码确认。
+- **期初控制**：新增 `manage_opening`，但服务仍须同时确认既有老板身份；该权限自身不能让普通人员取得控制权，超级管理员按现有方式绕过。`PATCH /api/v1/opening/control` 要求 `{enabled, expected_version, operation_key}`，沿用 `_lock_control`、`_operation_replay`、`last_sequence` 版本冲突检查及 `BusinessOperation(control=...)`。切换只依据 `opening_completed` 或已有实际 `OpeningBatch` 阻止重开/再次启用，不把 `InventoryBalance` 为空作为关闭或重开门槛；保留预览/确认现有库存拒绝逻辑。预览与确认都拒绝 `opening_enabled=False`；成功入账原子地置 `opening_completed=True, opening_enabled=False`。切换和导入共用 control 锁，锁内复核状态，防止并发穿透。
+
+### 后续验收要点（未执行）
+
+迁移逐行保留兴趣/爱好到新备注且删除生日；语言迁移只精确匹配已确认值，先列出旧值/必填类型空值，未决非标准值不映射、不丢弃并阻止旧列删除；四个初始选项、无默认，补充包和礼盒必选、周边可空；Admin/API/期初导入只允许既有选项且共用 Product 类型校验，导入未知值带表行定位并拒绝；读取API `language`、现有 `language` 包含筛选、查询/导出展示和期初模板均保留可读规范名称，只有新增写接口可传选项ID；仓管可创建商品但不能新增语言，老板/管理员可维护选项，不引入独立权限体系。生日路由/参数/提醒偏好均移除；散客提交开票被服务端拒绝且不造客户；开票快照在客户后续修改后不变；订单新客失败整体回滚、同键重放不重复；非销售客户归属受权限约束；编辑订单可售量加回本单现有占货、不可编辑订单不能伪造上下文；目录写权限、重复条码确认和同键重放返回同一对象ID；期初未入账时老板身份可关闭/重开、单独授予 manage_opening 的普通人员仍拒绝、缺失/过期 expected_version 冲突；有采购库存时仍可关闭开关、但原预览/确认库存限制不变；已有 OpeningBatch/成功导入后不能重开；关开与导入并发被串行化；页面简体中文。当前仅核对源码/文档，未做浏览器搜索复现、HTTP请求、数据探针或测试；这些由前端/QA按获批候选及后续实现分别验收。
+
+## USER-REVISION-BACKEND-1009｜实现与后端自测（2026-10-09）
+
+依据：负责人当前任务表、用户已批准的 `revision-v1` 以及当前 `docs/specs/API_CONTRACT.md` 增量合同。应用基线为 `d9d2939`；本轮后端是唯一应用写入者，固定后停止应用写入并交独立QA。没有修改负责人/其他角色文档或原型。
+
+### 实现范围
+
+- 新增单一迁移：客户兴趣/爱好原值分别改存备注1/备注2，删除生日与提醒字段；加入客户/订单开票资料、订单开票快照、受控商品语言及期初开关。标准语言精确映射；未知旧语言按语言和类型列出计数及最多50个产品ID后抛错，迁移事务回滚，旧字段/行保留，不自动猜映射。若存在 `OpeningBatch` 或已完成入账，开关初始化为关闭。
+- 删除生日页面、URL、API、筛选和提醒偏好；客户 `q` 增加现存别名匹配；客户 API/表单使用备注与开票资料字段。
+- 订单确认事务内创建新客户及首条快递地址，客户/收件人信息分开验证，支持开票资料入档与当单快照。预览绑定全部输入；确认失败回滚客户、地址、订单、占货和操作；同键重放返回原结果。现有客户仅在开票资料实际变化时要求 `change_customer`；散客开票拒绝。
+- 增加库存查询 `order_id` 上下文和 `available_for_order`，保留原 `available` 值；新增受权限约束的商品语言列表、商品+SKU创建、SKU创建、编号建议、当前产品页可选库存扩展，以及带老板身份检查和版本/幂等检查的期初管理开关。
+- 本轮回归揭出并修复新分支中的两处问题：新客订单规范化调用没有传入操作者；SKU/产品行锁查询包含可空语言外连接，PostgreSQL拒绝执行 `FOR UPDATE`。查询现只锁所需主表行，目标回归通过。
+
+### 验证与限制
+
+- Django系统检查通过，`makemigrations --check --dry-run` 显示无模型状态差异；`compileall` 与 `git diff --check` 通过。
+- 使用本机PostgreSQL socket/55439及本轮独立数据库 `aluola_crm_revision_backend_20261009`，运行48项针对性测试全部通过。包含迁移成功/未知值中止并保留旧数据、生日移除、客户API/订单开票、新客原子回滚与幂等、订单可售量与范围、目录商品/SKU创建和重复条码确认、期初权限/开关，以及既有真实PostgreSQL双连接防超卖回归。Django测试运行器创建并删除 `test_aluola_crm_revision_backend_20261009`。
+- 只用了合成数据；没有迁移、读取或更改开发库、演示库、正式数据、服务状态或远端。没有运行全量测试集、浏览器/前端完整链路、或期初开关与入账的双连接竞态；这些留给独立QA按交接矩阵验证。当前不代表UI验收或负责人最终发布。
+
+### 固定交付
+
+应用变更及本工作记录已准备提交。固定提交后停止应用写入；下一步把提交SHA、自测证据和迁移风险交负责人及QA，等待独立测试。QA应在自建隔离PostgreSQL库验证非标准旧语言迁移回滚、完整客户/订单事务和期初竞态，不连接或复制用户/演示数据。

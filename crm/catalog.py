@@ -19,11 +19,20 @@ def _matches(query, values):
     return any(value == query for value in normalized), any(query in value for value in normalized)
 
 
+def duplicate_barcode_candidates(barcode, *, exclude_id=None, lock=False):
+    queryset = SKU.objects.filter(barcode=barcode).select_related("product__brand", "product__language").order_by("id")
+    if exclude_id is not None:
+        queryset = queryset.exclude(pk=exclude_id)
+    if lock:
+        queryset = queryset.select_for_update()
+    return list(queryset)
+
+
 def _product_values(product):
     return [
         product.name,
         product.series,
-        product.language,
+        product.language.name if product.language_id else "",
         product.official_code,
         product.brand.name,
         *product.aliases,
@@ -67,7 +76,7 @@ def _product_queryset(params, *, include_skus=True, include_sku_status=False):
     if filters["type"]:
         queryset = queryset.filter(type=filters["type"])
     if filters["language"]:
-        queryset = queryset.filter(language__icontains=filters["language"])
+        queryset = queryset.filter(language__name__icontains=filters["language"])
     sku_status = filters.get("sku_status")
     sku_queryset = SKU.objects.all()
     if sku_status is None or sku_status == "active":
@@ -149,7 +158,7 @@ def product_data(product):
         "type_label": product.get_type_display(),
         "series": product.series,
         "name": product.name,
-        "language": product.language,
+        "language": product.language.name if product.language_id else "",
         "official_code": product.official_code,
         "aliases": product.aliases,
         "skus": [_sku_summary(sku) for sku in product.skus.all()],
@@ -165,7 +174,7 @@ def sku_data(sku):
             "type": sku.product.type,
             "type_label": sku.product.get_type_display(),
             "series": sku.product.series,
-            "language": sku.product.language,
+            "language": sku.product.language.name if sku.product.language_id else "",
             "official_code": sku.product.official_code,
             "aliases": sku.product.aliases,
         },

@@ -12,7 +12,7 @@ from uuid import uuid4
 from xml.sax.saxutils import escape
 
 from django.contrib.auth import get_user_model
-from django.contrib.auth.models import Group
+from django.contrib.auth.models import Group, Permission
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import close_old_connections, connections, transaction
 from django.db.models.query import QuerySet
@@ -32,6 +32,7 @@ from .models import (
     OpeningBatch,
     OpeningLine,
     Product,
+    ProductLanguageOption,
     Receipt,
     ReceiptImage,
     ReceiptLine,
@@ -50,6 +51,7 @@ from .operations import (
     preview_receipt,
     release_hold,
     update_global_low_stock,
+    update_opening_control,
     update_sku_low_stock,
 )
 from .permissions import ROLE_OWNER, ROLE_SALES, ROLE_WAREHOUSE
@@ -126,7 +128,7 @@ def opening_workbook(product_rows, stock_rows):
 
 
 def product_row(code="TST-0001", *, brand="Synthetic IP", name="Sample Booster", aliases="A；B", barcode="00001234"):
-    return [code, brand, "补充包", "Set 1", name, aliases, "简体中文", "", "20盒/箱", "18包/中盒", "5张/包", "瘦包", "盒", barcode, "标准版"]
+    return [code, brand, "补充包", "Set 1", name, aliases, "简中", "", "20盒/箱", "18包/中盒", "5张/包", "瘦包", "盒", barcode, "标准版"]
 
 
 def stock_row(code="TST-0001", *, warehouse="Synthetic Warehouse", address="Synthetic address", quantity=10, cost="100.000", reserved=0, hoarded=0, hoard_reason="", damaged=0, note=""):
@@ -148,7 +150,7 @@ class Phase2Base(TransactionTestCase):
             type=Product.Type.BOOSTER,
             series="Set 1",
             name="Sample Booster",
-            language="简体中文",
+            language=ProductLanguageOption.objects.get_or_create(name="简中")[0],
             aliases=["A", "B"],
         )
         self.sku = SKU.objects.create(
@@ -460,8 +462,9 @@ class OpeningPhase2Tests(Phase2Base):
 
     def test_preview_requires_manual_ambiguous_product_and_barcode_confirmation_then_confirms_once(self):
         brand = Brand.objects.create(name="Synthetic IP", sku_prefix="TST-")
-        first_product = Product.objects.create(brand=brand, type=Product.Type.BOOSTER, series="Set 1", name="Sample Booster", language="简体中文", aliases=["A", "B"])
-        second_product = Product.objects.create(brand=brand, type=Product.Type.BOOSTER, series="Set 1", name="Sample Booster", language="简体中文", aliases=["A", "B"])
+        language = ProductLanguageOption.objects.get_or_create(name="简中")[0]
+        first_product = Product.objects.create(brand=brand, type=Product.Type.BOOSTER, series="Set 1", name="Sample Booster", language=language, aliases=["A", "B"])
+        second_product = Product.objects.create(brand=brand, type=Product.Type.BOOSTER, series="Set 1", name="Sample Booster", language=language, aliases=["A", "B"])
         SKU.objects.create(product=first_product, code="TST-0008", unit="盒", barcode="00001234")
         SKU.objects.create(product=second_product, code="TST-0009", unit="盒", barcode="00001234")
         content = opening_workbook([product_row()], [stock_row(reserved=2, hoarded=3, hoard_reason="manual hold", damaged=1)])
@@ -502,7 +505,30 @@ class OpeningPhase2Tests(Phase2Base):
         self.assertEqual(DamagedRecord.objects.get(balance=balance).remaining_quantity, 1)
         self.assertEqual(InventoryMovement.objects.filter(operation__opening_batch_id=result["opening_batch_id"]).count(), 1)
         self.assertTrue(BusinessControl.objects.get(pk=1).opening_completed)
-        self.assertEqual(BusinessControl.objects.get(pk=1).last_sequence, result["sequence"])
+        control = BusinessControl.objects.get(pk=1)
+        self.assertEqual(control.last_sequence, result["sequence"])
+        self.assertFalse(control.opening_enabled)
+        with self.assertRaises(OperationError) as closed:
+            update_opening_control(self.owner, {
+                "enabled": True,
+                "expected_version": control.last_sequence,
+                "operation_key": uuid4(),
+            })
+        self.assertEqual(closed.exception.code, "opening_closed")
+
+    def test_opening_rejects_unknown_language_at_product_row(self):
+        row = product_row(code="TST-9999", name="Unknown Language Booster")
+        row[6] = "未维护语言"
+        before = (Product.objects.count(), SKU.objects.count(), ProductLanguageOption.objects.count())
+        with self.assertRaises(OperationError) as error:
+            preview_opening(
+                self.user,
+                opening_workbook([row], [stock_row(code="TST-9999")]),
+                "opening.xlsx",
+            )
+        language_error = next(item for item in error.exception.fields["rows"] if item["field"] == "语言版本")
+        self.assertEqual((language_error["sheet"], language_error["row"]), ("商品档案", 2))
+        self.assertEqual((Product.objects.count(), SKU.objects.count(), ProductLanguageOption.objects.count()), before)
 
     def test_parser_reports_missing_cost_and_rejects_formula_without_writing(self):
         content = opening_workbook([product_row()], [stock_row(cost="", quantity=3)])
@@ -896,3 +922,44 @@ class ImageAndLoggingPhase2Tests(Phase2Base):
             self.assertFalse(os.path.exists(old_backup))
             logger.removeHandler(handler)
             handler.close()
+
+
+class OpeningControlPhase2Tests(Phase2Base):
+    def test_owner_can_toggle_with_stock_but_permission_alone_cannot(self):
+        InventoryBalance.objects.create(
+            sku=self.sku,
+            warehouse=self.warehouse,
+            on_hand=2,
+            cost_amount=Decimal("2.000"),
+        )
+        permission = Permission.objects.get(content_type__app_label="crm", codename="manage_opening")
+        self.user.user_permissions.add(permission)
+        with self.assertRaises(OperationError) as denied:
+            update_opening_control(self.user, {
+                "enabled": False,
+                "expected_version": 0,
+                "operation_key": uuid4(),
+            })
+        self.assertEqual(denied.exception.code, "permission_denied")
+
+        close = {
+            "enabled": False,
+            "expected_version": 0,
+            "operation_key": uuid4(),
+        }
+        disabled = update_opening_control(self.owner, close)
+        self.assertFalse(disabled["enabled"])
+        self.assertEqual(update_opening_control(self.owner, close), disabled)
+        enabled = update_opening_control(self.owner, {
+            "enabled": True,
+            "expected_version": disabled["sequence"],
+            "operation_key": uuid4(),
+        })
+        self.assertTrue(enabled["enabled"])
+        control = BusinessControl.objects.get(pk=1)
+        self.assertEqual(control.last_sequence, enabled["sequence"])
+        self.assertTrue(control.opening_enabled)
+
+        with self.assertRaises(OperationError) as inventory_guard:
+            preview_opening(self.user, opening_workbook([product_row()], [stock_row()]), "opening.xlsx")
+        self.assertEqual(inventory_guard.exception.code, "opening_closed")

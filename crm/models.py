@@ -33,6 +33,23 @@ class Brand(models.Model):
         return self.name
 
 
+class ProductLanguageOption(models.Model):
+    name = models.CharField("语言版本", max_length=80, unique=True)
+
+    class Meta:
+        ordering = ("id",)
+        verbose_name = "商品语言"
+        verbose_name_plural = "商品语言"
+
+    def __str__(self):
+        return self.name
+
+    def clean(self):
+        self.name = self.name.strip()
+        if not self.name:
+            raise ValidationError({"name": "语言名称不能为空。"})
+
+
 class Product(models.Model):
     class Type(models.TextChoices):
         BOOSTER = "booster", "补充包"
@@ -43,7 +60,10 @@ class Product(models.Model):
     type = models.CharField("商品类型", max_length=16, choices=Type.choices)
     series = models.CharField("系列", max_length=120, blank=True)
     name = models.CharField("产品名", max_length=255)
-    language = models.CharField("语言版本", max_length=80, blank=True)
+    language = models.ForeignKey(
+        ProductLanguageOption, verbose_name="语言版本", null=True, blank=True,
+        on_delete=models.PROTECT, related_name="products",
+    )
     official_code = models.CharField("官方编号", max_length=100, blank=True)
     aliases = models.JSONField("产品别名", default=list, blank=True, validators=[validate_aliases])
     is_active = models.BooleanField("启用", default=True)
@@ -56,7 +76,7 @@ class Product(models.Model):
                 name="crm_product_type_valid",
             ),
             models.CheckConstraint(
-                condition=~Q(type__in=["booster", "gift_set"]) | Q(language__gt=""),
+                condition=~Q(type__in=["booster", "gift_set"]) | Q(language__isnull=False),
                 name="crm_product_language_required",
             ),
         ]
@@ -64,7 +84,6 @@ class Product(models.Model):
     def clean(self):
         self.series = self.series.strip()
         self.name = self.name.strip()
-        self.language = self.language.strip()
         self.official_code = self.official_code.strip()
         self.aliases = [value.strip() for value in self.aliases if value.strip()]
         self.aliases = list(dict.fromkeys(self.aliases))
@@ -72,7 +91,7 @@ class Product(models.Model):
         errors = {}
         if not self.name:
             errors["name"] = "产品名不能为空。"
-        if self.type in (self.Type.BOOSTER, self.Type.GIFT_SET) and not self.language:
+        if self.type in (self.Type.BOOSTER, self.Type.GIFT_SET) and not self.language_id:
             errors["language"] = "补充包及礼盒·预组必须填写语言版本。"
         if errors:
             raise ValidationError(errors)
@@ -85,7 +104,7 @@ class Product(models.Model):
     def __str__(self):
         parts = [self.name]
         if self.language:
-            parts.append(self.language)
+            parts.append(self.language.name)
         return " · ".join(parts)
 
 
@@ -190,9 +209,13 @@ class BusinessControl(models.Model):
     low_stock_enabled = models.BooleanField(default=True)
     default_threshold = models.PositiveBigIntegerField(default=5)
     opening_completed = models.BooleanField(default=False)
+    opening_enabled = models.BooleanField(default=True)
 
     class Meta:
-        permissions = (("manage_global_low_stock", "管理全局低库存提醒"),)
+        permissions = (
+            ("manage_global_low_stock", "管理全局低库存提醒"),
+            ("manage_opening", "管理正式期初入口"),
+        )
 
 
 class InventoryBalance(models.Model):
@@ -534,9 +557,11 @@ class Customer(models.Model):
     contact = models.TextField()
     company = models.CharField(max_length=200, blank=True)
     aliases = models.JSONField(default=list, blank=True, validators=[validate_aliases])
-    birthday = models.DateField(null=True, blank=True)
-    interests = models.TextField(blank=True)
-    hobbies = models.TextField(blank=True)
+    note1 = models.TextField("备注1", blank=True)
+    note2 = models.TextField("备注2", blank=True)
+    invoice_title = models.CharField("发票抬头", max_length=255, blank=True)
+    invoice_credit_code = models.CharField("统一社会信用代码", max_length=100, blank=True)
+    invoice_email = models.CharField("发票邮箱", max_length=254, blank=True)
     is_active = models.BooleanField(default=True)
     version = models.PositiveIntegerField(default=1)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -581,7 +606,6 @@ class Channel(models.Model):
 
 class AccountProfile(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="crm_profile")
-    birthday_reminder_enabled = models.BooleanField(default=True)
     version = models.PositiveIntegerField(default=1)
 
 
@@ -634,6 +658,10 @@ class SalesOrder(models.Model):
     province_snapshot = models.CharField(max_length=80, blank=True)
     city_snapshot = models.CharField(max_length=80, blank=True)
     detail_snapshot = models.TextField(blank=True)
+    requires_invoice = models.BooleanField(default=False)
+    invoice_title = models.CharField(max_length=255, blank=True)
+    invoice_credit_code = models.CharField(max_length=100, blank=True)
+    invoice_email = models.CharField(max_length=254, blank=True)
     remarks = models.TextField(blank=True)
     revenue_amount = models.DecimalField(max_digits=20, decimal_places=3, default=0)
     cost_amount = models.DecimalField(max_digits=20, decimal_places=3, default=0)

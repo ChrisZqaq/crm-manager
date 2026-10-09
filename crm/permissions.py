@@ -22,7 +22,10 @@ WAREHOUSE_OPERATION_PERMISSIONS = (
     ("crm", "release_inventory_hold"),
     ("crm", "manage_sku_low_stock"),
 )
-OWNER_OPERATION_PERMISSIONS = WAREHOUSE_OPERATION_PERMISSIONS + (("crm", "manage_global_low_stock"),)
+OWNER_OPERATION_PERMISSIONS = WAREHOUSE_OPERATION_PERMISSIONS + (
+    ("crm", "manage_global_low_stock"),
+    ("crm", "manage_opening"),
+)
 
 MANAGEABLE_PERMISSIONS = {
     ("crm", f"{action}_{model}")

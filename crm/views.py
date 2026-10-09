@@ -19,7 +19,6 @@ from io import BytesIO
 
 from .catalog import CatalogQueryError, paginate, search_products, search_skus, search_warehouses
 from .models import (
-    AccountProfile,
     Brand,
     BusinessControl,
     Channel,
@@ -31,6 +30,7 @@ from .models import (
     PaymentRecord,
     ReceiptImage,
     OpeningBatch,
+    ProductLanguageOption,
     Receipt,
     SalesOrder,
     SalesOrderLine,
@@ -47,9 +47,14 @@ from .operations import (
     hold_rows,
     identifier,
     inventory_rows,
+    opening_control_data,
+    create_catalog_product,
+    create_catalog_sku,
     release_hold,
     update_global_low_stock,
+    update_opening_control,
     update_sku_low_stock,
+    sku_number_suggestion,
     preview_receipt,
 )
 from .opening import confirm_opening, preview_opening
@@ -92,7 +97,6 @@ from .sales import (
     sales_order_commission_visible_to,
     sales_order_queryset_for,
     transfer_customer,
-    update_birthday_preference,
     update_customer,
 )
 from .reports import REPORTS, _date_criteria, build_report, page_report_data, workbook_bytes
@@ -110,10 +114,10 @@ def _request_id(request):
     return str(uuid.uuid4())
 
 
-def _api_error(request, status, code, message, fields=None):
+def _api_error(request, status, code, message, fields=None, details=None):
     return JsonResponse(
         {
-            "error": {"code": code, "message": message, "fields": fields or {}, "details": {}},
+            "error": {"code": code, "message": message, "fields": fields or {}, "details": details or {}},
             "request_id": _request_id(request),
         },
         status=status,
@@ -124,7 +128,7 @@ def _api_operation(request, function, *args):
     try:
         return JsonResponse(function(*args, request_id=_request_id(request)))
     except OperationError as exc:
-        return _api_error(request, exc.status, exc.code, str(exc), exc.fields)
+        return _api_error(request, exc.status, exc.code, str(exc), exc.fields, exc.details)
     except Exception:
         return _api_error(request, 500, "server_error", "操作失败，请联系管理员并提供请求编号。")
 
@@ -150,7 +154,7 @@ def _operation_error_response(request, callback):
     try:
         return callback()
     except OperationError as exc:
-        return _api_error(request, exc.status, exc.code, str(exc), exc.fields)
+        return _api_error(request, exc.status, exc.code, str(exc), exc.fields, exc.details)
     except Exception:
         return _api_error(request, 500, "server_error", "操作失败，请联系管理员并提供请求编号。")
 
@@ -172,19 +176,62 @@ def _api_list(request, items):
     return JsonResponse(page)
 
 
-@require_safe
+@require_http_methods(["GET", "POST"])
 def products_api(request):
-    error = _require_api_access(request, CATALOG_VIEW_PERMISSIONS[:2] + (CATALOG_VIEW_PERMISSIONS[2],))
+    if request.method == "POST":
+        error = _require_api_access(request, (("crm", "add_product"), ("crm", "add_sku")))
+        if error:
+            return error
+        try:
+            data = _json_body(request)
+            operation_key = data.pop("operation_key", None)
+            return _api_operation(request, create_catalog_product, request.user, data, operation_key)
+        except OperationError as exc:
+            return _api_error(request, exc.status, exc.code, str(exc), exc.fields, exc.details)
+    error = _require_api_access(request, CATALOG_VIEW_PERMISSIONS[:3])
     if error:
         return error
     try:
+        include_inventory = request.GET.get("include_inventory", "false")
+        if include_inventory not in ("true", "false"):
+            return _api_error(request, 400, "invalid_filter", "include_inventory须为true或false。", {"include_inventory": "请输入true或false。"})
+        if include_inventory == "true":
+            error = _require_api_access(request, (("crm", "view_inventorybalance"),))
+            if error:
+                return error
+            result = paginate(search_products(request.GET), request.GET)
+            sku_ids = {sku["id"] for product in result["items"] for sku in product["skus"]}
+            balances = InventoryBalance.objects.filter(sku_id__in=sku_ids).select_related("warehouse", "sku").order_by("id")
+            by_sku = {}
+            for balance in balances:
+                by_sku.setdefault(balance.sku_id, []).append({
+                    "warehouse_id": str(balance.warehouse_id),
+                    "warehouse": balance.warehouse.name,
+                    "available": balance.on_hand - balance.occupied - balance.reserved - balance.hoarded - balance.damaged,
+                    "unit": balance.sku.unit,
+                })
+            for product in result["items"]:
+                for sku in product["skus"]:
+                    sku["inventory"] = by_sku.get(sku["id"], [])
+            result["queried_at"] = timezone.localtime().isoformat(timespec="seconds")
+            return JsonResponse(result)
         return _api_list(request, search_products(request.GET))
     except CatalogQueryError as exc:
         return _api_error(request, 400, "invalid_filter", str(exc), {"filters": str(exc)})
 
 
-@require_safe
+@require_http_methods(["GET", "POST"])
 def skus_api(request):
+    if request.method == "POST":
+        error = _require_api_access(request, (("crm", "add_sku"),))
+        if error:
+            return error
+        try:
+            data = _json_body(request)
+            operation_key = data.pop("operation_key", None)
+            return _api_operation(request, create_catalog_sku, request.user, data, operation_key)
+        except OperationError as exc:
+            return _api_error(request, exc.status, exc.code, str(exc), exc.fields, exc.details)
     error = _require_api_access(request, CATALOG_VIEW_PERMISSIONS[:3])
     if error:
         return error
@@ -192,6 +239,25 @@ def skus_api(request):
         return _api_list(request, search_skus(request.GET))
     except CatalogQueryError as exc:
         return _api_error(request, 400, "invalid_filter", str(exc), {"filters": str(exc)})
+
+
+@require_safe
+def product_languages_api(request):
+    error = _require_api_access(request, CATALOG_VIEW_PERMISSIONS[:3])
+    if error:
+        return error
+    return JsonResponse({"items": list(ProductLanguageOption.objects.order_by("id").values("id", "name"))})
+
+
+@require_safe
+def sku_number_suggestion_api(request):
+    error = _require_api_access(request, (("crm", "add_product"),))
+    if error:
+        return error
+    try:
+        return JsonResponse(sku_number_suggestion(request.user, request.GET.get("brand_id")))
+    except OperationError as exc:
+        return _api_error(request, exc.status, exc.code, str(exc), exc.fields, exc.details)
 
 
 @require_safe
@@ -475,6 +541,22 @@ def opening_confirm_api(request):
     try:
         data = _json_body(request)
         return _api_operation(request, confirm_opening, request.user, data.get("operation_key"), data.get("preview_token"))
+    except OperationError as exc:
+        return _api_error(request, exc.status, exc.code, str(exc), exc.fields)
+
+
+@require_http_methods(["GET", "PATCH"])
+def opening_control_api(request):
+    error = _require_api_access(request, ())
+    if error:
+        return error
+    if request.method == "GET":
+        try:
+            return JsonResponse(opening_control_data(request.user))
+        except OperationError as exc:
+            return _api_error(request, exc.status, exc.code, str(exc), exc.fields)
+    try:
+        return _api_operation(request, update_opening_control, request.user, _json_body(request))
     except OperationError as exc:
         return _api_error(request, exc.status, exc.code, str(exc), exc.fields)
 
@@ -839,21 +921,22 @@ def adjustments_page(request):
     })
 
 
-def _customer_data(customer, *, birthday_today=False):
+def _customer_data(customer):
     return {
         "id": customer.pk,
         "name": customer.name,
         "contact": customer.contact,
         "company": customer.company,
         "aliases": customer.aliases,
-        "birthday": customer.birthday.isoformat() if customer.birthday else None,
-        "interests": customer.interests,
-        "hobbies": customer.hobbies,
+        "note1": customer.note1,
+        "note2": customer.note2,
+        "invoice_title": customer.invoice_title,
+        "invoice_credit_code": customer.invoice_credit_code,
+        "invoice_email": customer.invoice_email,
         "owner_id": customer.owner_id,
         "owner_name": customer.owner.get_username(),
         "is_active": customer.is_active,
         "version": customer.version,
-        "birthday_today": birthday_today,
         "addresses": [
             {
                 "id": address.pk,
@@ -890,6 +973,10 @@ def _sales_order_data(order, actor):
         "city": order.city_snapshot,
         "detail": order.detail_snapshot,
         "remarks": order.remarks,
+        "requires_invoice": order.requires_invoice,
+        "invoice_title": order.invoice_title,
+        "invoice_credit_code": order.invoice_credit_code,
+        "invoice_email": order.invoice_email,
         "revenue_amount": f"{order.revenue_amount:.3f}",
         "cost_amount": f"{order.cost_amount:.3f}",
         "margin_amount": f"{order.margin_amount:.3f}",
@@ -1003,13 +1090,8 @@ def customers_api(request):
     if error:
         return error
     include_archived = request.GET.get("include_archived", "false")
-    birthday_filter = request.GET.get("birthday_today", "false")
-    if include_archived not in ("true", "false") or birthday_filter not in ("true", "false"):
+    if include_archived not in ("true", "false"):
         return _api_error(request, 400, "invalid_filter", "筛选参数须为true或false。")
-    profile = AccountProfile.objects.filter(user=request.user).first()
-    reminders_enabled = profile.birthday_reminder_enabled if profile else True
-    if birthday_filter == "true" and not reminders_enabled:
-        return _api_error(request, 409, "preference_disabled", "生日提醒已关闭。")
     items = customer_queryset_for(request.user).select_related("owner")
     if include_archived == "false":
         items = items.filter(is_active=True)
@@ -1031,19 +1113,15 @@ def customers_api(request):
         items = items.filter(owner_id=owner_id)
     query = request.GET.get("q", "").strip()
     if query:
-        items = items.filter(Q(name__icontains=query) | Q(company__icontains=query) | Q(contact__icontains=query))
-    today = timezone.localdate()
-    if birthday_filter == "true":
-        items = items.filter(birthday__month=today.month, birthday__day=today.day)
+        items = items.filter(
+            Q(name__icontains=query) | Q(company__icontains=query)
+            | Q(contact__icontains=query) | Q(aliases__icontains=query)
+        )
     try:
         page = paginate(items.order_by("name", "id"), request.GET)
     except CatalogQueryError as exc:
         return _api_error(request, 400, "invalid_pagination", str(exc), {"page": str(exc)})
-    page["items"] = [
-        _customer_data(item, birthday_today=bool(item.birthday and (item.birthday.month, item.birthday.day) == (today.month, today.day)))
-        for item in page["items"]
-    ]
-    page["birthday_reminder_enabled"] = reminders_enabled
+    page["items"] = [_customer_data(item) for item in page["items"]]
     page["filter_options"] = filter_options
     page["queried_at"] = timezone.localtime().isoformat(timespec="seconds")
     return JsonResponse(page)
@@ -1087,41 +1165,6 @@ def customer_transfer_api(request, customer_id):
         return _api_operation(request, transfer_customer, request.user, customer_id, _json_body(request))
     except OperationError as exc:
         return _api_error(request, exc.status, exc.code, str(exc), exc.fields)
-
-
-@require_http_methods(["GET", "PATCH"])
-def preferences_api(request):
-    error = _require_api_access(request, ())
-    if error:
-        return error
-    if request.method == "GET":
-        profile = AccountProfile.objects.filter(user=request.user).first()
-        return JsonResponse({
-            "birthday_reminder_enabled": profile.birthday_reminder_enabled if profile else True,
-            "version": profile.version if profile else 1,
-        })
-    try:
-        result = update_birthday_preference(request.user, _json_body(request))
-        return JsonResponse(result)
-    except OperationError as exc:
-        return _api_error(request, exc.status, exc.code, str(exc), exc.fields)
-
-
-@require_safe
-def birthdays_api(request):
-    error = _require_api_access(request, (("crm", "view_customer"),))
-    if error:
-        return error
-    profile = AccountProfile.objects.filter(user=request.user).first()
-    enabled = profile.birthday_reminder_enabled if profile else True
-    today = timezone.localdate()
-    items = []
-    if enabled:
-        customers = customer_queryset_for(request.user).filter(
-            is_active=True, birthday__month=today.month, birthday__day=today.day
-        ).select_related("owner").order_by("name", "id")
-        items = [_customer_data(item, birthday_today=True) for item in customers]
-    return JsonResponse({"date": today.isoformat(), "birthday_reminder_enabled": enabled, "items": items})
 
 
 @require_http_methods(["GET", "POST"])
@@ -1410,24 +1453,6 @@ def customer_form_page(request, customer_id=None):
         "can_select_owner": can_select_owner,
         "can_transfer": bool(customer and (request.user.is_superuser or request.user.has_perm("crm.change_customer_owner"))),
     })
-
-
-@login_required
-@require_safe
-def birthdays_page(request):
-    _require_page_permission(request, "view_customer")
-    profile = AccountProfile.objects.filter(user=request.user).first()
-    enabled = profile.birthday_reminder_enabled if profile else True
-    today = timezone.localdate()
-    customers = []
-    if enabled:
-        customers = [
-            _customer_data(item, birthday_today=True)
-            for item in customer_queryset_for(request.user).filter(
-                is_active=True, birthday__month=today.month, birthday__day=today.day
-            ).select_related("owner").order_by("name", "id")
-        ]
-    return render(request, "crm/birthdays.html", {"customers": customers, "enabled": enabled, "today": today})
 
 
 @login_required

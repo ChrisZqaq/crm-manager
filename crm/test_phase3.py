@@ -1,7 +1,6 @@
 import json
 import threading
 from concurrent.futures import ThreadPoolExecutor
-from datetime import date, datetime
 from decimal import Decimal
 from unittest.mock import patch
 from uuid import uuid4
@@ -10,15 +9,13 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group, Permission
 from django.db import close_old_connections, connection
 from django.test import Client
-from django.utils import timezone
-from zoneinfo import ZoneInfo
 
 from .models import (
-    AccountProfile,
     BusinessControl,
     BusinessOperation,
     Channel,
     Customer,
+    CustomerAddress,
     InventoryBalance,
     SalesOrder,
     SalesOrderLine,
@@ -63,9 +60,8 @@ class Phase3Base(Phase2Base):
             "contact": "wechat: customer text, not a phone number",
             "company": "Synthetic Company",
             "aliases": ["First", "First"],
-            "birthday": None,
-            "interests": "Collecting",
-            "hobbies": "Reading",
+            "note1": "Collecting",
+            "note2": "Reading",
             "addresses": [{
                 "recipient": "Synthetic Recipient",
                 "phone": "address phone text",
@@ -439,62 +435,94 @@ class CustomerPhase3Tests(Phase3Base):
         self.assertEqual(SalesOrder.objects.count(), 0)
         self.assertEqual(InventoryBalance.objects.get(pk=self.balance.pk).occupied, 0)
 
-    def test_birthday_today_is_shanghai_personal_and_february_29_exact(self):
-        leap = self.create_customer(birthday="2000-02-29", name="Leap Customer")
-        ordinary = self.create_customer(actor=self.sales_two, birthday="2000-02-28", name="Ordinary Customer")
+    def test_birthday_routes_filters_and_legacy_fields_are_removed(self):
+        self.create_customer()
         client = Client()
         client.force_login(self.sales)
-        with patch("crm.views.timezone.localdate", return_value=date(2025, 2, 28)):
-            self.assertEqual(client.get("/api/v1/birthdays").json()["items"], [])
-        with patch("crm.views.timezone.localdate", return_value=date(2024, 2, 29)):
-            birthday_list = client.get("/api/v1/birthdays").json()
-            self.assertEqual([item["id"] for item in birthday_list["items"]], [leap.pk])
-
-        response = client.patch(
-            "/api/v1/me/preferences",
-            data=json.dumps({"birthday_reminder_enabled": False, "expected_version": 1, "operation_key": str(uuid4())}),
-            content_type="application/json",
-        )
-        self.assertEqual(response.status_code, 200)
-        with patch("crm.views.timezone.localdate", return_value=date(2024, 2, 29)):
-            disabled = client.get("/api/v1/birthdays").json()
-            self.assertFalse(disabled["birthday_reminder_enabled"])
-            self.assertEqual(disabled["items"], [])
-        self.assertTrue(Customer.objects.filter(pk=leap.pk, birthday=date(2000, 2, 29)).exists())
-        self.assertTrue(AccountProfile.objects.get(user=self.sales).birthday_reminder_enabled is False)
-        self.assertFalse(AccountProfile.objects.filter(user=self.sales_two).exists())
-        self.assertTrue(ordinary.birthday)
-        reenabled = client.patch(
-            "/api/v1/me/preferences",
-            data=json.dumps({"birthday_reminder_enabled": True, "expected_version": 2, "operation_key": str(uuid4())}),
-            content_type="application/json",
-        )
-        self.assertEqual(reenabled.status_code, 200)
-        with patch("crm.views.timezone.localdate", return_value=date(2024, 2, 29)):
-            self.assertEqual([item["id"] for item in client.get("/api/v1/birthdays").json()["items"]], [leap.pk])
-
-    def test_birthday_today_uses_shanghai_midnight(self):
-        customer = self.create_customer(birthday="2000-03-01", name="Shanghai Midnight Customer")
-        client = Client()
-        client.force_login(self.sales)
-        instant = datetime(2025, 2, 28, 16, 30, tzinfo=ZoneInfo("UTC"))
-        with timezone.override(ZoneInfo("Asia/Shanghai")), patch("crm.views.timezone.now", return_value=instant):
-            response = client.get("/api/v1/birthdays").json()
-        self.assertEqual(response["date"], "2025-03-01")
-        self.assertEqual([item["id"] for item in response["items"]], [customer.pk])
-
-    def test_birthday_requires_canonical_iso_date(self):
         with self.assertRaises(OperationError) as error:
-            self.create_customer(birthday="20000229")
-        self.assertIn("YYYY-MM-DD", error.exception.fields["birthday"])
+            self.create_customer(birthday="legacy")
+        self.assertIn("birthday", error.exception.fields)
+        self.assertEqual(client.get("/api/v1/birthdays").status_code, 404)
+        self.assertEqual(client.get("/api/v1/me/preferences").status_code, 404)
+        self.assertEqual(client.get("/birthdays/").status_code, 404)
+        all_customers = client.get("/api/v1/customers").json()["items"]
+        retired_filter = client.get("/api/v1/customers?birthday_today=true")
+        self.assertEqual(retired_filter.status_code, 200)
+        self.assertEqual(retired_filter.json()["items"], all_customers)
 
-    def test_customer_edit_and_birthday_pages_render_for_sales(self):
+    def test_customer_invoice_fields_alias_search_and_order_snapshot_sync(self):
+        customer = self.create_customer(
+            invoice_title="档案抬头初始值",
+            invoice_credit_code="初始代码",
+            invoice_email="initial@example.test",
+        )
+        customer_client = Client()
+        customer_client.force_login(self.sales)
+        customer_result = customer_client.get("/api/v1/customers", {"q": "First"}).json()["items"]
+        self.assertEqual(len(customer_result), 1)
+        self.assertEqual(customer_result[0]["id"], customer.pk)
+        self.assertEqual((customer_result[0]["note1"], customer_result[0]["note2"]), ("Collecting", "Reading"))
+        self.assertEqual(customer_result[0]["invoice_title"], "档案抬头初始值")
+        self.assertNotIn("birthday", customer_result[0])
+        updated_customer = customer_client.patch(
+            f"/api/v1/customers/{customer.pk}",
+            data=json.dumps({
+                "expected_version": customer.version,
+                "operation_key": str(uuid4()),
+                "note1": "服务端更新备注",
+                "invoice_title": "档案抬头初始值",
+            }),
+            content_type="application/json",
+        )
+        self.assertEqual(updated_customer.status_code, 200, updated_customer.content)
+        self.assertEqual(customer_client.get("/api/v1/customers", {"q": "First"}).json()["items"][0]["note1"], "服务端更新备注")
+
+        self.balance.on_hand = 10
+        self.balance.save(update_fields=("on_hand",))
+        base = {
+            "customer_id": customer.pk,
+            "requires_invoice": True,
+        }
+        _, first_result, first_order = self.preview_and_confirm(self.order_payload(**base))
+        self.assertEqual(first_result["customer_id"], customer.pk)
+        self.assertEqual(first_order.invoice_title, "档案抬头初始值")
+
+        sales_group = Group.objects.get(name=ROLE_SALES)
+        change_customer = Permission.objects.get(content_type__app_label="crm", codename="change_customer")
+        sales_group.permissions.remove(change_customer)
+        self.sales = self.User.objects.get(pk=self.sales.pk)
+        _, _, unchanged_order = self.preview_and_confirm(self.order_payload(**base))
+        self.assertEqual(unchanged_order.invoice_title, "档案抬头初始值")
+        with self.assertRaises(OperationError) as denied:
+            preview_sales_order(self.sales, self.order_payload(**{
+                **base,
+                "invoice_title": "未经授权的新抬头",
+            }))
+        self.assertEqual(denied.exception.code, "permission_denied")
+
+        self.sales.user_permissions.add(change_customer)
+        self.sales = self.User.objects.get(pk=self.sales.pk)
+        self.assertTrue(self.sales.has_perm("crm.change_customer"))
+        _, _, updated_order = self.preview_and_confirm(self.order_payload(**{
+            **base,
+            "invoice_title": "订单新抬头",
+            "invoice_credit_code": "新代码",
+            "invoice_email": "new@example.test",
+        }))
+        customer.refresh_from_db()
+        first_order.refresh_from_db()
+        self.assertEqual((customer.invoice_title, customer.invoice_credit_code, customer.invoice_email), (
+            "订单新抬头", "新代码", "new@example.test",
+        ))
+        self.assertEqual(first_order.invoice_title, "档案抬头初始值")
+        self.assertEqual(updated_order.invoice_title, "订单新抬头")
+
+    def test_customer_pages_render_for_sales(self):
         customer = self.create_customer()
         client = Client()
         client.force_login(self.sales)
         self.assertEqual(client.get("/customers/").status_code, 200)
         self.assertEqual(client.get(f"/customers/{customer.pk}/edit/").status_code, 200)
-        self.assertEqual(client.get("/birthdays/").status_code, 200)
 
 
 class SalesOrderPhase3Tests(Phase3Base):
@@ -785,3 +813,90 @@ class SalesOrderPhase3Tests(Phase3Base):
         self.assertEqual(warehouse.get("/orders/").status_code, 200)
         self.assertTrue(sales_order_queryset_for(self.user).filter(pk=order.pk).exists())
         self.assertFalse(sales_order_queryset_for(self.sales_two).filter(pk=order.pk).exists())
+
+    def test_order_new_customer_invoice_is_atomic_and_idempotent(self):
+        payload = self.order_payload(
+            delivery_mode=SalesOrder.DeliveryMode.SHIPMENT,
+            address_snapshot={
+                "recipient": "收件人甲",
+                "contact": "收件电话甲",
+                "province": "上海市",
+                "city": "上海市",
+                "detail": "合成路 1 号",
+            },
+            new_customer={"name": "档案客户乙", "contact": "客户电话乙"},
+            requires_invoice=True,
+            invoice_title="开票抬头乙",
+            invoice_credit_code="合成代码乙",
+            invoice_email="invoice@example.test",
+        )
+        with self.assertRaises(OperationError) as walk_in:
+            preview_sales_order(self.sales, self.order_payload(
+                requires_invoice=True,
+                invoice_title="散客不应开票",
+            ))
+        self.assertIn("requires_invoice", walk_in.exception.fields)
+        with self.assertRaises(OperationError) as address_input:
+            preview_sales_order(self.sales, self.order_payload(**{
+                **payload,
+                "new_customer": {"name": "档案客户乙", "contact": "客户电话乙", "addresses": []},
+            }))
+        self.assertIn("new_customer.addresses", address_input.exception.fields)
+        with self.assertRaises(OperationError) as customer_source:
+            preview_sales_order(self.sales, self.order_payload(**{**payload, "customer_id": 9999}))
+        self.assertIn("new_customer", customer_source.exception.fields)
+        preview = preview_sales_order(self.sales, payload)
+        key = uuid4()
+        manager = SalesOrderLine.objects
+        real_create = manager.create
+
+        with patch.object(manager, "create", side_effect=RuntimeError("synthetic order-line failure")):
+            with self.assertRaisesRegex(RuntimeError, "order-line failure"):
+                confirm_sales_order(self.sales, key, preview["preview_token"])
+
+        self.assertEqual(Customer.objects.count(), 0)
+        self.assertEqual(CustomerAddress.objects.count(), 0)
+        self.assertEqual(SalesOrder.objects.count(), 0)
+        self.assertEqual(BusinessOperation.objects.count(), 0)
+        self.assertEqual(InventoryBalance.objects.get(pk=self.balance.pk).occupied, 0)
+
+        with patch.object(manager, "create", wraps=real_create):
+            result = confirm_sales_order(self.sales, key, preview["preview_token"])
+        replay = confirm_sales_order(self.sales, key, preview["preview_token"])
+        self.assertEqual(replay, result)
+        self.assertEqual(Customer.objects.count(), 1)
+        self.assertEqual(CustomerAddress.objects.count(), 1)
+        customer = Customer.objects.get(pk=result["customer_id"])
+        address = CustomerAddress.objects.get(customer=customer)
+        order = SalesOrder.objects.get(pk=result["order_id"])
+        self.assertEqual((customer.name, customer.contact), ("档案客户乙", "客户电话乙"))
+        self.assertEqual((address.recipient, address.contact), ("收件人甲", "收件电话甲"))
+        self.assertEqual((order.contact_snapshot, order.invoice_title, order.invoice_credit_code, order.invoice_email), (
+            "收件电话甲", "开票抬头乙", "合成代码乙", "invoice@example.test",
+        ))
+        customer.invoice_title = "后续档案抬头"
+        customer.save(update_fields=("invoice_title",))
+        order.refresh_from_db()
+        self.assertEqual(order.invoice_title, "开票抬头乙")
+
+    def test_inventory_order_context_adds_back_only_visible_active_order_occupancy(self):
+        _, _, order = self.preview_and_confirm()
+        client = Client()
+        client.force_login(self.sales)
+
+        ordinary = client.get("/api/v1/inventory", {"sku_id": self.sku.pk})
+        contextual = client.get("/api/v1/inventory", {"sku_id": self.sku.pk, "order_id": order.pk})
+        self.assertEqual(ordinary.status_code, 200)
+        self.assertEqual(contextual.status_code, 200)
+        ordinary_row = ordinary.json()["items"][0]
+        contextual_row = contextual.json()["items"][0]
+        self.assertEqual(ordinary_row["available"], 1)
+        self.assertNotIn("available_for_order", ordinary_row)
+        self.assertEqual(contextual_row["available"], 1)
+        self.assertEqual(contextual_row["available_for_order"], 3)
+
+        other_sales = Client()
+        other_sales.force_login(self.sales_two)
+        denied = other_sales.get("/api/v1/inventory", {"sku_id": self.sku.pk, "order_id": order.pk})
+        self.assertEqual(denied.status_code, 404)
+        self.assertEqual(denied.json()["error"]["code"], "not_found")
