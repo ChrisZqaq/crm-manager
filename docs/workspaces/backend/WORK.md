@@ -240,4 +240,15 @@ UV_PROJECT_ENVIRONMENT=/Users/chrisz/.cache/aluola-crm-uiquery1-venv CRM_DB_NAME
 2. 客户开票资料本来与订单输入一致，没有嵌套更新操作；撤销 `change_customer` 后原样重放仍成功。
 3. 保留 `change_customer`，但将客户转出操作者当前维护范围；原样重放返回404。
 
-建议在 `crm/test_phase3.py` 现有客户开票/订单确认测试附近覆盖；当前等待QA完整结果及负责人安排唯一应用写入者。
+建议在 `crm/test_phase3.py` 现有客户开票/订单确认测试附近覆盖。上述为收到正式修复窗口前的只读状态；授权实施与复测结果见下节。
+
+### 授权修复与固定交付（2026-10-09）
+
+负责人正式开放修复窗口后，仅修改 `crm/sales.py` 与 `crm/test_phase3.py`。应用固定提交：`694aaad08dfaa12b92bf3e18360edf686b588f92`；提交后已停止应用写入。
+
+- 重放命中时，仅按当前 `operation_key` 查找关联 `customer_order_invoice_update`。找到记录才重新检查 `change_customer` 及 `customer_queryset_for(actor, changing=True)`；权限撤销返回403，客户已转出维护范围返回404。没有该嵌套操作记录的订单仍走原重放路径。
+- 三条新增回归在修复前先运行：撤权和转出范围两例都错误返回200，无实际客户更新的控制例返回200。修复后同三例全部通过。
+- 使用隔离 PostgreSQL 基库 `aluola_crm_invoice_replay_auth_20261009` 运行客户/订单 Phase 3 类共27项测试，全部通过；包含三条新增边界与 PostgreSQL 双连接防超卖回归。测试运行器自动清理 `test_aluola_crm_invoice_replay_auth_20261009`，基库随后已删除。
+- `compileall`、目标文件 `git diff --check`、`makemigrations --check --dry-run` 均通过；后者显示 `No changes detected`，本修复无模型迁移。
+
+负责人及QA已收到固定应用SHA和测试证据；等待QA按固定提交独立确认。本轮不推送、不部署，也未触碰其他角色文档、期初模板、用户库或服务。
