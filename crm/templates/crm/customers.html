@@ -3,7 +3,7 @@
 {% block title %}客户 · 阿罗拉潮玩空间{% endblock %}
 {% block topbar_title %}客户{% endblock %}
 {% block content %}
-<section class="page-heading"><div><h1>客户</h1><p>{% if perms.crm.view_all_customers or request.user.is_superuser %}全部可见客户{% else %}我的客户{% endif %}</p></div>{% if perms.crm.add_customer or request.user.is_superuser %}<a class="button-primary" href="{% url 'customer-new' %}">新建客户</a>{% endif %}</section>
+<section class="page-heading"><div><h1>客户</h1><p>{% if perms.crm.view_all_customers or request.user.is_superuser %}全部可见客户{% else %}我的客户{% endif %}</p></div>{% if perms.crm.add_customer or request.user.is_superuser %}<button class="button-primary" type="button" id="new-customer">新建客户</button>{% endif %}</section>
 <form class="data-card filter-bar" id="customer-filters" role="search">
   <div class="filter-field filter-search"><label for="customer-query">客户姓名、公司或联系方式</label><input id="customer-query" type="search" maxlength="120" autocomplete="off"></div>
   {% if perms.crm.view_all_customers or request.user.is_superuser %}<div class="filter-field"><label for="customer-owner">客户负责人</label><select id="customer-owner" name="owner_id"><option value="">全部</option></select></div>{% endif %}
@@ -17,12 +17,28 @@
   </section>
   <aside class="data-card detail-panel is-mobile-hidden" id="customer-detail" aria-labelledby="customer-detail-title"><div class="card-head detail-toolbar"><h2 id="customer-detail-title">客户详情</h2><div><button type="button" class="button-link desktop-detail-close" data-close-customer>关闭详情</button><button type="button" class="mobile-only" data-close-customer>返回列表</button></div></div><div class="card-body" id="customer-detail-body"><p class="empty-state">选择客户查看资料。</p></div></aside>
 </div>
+<dialog id="customer-dialog" aria-labelledby="customer-dialog-title">
+  <form id="customer-editor" method="dialog">
+    <div class="card-head"><h2 id="customer-dialog-title">客户资料</h2><button type="button" data-dialog-close aria-label="关闭客户弹窗">关闭</button></div>
+    <div class="dialog-body form-grid">
+      <label>客户姓名<input name="name" maxlength="200" required></label><label>联系方式<textarea name="contact" required></textarea></label>
+      <label>公司<input name="company" maxlength="200"></label><label>别名（每行一个）<textarea name="aliases"></textarea></label>
+      <label>备注1<textarea name="note1"></textarea></label><label>备注2<textarea name="note2"></textarea></label>
+      <label>发票抬头<input name="invoice_title" maxlength="255"></label><label>统一社会信用代码<input name="invoice_credit_code" maxlength="100"></label><label>发票邮箱<input name="invoice_email" maxlength="254"></label>
+      {% if can_select_owner %}<label id="customer-owner-field">负责人<select name="owner_id"><option value="">请选择销售人员</option>{% for person in salespeople %}<option value="{{ person.pk }}">{{ person.get_username }}</option>{% endfor %}</select></label>{% endif %}
+      <fieldset class="full-width"><legend>收货地址（至少一个）</legend><div id="customer-addresses"></div><button type="button" id="customer-add-address">添加地址</button></fieldset>
+    </div>
+    <p id="customer-editor-status" class="dialog-status" role="status" aria-live="polite"></p>
+    <div class="dialog-actions"><button type="button" data-dialog-close>取消</button><button class="button-primary" type="submit">保存客户</button></div>
+  </form>
+</dialog>
 <script>
 (() => {
   const csrf=()=>document.cookie.split('; ').find(value=>value.startsWith('csrftoken='))?.split('=')[1]||'';
-  async function api(url,method='GET',body){const response=await fetch(url,{method,credentials:'same-origin',headers:body?{'Content-Type':'application/json','X-CSRFToken':csrf()}: {},body:body?JSON.stringify(body):undefined}),data=await response.json();if(!response.ok){const error=new Error(data.error?.message||'请求失败。');error.status=response.status;throw error;}return data;}
+  async function api(url,method='GET',body){const response=await fetch(url,{method,credentials:'same-origin',headers:body?{'Content-Type':'application/json','X-CSRFToken':csrf()}: {},body:body?JSON.stringify(body):undefined}),data=await response.json();if(!response.ok){const error=new Error(data.error?.message||'请求失败。');error.status=response.status;error.data=data;throw error;}return data;}
   const form=document.getElementById('customer-filters'),body=document.getElementById('customers'),message=document.getElementById('customer-status'),query=document.getElementById('customer-query'),archived=document.getElementById('include-archived'),owner=document.getElementById('customer-owner');
   const initial=new URLSearchParams(location.search);query.value=initial.get('q')||'';archived.checked=initial.get('include_archived')==='true';
+  const dialog=document.getElementById('customer-dialog'),editor=document.getElementById('customer-editor'),addressBox=document.getElementById('customer-addresses'),editorStatus=document.getElementById('customer-editor-status');let editedCustomer=null,regions=[],editorKey=null;
   let ownerId=initial.get('owner_id')||'',ownerOptionsLoaded=false;
   let page=Number(initial.get('page')||1),pageCount=1,canArchive={{ perms.crm.archive_customer|yesno:'true,false' }}||{{ request.user.is_superuser|yesno:'true,false' }},canEditCustomer={{ perms.crm.change_customer|yesno:'true,false' }}||{{ request.user.is_superuser|yesno:'true,false' }};
   const esc=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
@@ -42,7 +58,7 @@
         ownerId=owner.value;
         ownerOptionsLoaded=true;
       }
-      if(data.items.length){body.innerHTML=data.items.map(item=>`<tr><td><button type="button" class="link-button" data-customer="${item.id}">${esc(item.name)}</button></td><td>${esc(item.contact)}</td><td>${esc(item.company||'—')}</td><td>${esc(item.invoice_title||'—')}</td><td>${esc(item.owner_name)}</td><td>${item.is_active?'正常':'已归档'}</td><td>${canEditCustomer?`<a href="/customers/${item.id}/edit/">编辑</a>`:''} ${item.is_active&&canArchive?`<button type="button" data-archive="${item.id}" data-version="${item.version}">归档</button>`:''}</td></tr>`).join('');}
+      if(data.items.length){body.innerHTML=data.items.map(item=>`<tr><td><button type="button" class="link-button" data-customer="${item.id}">${esc(item.name)}</button></td><td>${esc(item.contact)}</td><td>${esc(item.company||'—')}</td><td>${esc(item.invoice_title||'—')}</td><td>${esc(item.owner_name)}</td><td>${item.is_active?'正常':'已归档'}</td><td>${canEditCustomer?`<button type="button" data-edit="${item.id}">编辑</button>`:''} ${item.is_active&&canArchive?`<button type="button" data-archive="${item.id}" data-version="${item.version}">归档</button>`:''}</td></tr>`).join('');}
       else empty('没有匹配的客户。');
       pageCount=Math.max(1,Math.ceil(data.total/data.page_size));document.getElementById('customer-page').textContent=`共${data.total}位 · ${data.page}/${pageCount}`;document.getElementById('customer-previous').disabled=data.page<=1;document.getElementById('customer-next').disabled=data.page>=pageCount;
       const url=new URL(location.href);url.search=params.toString();history.replaceState(null,'',url);
@@ -62,18 +78,44 @@
       try{const orders=await api(`/api/v1/orders?customer_id=${encodeURIComponent(item.id)}&page_size=5`);if(orders.items.length){const ul=document.createElement('ul');for(const order of orders.items){const li=document.createElement('li'),a=document.createElement('a');a.href=`/orders/${encodeURIComponent(order.id)}/`;a.textContent=`订单 ${order.id} · ${order.status_label} · ¥${order.revenue_amount}`;li.append(a);ul.append(li);}orderSection.append(ul);}else{const p=document.createElement('p');p.textContent='该客户没有当前账号可见的订单。';orderSection.append(p);}}catch(error){const p=document.createElement('p');p.setAttribute('role',error.status===403?'alert':'status');p.textContent=error.status===403?'当前账号无权查看订单。':`最近订单加载失败：${error.message}`;orderSection.append(p);}
       {% endif %}
       {% if perms.crm.change_customer or request.user.is_superuser %}
-      const edit=document.createElement('a');edit.href=`/customers/${encodeURIComponent(item.id)}/edit/?return=${encodeURIComponent(location.pathname+location.search)}`;edit.textContent='编辑客户';edit.className='button-primary';detail.append(edit);
+      const edit=document.createElement('button');edit.type='button';edit.textContent='编辑客户';edit.className='button-primary';edit.addEventListener('click',()=>openEditor(item.id));detail.append(edit);
+      {% endif %}
+      {% if perms.crm.change_customer_owner or request.user.is_superuser %}
+      if(item.is_active){const transfer=document.createElement('section'),label=document.createElement('label'),select=document.createElement('select'),button=document.createElement('button');let operationKey=crypto.randomUUID();transfer.className='detail-section';label.textContent='转交负责人';select.append(new Option('请选择销售人员',''));{% for person in salespeople %}select.add(new Option('{{ person.get_username|escapejs }}','{{ person.pk }}'));{% endfor %}select.value=String(item.owner_id||'');select.addEventListener('change',()=>{operationKey=crypto.randomUUID();});button.type='button';button.textContent='转交客户';button.addEventListener('click',async()=>{if(!select.value)return;button.disabled=true;try{await api(`/api/v1/customers/${item.id}/transfer`,'POST',{owner_id:select.value,expected_version:item.version,operation_key:operationKey});await load();await showCustomer(item.id);}catch(error){message.textContent=error.message;message.setAttribute('role','alert');button.disabled=false;}});label.append(select);transfer.append(label,button);detail.append(transfer);}
       {% endif %}
     }catch(error){const p=document.createElement('p');p.setAttribute('role',error.status===403?'alert':'status');p.textContent=error.status===403?'当前账号无权查看该客户。':`客户资料加载失败：${error.message}`;detail.replaceChildren(p);}
   }
+  function addAddress(value={}){
+    const row=document.createElement('fieldset');row.className='address';row.innerHTML='<legend>地址</legend><label>收件人<input data-field="recipient" required></label><label>联系方式<textarea data-field="phone" required></textarea></label><label>省份<select data-field="province" required><option value="">请选择省份</option></select></label><label>城市<select data-field="city" required><option value="">请选择城市</option></select></label><label>详细地址<textarea data-field="detail" required></textarea></label><button type="button" data-remove>移除此地址</button>';
+    const province=row.querySelector('[data-field="province"]'),city=row.querySelector('[data-field="city"]');for(const region of regions)province.add(new Option(region.province,region.province));
+    function cities(selected=''){city.replaceChildren(new Option('请选择城市',''));for(const item of regions.find(region=>region.province===province.value)?.cities||[])city.add(new Option(item.name,item.name));city.value=selected;}
+    province.value=value.province||'';cities(value.city||'');province.addEventListener('change',()=>cities());for(const field of ['recipient','phone','detail'])row.querySelector(`[data-field="${field}"]`).value=value[field]||'';if(value.id)row.dataset.id=value.id;
+    row.querySelector('[data-remove]').addEventListener('click',()=>{if(addressBox.children.length>1){row.remove();resetEditorKey();}});addressBox.append(row);
+  }
+  async function openEditor(id=null){
+    editor.reset();editorSaving=false;editor.querySelector('[type="submit"]').disabled=false;addressBox.replaceChildren();editorStatus.textContent='';editorStatus.setAttribute('role','status');editedCustomer=null;editorKey=crypto.randomUUID();
+    try{if(!regions.length)regions=(await api('/api/v1/regions')).items;const ownerField=document.getElementById('customer-owner-field');if(ownerField)ownerField.hidden=Boolean(id);for(const name of ['name','contact','company','note1','note2','invoice_title','invoice_credit_code','invoice_email','aliases']){const field=editor.elements.namedItem(name);if(field)field.value='';}
+      if(id){editedCustomer=await api(`/api/v1/customers/${encodeURIComponent(id)}`);for(const name of ['name','contact','company','note1','note2','invoice_title','invoice_credit_code','invoice_email'])editor.elements.namedItem(name).value=editedCustomer[name]||'';editor.elements.aliases.value=(editedCustomer.aliases||[]).join('\n');const ownerField=editor.elements.namedItem('owner_id');if(ownerField)ownerField.value=editedCustomer.owner_id||'';for(const address of editedCustomer.addresses||[])addAddress({...address,phone:address.phone});}
+      if(!addressBox.children.length)addAddress();dialog.showModal();editor.querySelector('input[name="name"]').focus();
+    }catch(error){message.textContent=error.message;message.setAttribute('role','alert');}
+  }
+  let editorSaving=false;const resetEditorKey=()=>{editorKey=crypto.randomUUID();editorStatus.textContent='';editorStatus.setAttribute('role','status');};editor.addEventListener('input',resetEditorKey);editor.addEventListener('change',resetEditorKey);
+  editor.addEventListener('submit',async event=>{
+    event.preventDefault();if(editorSaving||!editor.reportValidity())return;editorSaving=true;const saveButton=editor.querySelector('[type="submit"]');saveButton.disabled=true;const addressRows=[...addressBox.children].map(row=>({...(row.dataset.id?{id:Number(row.dataset.id)}:{}),recipient:row.querySelector('[data-field="recipient"]').value,phone:row.querySelector('[data-field="phone"]').value,province:row.querySelector('[data-field="province"]').value,city:row.querySelector('[data-field="city"]').value,detail:row.querySelector('[data-field="detail"]').value}));
+    const data={name:editor.elements.name.value,contact:editor.elements.contact.value,company:editor.elements.company.value,aliases:editor.elements.aliases.value.split(/[\n;；]/).map(value=>value.trim()).filter(Boolean),note1:editor.elements.note1.value,note2:editor.elements.note2.value,invoice_title:editor.elements.invoice_title.value,invoice_credit_code:editor.elements.invoice_credit_code.value,invoice_email:editor.elements.invoice_email.value,addresses:addressRows,operation_key:editorKey};const ownerField=editor.elements.namedItem('owner_id');if(ownerField&&!editedCustomer)data.owner_id=ownerField.value;
+    try{if(editedCustomer){data.expected_version=editedCustomer.version;await api(`/api/v1/customers/${editedCustomer.id}`,'PATCH',data);}else{await api('/api/v1/customers','POST',data);}const id=editedCustomer?.id;dialog.close();await load();if(id)await showCustomer(id);else message.textContent='客户已保存。';}
+    catch(error){editorStatus.setAttribute('role','alert');editorStatus.textContent=Object.entries(error.data?.error?.fields||{}).map(([field,value])=>`${field}：${value}`).join('；')||error.message;editorSaving=false;saveButton.disabled=false;}
+  });
+  document.getElementById('new-customer')?.addEventListener('click',()=>openEditor());document.getElementById('customer-add-address').addEventListener('click',()=>{resetEditorKey();addAddress();});document.querySelectorAll('[data-dialog-close]').forEach(button=>button.addEventListener('click',()=>dialog.close()));
   form.addEventListener('submit',event=>{event.preventDefault();page=1;load();});
   archived.addEventListener('change',()=>{page=1;load();});
   if(owner)owner.addEventListener('change',()=>{ownerId=owner.value;page=1;load();});
   body.addEventListener('click',async event=>{
     const detailButton=event.target.closest('[data-customer]');if(detailButton){await showCustomer(detailButton.dataset.customer);return;}
+    const editButton=event.target.closest('[data-edit]');if(editButton){await openEditor(editButton.dataset.edit);return;}
     const button=event.target.closest('[data-archive]');if(!button)return;
     if(!confirm('归档该客户？历史订单会保留。'))return;
-    try{await api(`/api/v1/customers/${button.dataset.archive}/archive`,'POST',{expected_version:Number(button.dataset.version),operation_key:crypto.randomUUID()});await load();}catch(error){message.textContent=error.message;message.setAttribute('role','alert');}
+    try{button.dataset.operationKey ||= crypto.randomUUID();await api(`/api/v1/customers/${button.dataset.archive}/archive`,'POST',{expected_version:Number(button.dataset.version),operation_key:button.dataset.operationKey});await load();}catch(error){message.textContent=error.message;message.setAttribute('role','alert');}
   });
   document.querySelectorAll('[data-close-customer]').forEach(button=>button.addEventListener('click',()=>{const panel=document.getElementById('customer-detail'),detail=document.getElementById('customer-detail-body');detail.replaceChildren(Object.assign(document.createElement('p'),{className:'empty-state',textContent:'选择客户查看资料。'}));panel.classList.remove('is-mobile-active');panel.classList.add('is-mobile-hidden');document.getElementById('customer-layout').classList.remove('mobile-detail-open');}));
   document.getElementById('customer-previous').addEventListener('click',()=>{if(page>1){page--;load();}});document.getElementById('customer-next').addEventListener('click',()=>{if(page<pageCount){page++;load();}});

@@ -270,3 +270,6 @@ class ChannelAdmin(ArchiveAdmin):
     list_display = ("name", "is_active")
     list_filter = ("is_active",)
     search_fields = ("name",)
+
+
+admin.site.index_template = "crm/admin_index.html"

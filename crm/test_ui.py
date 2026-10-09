@@ -13,6 +13,11 @@ class ApprovedWorkbenchAndPaymentUITests(TestCase):
         cls.inventory = user_model.objects.create_user(username="ui-inventory")
         cls.orders = user_model.objects.create_user(username="ui-orders")
         cls.verifier = user_model.objects.create_user(username="ui-verifier")
+        cls.catalog = user_model.objects.create_user(username="ui-catalog")
+        cls.product_writer = user_model.objects.create_user(username="ui-product-writer")
+        cls.order_writer = user_model.objects.create_user(username="ui-order-writer")
+        cls.order_writer_without_customers = user_model.objects.create_user(username="ui-order-writer-no-customers")
+        cls.admin = user_model.objects.create_superuser(username="ui-admin", email="ui-admin@example.test", password="test-only-password")
 
         def grant(user, *permissions):
             user.user_permissions.add(*[
@@ -23,6 +28,10 @@ class ApprovedWorkbenchAndPaymentUITests(TestCase):
         grant(cls.inventory, "view_inventorybalance")
         grant(cls.orders, "view_salesorder", "view_customer")
         grant(cls.verifier, "view_salesorder", "verify_payment")
+        grant(cls.catalog, "view_brand", "view_product", "view_sku")
+        grant(cls.product_writer, "add_product", "add_sku", "view_brand", "view_product", "view_sku")
+        grant(cls.order_writer, "add_salesorder", "view_customer", "add_customer", "view_inventorybalance")
+        grant(cls.order_writer_without_customers, "add_salesorder", "view_inventorybalance")
 
     def test_workbench_is_available_without_data_permissions_and_gates_requests(self):
         self.client.force_login(self.basic)
@@ -30,11 +39,44 @@ class ApprovedWorkbenchAndPaymentUITests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertNotContains(response, "/api/v1/reports/sales")
         self.assertNotContains(response, "/api/v1/reports/inventory")
+        self.assertContains(response, "当前账号无权查看此数据")
 
         self.client.force_login(self.inventory)
         response = self.client.get("/")
         self.assertContains(response, "/api/v1/reports/inventory?low_stock=true")
         self.assertNotContains(response, "/api/v1/reports/sales")
+
+    def test_customer_editor_and_catalog_inventory_are_permission_gated(self):
+        self.client.force_login(self.orders)
+        self.assertContains(self.client.get("/customers/"), 'id="customer-dialog"')
+
+        self.client.force_login(self.catalog)
+        response = self.client.get("/catalog/")
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "include_inventory")
+        self.assertEqual(self.client.get("/catalog/new/").status_code, 403)
+
+        self.client.force_login(self.product_writer)
+        self.assertEqual(self.client.get("/catalog/new/").status_code, 200)
+        self.assertContains(self.client.get("/catalog/"), 'href="/catalog/new/"')
+
+    def test_order_editor_and_admin_management_render(self):
+        self.client.force_login(self.order_writer)
+        response = self.client.get("/orders/new/")
+        self.assertEqual(response.status_code, 200)
+        for marker in ('id="customer-mode"', 'id="requires-invoice"', 'id="more-skus"', 'data-availability'):
+            self.assertContains(response, marker)
+
+        self.client.force_login(self.admin)
+        response = self.client.get("/admin/")
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "正式期初入口")
+        self.assertContains(response, "商品语言管理")
+
+        self.client.force_login(self.order_writer_without_customers)
+        response = self.client.get("/orders/new/")
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, 'id="search-customers"')
 
     def test_customer_recent_orders_are_only_requested_with_order_permission(self):
         self.client.force_login(self.basic)

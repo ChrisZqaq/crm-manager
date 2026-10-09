@@ -305,6 +305,16 @@ def catalog_search(request):
     )
 
 
+@login_required
+def catalog_product_new(request):
+    _require_page_permission(request, "add_product")
+    _require_page_permission(request, "add_sku")
+    return render(request, "crm/catalog_product_new.html", {
+        "brands": Brand.objects.filter(is_active=True).order_by("name"),
+        "languages": ProductLanguageOption.objects.order_by("id"),
+    })
+
+
 @require_safe
 def inventory_api(request):
     error = _require_api_access(request, (("crm", "view_inventorybalance"),))
@@ -1429,7 +1439,10 @@ def _require_page_permission(request, codename):
 @require_safe
 def customers_page(request):
     _require_page_permission(request, "view_customer")
-    return render(request, "crm/customers.html")
+    User = get_user_model()
+    can_select_owner = not request.user.groups.filter(name=ROLE_SALES).exists() or request.user.has_perm("crm.change_customer_owner") or request.user.is_superuser
+    salespeople = User.objects.filter(is_active=True, groups__name=ROLE_SALES).order_by("username") if can_select_owner else []
+    return render(request, "crm/customers.html", {"salespeople": salespeople, "can_select_owner": can_select_owner})
 
 
 @login_required
@@ -1474,7 +1487,10 @@ def order_form_page(request, order_id=None):
         if order is None:
             raise PermissionDenied
         initial = _sales_order_data(order, request.user)
-    return render(request, "crm/order_form.html", {"order": order, "initial": initial})
+    User = get_user_model()
+    can_select_owner = not request.user.groups.filter(name=ROLE_SALES).exists() or request.user.has_perm("crm.change_customer_owner") or request.user.is_superuser
+    salespeople = User.objects.filter(is_active=True, groups__name=ROLE_SALES).order_by("username") if can_select_owner else []
+    return render(request, "crm/order_form.html", {"order": order, "initial": initial, "salespeople": salespeople, "can_select_owner": can_select_owner})
 
 
 @login_required

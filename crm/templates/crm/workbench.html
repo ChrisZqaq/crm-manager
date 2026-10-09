@@ -4,101 +4,98 @@
 {% block topbar_title %}工作台{% endblock %}
 {% block content %}
 <section class="page-heading">
-  <div><h1>今天的门店业务</h1><p>已交付销售按北京时间发货/现场交付日统计；履约和收款核对状态分别显示。</p></div>
+  <div><h1>今天的门店业务</h1><p>数据按当前账号权限显示；待确认统计口径以“—”标记。</p></div>
   {% if perms.crm.add_salesorder %}<div class="page-actions"><a class="button-primary" href="{% url 'order-new' %}">新建订单</a></div>{% endif %}
 </section>
-<section class="summary-grid" aria-label="业务摘要">
-  {% if perms.crm.view_salesorder %}
-    <article class="data-card summary-card"><span class="summary-label">今日已交付销售额</span><strong id="today-sales" aria-live="polite">加载中…</strong><span class="summary-note">北京时间；发货/现场交付日</span></article>
-    <article class="data-card summary-card"><span class="summary-label">待出库订单</span><strong id="ready-orders-count" aria-live="polite">加载中…</strong><span class="summary-note">当前账号可见范围</span></article>
-    <article class="data-card summary-card"><span class="summary-label">待核对收款</span><strong id="pending-payments-count" aria-live="polite">加载中…</strong><span class="summary-note">仅统计已有收款记录</span></article>
-  {% endif %}
-  {% if perms.crm.view_inventorybalance %}<article class="data-card summary-card"><span class="summary-label">低库存记录</span><strong id="low-stock-total" aria-live="polite">加载中…</strong><span class="summary-note">仓库×SKU记录数；服从现有提醒设置</span></article>{% endif %}
+<section class="summary-grid workbench-summary" aria-label="业务摘要">
+  <article class="data-card summary-card"><span class="summary-label">今日销售额</span><div class="summary-horizontal"><strong id="today-sales">—</strong><span class="summary-side">增速<br>—</span></div><span class="summary-note">已交付销售；北京时间</span></article>
+  <article class="data-card summary-card"><span class="summary-label">客户</span><div class="summary-horizontal"><strong id="customer-total">—</strong><span class="summary-side">新增<br>—</span></div><span class="summary-note">新增统计口径待确认</span></article>
+  <article class="data-card summary-card"><span class="summary-label">在售商品组合</span><div class="summary-horizontal"><strong id="product-total">—</strong><span class="summary-side">IP × 语言</span></div><span class="summary-note">组合与新增口径待确认</span></article>
+  <article class="data-card summary-card"><span class="summary-label">低库存提醒</span><div class="summary-horizontal"><strong id="low-stock-total">—</strong><span class="summary-side">条</span></div><span class="summary-note">当前账号可见库存记录</span></article>
 </section>
-<div class="dashboard-grid">
-  {% if perms.crm.view_salesorder %}
-  <section class="data-card" aria-labelledby="workbench-orders-title">
-    <div class="card-head"><h2 id="workbench-orders-title">待出库订单</h2><a href="{% url 'orders' %}?status=ready_to_ship">查看全部</a></div>
-    <div class="table-scroll"><table><thead><tr><th>订单编号</th><th>客户</th><th>出货仓</th><th class="numeric">金额</th><th>履约</th><th>收款核对</th></tr></thead><tbody id="workbench-orders"><tr><td colspan="6" class="empty-state">加载中…</td></tr></tbody></table></div>
-    <p class="inline-status card-body" id="workbench-order-status" role="status" aria-live="polite"></p>
-  </section>
-  <div class="dashboard-side">
-    <section class="data-card" aria-labelledby="workbench-todos-title">
-      <div class="card-head"><h2 id="workbench-todos-title">待核对收款</h2><a href="{% url 'report-page' 'payments' %}?status=pending">查看全部</a></div>
-      <div class="card-body" id="workbench-todos"><p class="muted">加载中…</p></div>
-      <p class="inline-status card-body" id="workbench-payment-status" role="status" aria-live="polite"></p>
-    </section>
-    {% if perms.crm.view_inventorybalance %}
-      <section class="data-card"><div class="card-head"><h2>低库存提醒</h2><a href="{% url 'inventory' %}?low_stock=true">查看库存</a></div><div class="card-body" id="workbench-low-stock"><p class="muted">加载中…</p></div><p class="inline-status card-body" id="workbench-stock-status" role="status" aria-live="polite"></p></section>
+
+<section class="status-grid" aria-label="待处理订单">
+  <article class="data-card status-card">
+    <div class="card-head"><h2>待收款订单</h2>{% if perms.crm.view_salesorder %}<a href="{% url 'orders' %}?status=awaiting_payment">查看全部</a>{% endif %}</div>
+    <div class="status-card-body"><strong id="awaiting-count">—</strong><ul id="awaiting-orders" class="status-preview"><li class="muted">{% if perms.crm.view_salesorder %}加载中…{% else %}当前账号无权查看此数据{% endif %}</li></ul></div><p id="awaiting-status" class="inline-status" role="status"></p>
+  </article>
+  <article class="data-card status-card">
+    <div class="card-head"><h2>待出库订单</h2>{% if perms.crm.view_salesorder %}<a href="{% url 'orders' %}?status=ready_to_ship">查看全部</a>{% endif %}</div>
+    <div class="status-card-body"><strong id="ready-count">—</strong><ul id="ready-orders" class="status-preview"><li class="muted">{% if perms.crm.view_salesorder %}加载中…{% else %}当前账号无权查看此数据{% endif %}</li></ul></div><p id="ready-status" class="inline-status" role="status"></p>
+  </article>
+  <article class="data-card status-card">
+    <div class="card-head"><h2>待确认收款</h2>{% if perms.crm.view_salesorder %}<a href="{% url 'report-page' 'payments' %}?status=pending&amp;period=all">查看全部</a>{% endif %}</div>
+    <div class="status-card-body"><strong id="pending-count">—</strong><ul id="pending-orders" class="status-preview"><li class="muted">{% if perms.crm.view_salesorder %}加载中…{% else %}当前账号无权查看此数据{% endif %}</li></ul></div><p id="pending-status" class="inline-status" role="status"></p>
+  </article>
+  <article class="data-card status-card">
+    {% if perms.crm.view_salesorder and perms.crm.review_commission %}
+      <div class="card-head"><h2>待确认复核订单</h2><a href="{% url 'report-page' 'commissions' %}?period=all&amp;commission_status=pending_review">查看全部</a></div>
+      <div class="status-card-body"><strong id="review-count">—</strong><ul id="review-orders" class="status-preview"><li class="muted">加载中…</li></ul></div><p id="review-status" class="inline-status" role="status"></p>
+    {% else %}
+      <div class="card-head"><h2>待确认收货</h2>{% if perms.crm.view_salesorder %}<a href="{% url 'orders' %}?status=shipped">查看全部</a>{% endif %}</div>
+      <div class="status-card-body"><strong id="shipped-count">—</strong><ul id="shipped-orders" class="status-preview"><li class="muted">{% if perms.crm.view_salesorder %}加载中…{% else %}当前账号无权查看此数据{% endif %}</li></ul></div><p id="shipped-status" class="inline-status" role="status"></p>
     {% endif %}
-  </div>
-  {% elif perms.crm.view_inventorybalance %}
-    <section class="data-card"><div class="card-head"><h2>低库存提醒</h2><a href="{% url 'inventory' %}?low_stock=true">查看库存</a></div><div class="card-body" id="workbench-low-stock"><p class="muted">加载中…</p></div><p class="inline-status card-body" id="workbench-stock-status" role="status" aria-live="polite"></p></section>
-  {% endif %}
-  {% if perms.crm.view_salesorder %}
-  <section class="data-card dashboard-trend" aria-labelledby="workbench-trend-title">
-    <div class="card-head"><div><h2 id="workbench-trend-title">近 7 天销售趋势</h2><p class="muted">已交付销售；北京时间发货/现场交付日</p></div></div>
-    <div class="card-body"><div id="workbench-trend" class="trend-chart" role="group" aria-label="近7天每日已交付销售额"></div><p class="inline-status" id="workbench-trend-status" role="status" aria-live="polite"></p></div>
-  </section>
-  {% endif %}
-</div>
+  </article>
+</section>
+
+{% if perms.crm.view_salesorder %}<section class="data-card dashboard-trend" aria-labelledby="workbench-trend-title">
+  <div class="card-head"><div><h2 id="workbench-trend-title">近 7 天已交付销售</h2><p class="muted">北京时间发货／现场交付日</p></div></div>
+  <div class="card-body"><div id="workbench-trend" class="line-chart" role="img" aria-label="近7天每日已交付销售额"></div><p id="workbench-trend-status" class="inline-status" role="status" aria-live="polite"></p></div>
+</section>{% endif %}
+
 <script>
 (() => {
   const get = async url => {
     const response = await fetch(url, {credentials: 'same-origin'});
     const data = await response.json();
-    if (!response.ok) throw new Error(data.error?.message || (response.status === 403 ? '当前账号无权查看此数据。' : '数据加载失败。'));
+    if (!response.ok) throw new Error(data.error?.message || '数据加载失败。');
     return data;
   };
   const set = (id, value) => { const element = document.getElementById(id); if (element) element.textContent = value; };
-  const emptyRow = (body, columns, message) => { const row=document.createElement('tr'), cell=document.createElement('td');cell.colSpan=columns;cell.className='empty-state';cell.textContent=message;row.append(cell);body.replaceChildren(row); };
+  const noRows = (id, message) => { const list=document.getElementById(id);if(list)list.replaceChildren(Object.assign(document.createElement('li'),{className:'muted',textContent:message})); };
+  const showOrderRows = (listId, rows, makeLabel) => {
+    const list=document.getElementById(listId);if(!list)return;list.replaceChildren();
+    if(!rows.length){noRows(listId,'暂无待处理记录。');return;}
+    for(const item of rows){const li=document.createElement('li'),link=document.createElement('a');link.href=`/orders/${encodeURIComponent(item.order_id||item.id)}/`;link.textContent=makeLabel(item);li.append(link);list.append(li);}
+  };
+  const localDate = new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+  const startDate = new Date(`${localDate}T00:00:00Z`);startDate.setUTCDate(startDate.getUTCDate()-6);
+  const chart = document.getElementById('workbench-trend');
   {% if perms.crm.view_salesorder %}
-  const orderBody = document.getElementById('workbench-orders');
-  (async () => {
+  (async()=>{
     try {
-      const today = new Intl.DateTimeFormat('en-CA', {timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
-      const anchor = new Date(`${today}T00:00:00Z`); anchor.setUTCDate(anchor.getUTCDate()-6);
-      const start = anchor.toISOString().slice(0,10);
-      const series = await get(`/api/v1/reports/sales?scope=delivered&period=custom&start_date=${start}&end_date=${today}&series=day&page_size=1`);
-      set('today-sales', `¥${series.series?.[series.series.length-1]?.revenue_amount ?? '0.000'}`);
-      const chart = document.getElementById('workbench-trend'); chart.replaceChildren();
-      const values=(series.series||[]).map(item=>Number(item.revenue_amount)), max=Math.max(...values,0);
-      for(const item of series.series||[]) {
-        const column=document.createElement('div'); column.className='trend-column'; column.setAttribute('aria-label',`${item.date}：¥${item.revenue_amount}`);
-        const value=document.createElement('span'); value.className='trend-value'; value.textContent=`¥${item.revenue_amount}`;
-        const bar=document.createElement('span'); bar.className='trend-bar'; bar.style.height=`${max ? Math.max(4,Number(item.revenue_amount)/max*100) : 4}%`;
-        const date=document.createElement('span'); date.className='trend-date'; date.textContent=item.date.slice(5);
-        column.append(value,bar,date); chart.append(column);
-      }
-      const [ready, pending, orderPage, paymentPage] = await Promise.all([
-        get('/api/v1/orders?status=ready_to_ship&page_size=1'),
-        get('/api/v1/reports/payments?period=all&status=pending&page_size=1'),
-        get('/api/v1/orders?status=ready_to_ship&page_size=6'),
-        get('/api/v1/reports/payments?period=all&status=pending&page_size=5')
-      ]);
-      set('ready-orders-count', ready.total); set('pending-payments-count', pending.total);
-      if(orderPage.items.length) {
-        orderBody.replaceChildren();
-        for(const item of orderPage.items) {
-          const row=document.createElement('tr'), values=[
-            {text:String(item.id),href:`/orders/${encodeURIComponent(item.id)}/`},
-            item.customer_name||'门店散客', [...new Set((item.lines||[]).map(line=>line.warehouse).filter(Boolean))].join('、')||'—',
-            `¥${item.revenue_amount}`, item.status_label, item.payment?.status_label||'未登记'
-          ];
-          values.forEach((value,index)=>{const cell=document.createElement('td');if(index===0){const a=document.createElement('a');a.href=value.href;a.textContent=value.text;cell.append(a);}else cell.textContent=value;if(index===3)cell.className='numeric';row.append(cell);});orderBody.append(row);
-        }
-      } else emptyRow(orderBody,6,'当前账号没有待出库订单。');
-      const todos=document.getElementById('workbench-todos');
-      if(paymentPage.items.length){const list=document.createElement('ul');list.className='todo-list';for(const item of paymentPage.items){const li=document.createElement('li'),a=document.createElement('a');a.href=`/orders/${encodeURIComponent(item.order_id)}/`;a.textContent=`订单 ${item.order_id} · ${item.customer}`;const meta=document.createElement('span');meta.textContent=`${item.account} · 登记 ¥${item.registered_amount}`;li.append(a,meta);list.append(li);}todos.replaceChildren(list);}else todos.replaceChildren(Object.assign(document.createElement('p'),{className:'empty-state',textContent:'当前账号没有待核对收款。'}));
-    } catch(error) {
-      set('today-sales','暂不可用'); set('ready-orders-count','暂不可用'); set('pending-payments-count','暂不可用');
-      if(orderBody) emptyRow(orderBody,6,error.message);
-      set('workbench-order-status',error.message); set('workbench-payment-status',error.message); set('workbench-trend-status',error.message);
-    }
+      const series=await get(`/api/v1/reports/sales?scope=delivered&period=custom&start_date=${startDate.toISOString().slice(0,10)}&end_date=${localDate}&series=day&page_size=1`);
+      const today=series.series?.find(item=>item.date===localDate);set('today-sales',today?`¥${today.revenue_amount}`:'—');
+      chart.replaceChildren();const points=series.series||[];
+      if(points.length){
+        chart.setAttribute('aria-label',`近7天每日已交付销售额：${points.map(item=>`${item.date} ¥${item.revenue_amount}`).join('；')}`);
+        const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('viewBox','0 0 700 190');svg.setAttribute('preserveAspectRatio','none');
+        const values=points.map(item=>Number(item.revenue_amount)),max=Math.max(...values,0),xAt=index=>28+(points.length<2?0:index*644/(points.length-1)),yAt=value=>148-(max?value/max*112:0);
+        const axis=document.createElementNS(svg.namespaceURI,'path');axis.setAttribute('d','M28 150H672');axis.setAttribute('class','chart-axis');svg.append(axis);
+        const line=document.createElementNS(svg.namespaceURI,'polyline');line.setAttribute('points',values.map((value,index)=>`${xAt(index)},${yAt(value)}`).join(' '));line.setAttribute('class','chart-line');svg.append(line);
+        points.forEach((item,index)=>{const group=document.createElementNS(svg.namespaceURI,'g'),dot=document.createElementNS(svg.namespaceURI,'circle'),title=document.createElementNS(svg.namespaceURI,'title');dot.setAttribute('cx',xAt(index));dot.setAttribute('cy',yAt(values[index]));dot.setAttribute('r','4');dot.setAttribute('class','chart-point');title.textContent=`${item.date}：¥${item.revenue_amount}`;group.append(dot,title);svg.append(group);const label=document.createElement('span');label.className='chart-date';label.textContent=item.date.slice(5);chart.append(label);});
+        chart.prepend(svg);
+      } else {chart.textContent='暂无已交付销售数据。';}
+    }catch(error){set('today-sales','暂不可用');chart.textContent='销售趋势暂不可用。';set('workbench-trend-status',error.message);}
   })();
+  const loadOrders = async (status, countId, listId, statusId) => {
+    try{const data=await get(`/api/v1/orders?status=${status}&page_size=2`);set(countId,data.total);showOrderRows(listId,data.items||[],item=>`订单 ${item.id} · ${item.customer_name||'门店散客'} · ¥${item.revenue_amount}`);}
+    catch(error){set(countId,'暂不可用');noRows(listId,'列表暂不可用。');set(statusId,error.message);}
+  };
+  loadOrders('awaiting_payment','awaiting-count','awaiting-orders','awaiting-status');
+  loadOrders('ready_to_ship','ready-count','ready-orders','ready-status');
+  {% if perms.crm.review_commission %}
+  (async()=>{try{const data=await get('/api/v1/reports/commissions?period=all&commission_status=pending_review&page_size=2');set('review-count',data.total);showOrderRows('review-orders',data.items||[],item=>`订单 ${item.order_id} · ${item.customer} · ${item.status_label}`);}catch(error){set('review-count','暂不可用');noRows('review-orders','列表暂不可用。');set('review-status',error.message);}})();
+  {% else %}
+  loadOrders('shipped','shipped-count','shipped-orders','shipped-status');
+  {% endif %}
+  (async()=>{try{const data=await get('/api/v1/reports/payments?period=all&status=pending&page_size=2');set('pending-count',data.total);showOrderRows('pending-orders',data.items||[],item=>`订单 ${item.order_id} · ${item.customer} · ${item.account} · ¥${item.registered_amount}`);}catch(error){set('pending-count','暂不可用');noRows('pending-orders','列表暂不可用。');set('pending-status',error.message);}})();
+  {% endif %}
+  {% if perms.crm.view_customer %}
+  (async()=>{try{const data=await get('/api/v1/customers?page_size=1');set('customer-total',data.total);}catch{set('customer-total','暂不可用');}})();
   {% endif %}
   {% if perms.crm.view_inventorybalance %}
-  (async()=>{try{const data=await get('/api/v1/reports/inventory?low_stock=true&page_size=5');set('low-stock-total',data.total);const box=document.getElementById('workbench-low-stock');if(data.items.length){const list=document.createElement('ul');for(const item of data.items){const li=document.createElement('li');li.textContent=`${item.product} · ${item.code} · ${item.warehouse}：${item.available} ${item.unit}`;list.append(li);}box.replaceChildren(list);}else box.replaceChildren(Object.assign(document.createElement('p'),{className:'empty-state',textContent:'当前没有低库存记录。'}));}catch(error){set('low-stock-total','暂不可用');set('workbench-stock-status',error.message);}})();
+  (async()=>{try{const data=await get('/api/v1/reports/inventory?low_stock=true&page_size=1');set('low-stock-total',data.total);}catch{set('low-stock-total','暂不可用');}})();
   {% endif %}
 })();
 </script>

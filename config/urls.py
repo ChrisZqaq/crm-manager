@@ -26,6 +26,7 @@ urlpatterns = [
     path("accounts/logout/", auth_views.LogoutView.as_view(), name="logout"),
     path("", views.home, name="home"),
     path("catalog/", views.catalog_search, name="catalog-search"),
+    path("catalog/new/", views.catalog_product_new, name="catalog-product-new"),
     path("inventory/", views.inventory_page, name="inventory"),
     path("reports/<slug:report_name>/export/", views.report_page_export, name="report-export"),
     path("reports/<slug:report_name>/", views.report_page, name="report-page"),
