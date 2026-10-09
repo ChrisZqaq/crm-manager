@@ -213,4 +213,12 @@ PYTHONPATH=/Users/chrisz/Documents/projects/aluolaCRM/.local/payment-repeat-audi
 
 ### 固定交付
 
-应用变更及本工作记录已准备提交。固定提交后停止应用写入；下一步把提交SHA、自测证据和迁移风险交负责人及QA，等待独立测试。QA应在自建隔离PostgreSQL库验证非标准旧语言迁移回滚、完整客户/订单事务和期初竞态，不连接或复制用户/演示数据。
+应用固定提交：`e1f81ebd3b26bf79899a1e1f852bdbc19364dd92`。该提交包含本次应用变更及本工作记录；提交后已停止应用写入。后续仅把本段固定版本记录作为文档提交，不更改应用文件。
+
+48项定向测试命令：
+
+```sh
+UV_PROJECT_ENVIRONMENT=/Users/chrisz/.cache/aluola-crm-uiquery1-venv CRM_DB_NAME=aluola_crm_revision_backend_20261009 CRM_DB_HOST=/Users/chrisz/Documents/projects/aluolaCRM/.local/postgres-socket CRM_DB_PORT=55439 uv run --locked --python /Users/chrisz/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 -- python3 manage.py test crm.test_user_revision crm.tests.CatalogTestCase crm.test_phase2.OpeningPhase2Tests crm.test_phase2.OpeningControlPhase2Tests crm.test_phase3.CustomerPhase3Tests crm.test_phase3.SalesOrderPhase3Tests --verbosity=1
+```
+
+隔离测试基库 `aluola_crm_revision_backend_20261009` 已删除；测试运行器创建的 `test_aluola_crm_revision_backend_20261009` 已自动删除。下一步由QA以应用固定提交SHA为基线，在自建隔离PostgreSQL库独立验证非标准旧语言迁移回滚、完整客户/订单事务和期初竞态；不连接或复制用户/演示数据。负责人和QA交接后等待独立测试结果。
