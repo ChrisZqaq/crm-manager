@@ -189,7 +189,7 @@ UI-LIST-FILTERS集中核对补充（待实施）：orders.filter_options另含 `
 | 接口 | 约定 |
 | --- | --- |
 | 客户GET/POST/PATCH | note1/note2及invoice_title/invoice_credit_code/invoice_email取代旧生日/兴趣/爱好字段；沿用版本、幂等、归属范围。删除birthdays及me/preferences生日端点、生日筛选和页面动作；不能留可用兼容开关。q补别名。 |
-| orders/preview、orders、amend/preview、amend | 输入增requires_invoice及invoice_title/invoice_credit_code/invoice_email；新增订单可用new_customer替代customer_id，两者互斥，均空即散客。new_customer使用客户字段及地址结构，姓名/contact必填，非销售代建仍明确owner_id。开票仅抬头必填；散客开票拒绝。新客只在确认事务内创建，预览只读，失败全部回滚，同键重放同客同单。更新已有客户开票资料须客户维护权限，沿用当前归属，不能借订单越权。订单GET返回需求和快照。 |
+| orders/preview、orders、amend/preview、amend | 输入增requires_invoice及invoice_title/invoice_credit_code/invoice_email；新增订单可用new_customer替代customer_id，两者互斥，均空即散客。new_customer使用客户基本字段（不接addresses），姓名/contact必填，非销售代建仍明确owner_id。快递地址仅来自order.address_snapshot，原样保存订单快照及新客首条CustomerAddress，客户姓名/contact与收件人/contact分别输入、不推断相同；后续多地址仍用客户API。开票仅抬头必填；散客开票拒绝。新客只在确认事务内创建，预览只读，失败全部回滚，同键重放同客同单。实际改变已有客户开票资料才须change_customer及当前维护范围；选择与客户现有资料相同的值仅存快照，不要求更新权限。requires_invoice=false清本单快照但不清客户资料，不能借订单越权。订单GET返回需求和快照。 |
 | GET inventory | 可传order_id辅助编辑（必须有相应订单维护范围）；基础available保持真实未占可售，额外available_for_order=available＋该订单此仓此SKU原活动占货。普通查询不改变口径；预览/确认使用共享相同计算，最终锁内校验。 |
 | GET product-languages | 登录商品查看范围，返回id/name选项；普通录商品不支持新增选项。老板/超级管理员在原生管理后台维护。商品读取language仍为名称，筛选language仍接受名称，期初文字精确解析现有选项，未知值报行字段错误。 |
 | POST products | 产品共有字段含language_id，skus数组为实际SKU字段；operation_key。同事务创建产品及SKU，至少一个SKU，所有行复用现有格式、语言、单位/条码重复确认和模型校验，要求add_product及add_sku。结果product_id/sku_ids，同键重放不重建。保留输入并报告并发编号冲突。 |
@@ -200,3 +200,9 @@ UI-LIST-FILTERS集中核对补充（待实施）：orders.filter_options另含 `
 新客户建档需add_customer；更新已有客户资料需change_customer及维护范围；订单动作仍需原权限。订单提交输入与开票/新客数据一起绑定预览哈希，禁止确认时替换。新的开票资料没有完整度/税务/开具状态。共用已有错误、权限、事务和日志方案，不新增搜索服务/审计框架。
 
 工作台新布局已批准；客户排行金额、在售组合/新增口径及销售额增速比较周期尚未全部收口，未明确的数据显示—，不得猜值或虚构0。订单卡映射及权限在实施前列明；布局批准不新增状态。
+
+### 增量接入细节（2026-10-09已收口）
+
+- GET products可传include_inventory=true，仍按产品分页，total仍为产品数。请求必须有view_inventorybalance，无权opt-in拒绝；默认响应不变。当前页products→skus[].inventory为[{warehouse_id,warehouse,available,unit}]，只含已有余额、批量查询；无余额数组空，SKU仍显示，有库存查看权限时可售0／仓库—，无权限不可伪装0。不建SKU×仓库记录或拉全库拼接。
+- POST products中各skus行及POST skus复用confirm_duplicate_barcode布尔确认。未确认重复条码返回409 duplicate_barcode_confirmation_required，返回已授权候选SKU ID/code/product/language/unit；失败不记录成功操作，可沿同operation_key重试并确认相关行。成功后同键不同输入仍409 idempotency_conflict。服务端在事务内重查条码与确认，竞态不能静默绕过提示；详细原子实现及回归由后端固定交付。
+- home不新增聚合接口/统计表；有真实已定数据的卡片沿用原接口及权限，排行／商品组合／增速等未定口径显示—。需要后续业务确认的指标单独列明，不阻断已批准页面接入。
