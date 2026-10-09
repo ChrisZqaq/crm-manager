@@ -1,7 +1,7 @@
 import calendar
 from collections import defaultdict
 from datetime import date, datetime, time, timedelta
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP, localcontext
 from zoneinfo import ZoneInfo
 
 from django.contrib.auth import get_user_model
@@ -35,6 +35,11 @@ REPORTS = {
     "sales": {"title": "销售报表", "permission": "view_salesorder"},
     "payments": {"title": "收款核对报表", "permission": "view_salesorder"},
     "commissions": {"title": "提成报表", "permission": "view_salesorder"},
+}
+
+WORKBENCH_REPORTS = {
+    "sales": {"customer_ranking", "day_over_day"},
+    "inventory": {"ip_language_stock_count"},
 }
 
 ORDER_FILTER_LABELS = {
@@ -128,6 +133,12 @@ def _filter_identifier(query, field):
     return identifier(value, field) if value not in (None, "") else None
 
 
+def _reject_workbench_filters(query, fields):
+    for field in fields:
+        if query.get(field) not in (None, ""):
+            raise OperationError("工作台统计不能与此筛选组合。", fields={field: "请移除该筛选。"})
+
+
 def _order_queryset(actor):
     return sales_order_queryset_for(actor).select_related("salesperson", "customer", "channel")
 
@@ -206,11 +217,14 @@ def _local_datetime(value):
 
 
 def _inventory_data(actor, query):
+    workbench = query.get("workbench", "")
+    if workbench:
+        _reject_workbench_filters(query, ("brand_id", "sku_id", "warehouse_id", "low_stock", "order_id", "scope", "series"))
     items = inventory_rows(actor, query)
     balance_ids = [int(item["id"]) for item in items]
     balances = {
         row.pk: row
-        for row in InventoryBalance.objects.filter(pk__in=balance_ids).select_related("sku__product").prefetch_related("holds")
+        for row in InventoryBalance.objects.filter(pk__in=balance_ids).select_related("sku__product__brand").prefetch_related("holds")
     }
     occupied_counts = {
         (row["warehouse_id"], row["sku_id"]): row["order_count"]
@@ -219,8 +233,14 @@ def _inventory_data(actor, query):
             order__status__in=(SalesOrder.Status.AWAITING_PAYMENT, SalesOrder.Status.READY_TO_SHIP),
         ).values("warehouse_id", "sku_id").annotate(order_count=Count("order_id", distinct=True))
     }
+    available_by_sku = defaultdict(int)
+    sku_groups = {}
     for item in items:
         balance = balances[int(item["id"])]
+        sku, product = balance.sku, balance.sku.product
+        if workbench and sku.is_active and product.is_active and product.brand.is_active:
+            available_by_sku[sku.pk] += item["available"]
+            sku_groups[sku.pk] = (product.brand_id, product.language_id)
         item["barcode"] = balance.sku.barcode
         item["occupied_order_count"] = occupied_counts.get((balance.warehouse_id, balance.sku_id), 0)
         reasons = []
@@ -255,6 +275,12 @@ def _inventory_data(actor, query):
             for unit in sorted(quantities_by_unit)
         ],
     }
+    if workbench:
+        summary["workbench"] = {
+            "in_stock_ip_language_combination_count": len({
+                sku_groups[sku_id] for sku_id, available in available_by_sku.items() if available > 0
+            }),
+        }
     return items, columns, summary
 
 
@@ -270,14 +296,39 @@ def _sales_date_query(orders, period):
     )
 
 
-def _sales_data(actor, query, *, today=None):
+def _sales_data(actor, query, *, today=None, now=None):
     scope = query.get("scope", "delivered") or "delivered"
     if scope not in ("delivered", "unshipped"):
         raise OperationError("销售范围无效。", fields={"scope": "请选择已交付销售或未交付订单。"})
     series_kind = query.get("series", "")
     if series_kind not in ("", "day"):
         raise OperationError("销售序列类型无效。", fields={"series": "请选择day或移除序列筛选。"})
+    now = now or _now_local()
+    today = today or now.date()
     period = _date_criteria(query, today=today)
+    workbench = query.get("workbench", "")
+    if workbench:
+        if workbench not in {"customer_ranking", "day_over_day"}:
+            raise OperationError("工作台统计标记无效。", fields={"workbench": "销售报表不支持该标记。"})
+        if query.get("scope") != "delivered":
+            raise OperationError("工作台销售统计仅支持已交付销售。", fields={"scope": "请使用delivered。"})
+        if query.get("period") != "custom":
+            raise OperationError("工作台销售统计需要自定义日期。", fields={"period": "请使用custom。"})
+        _reject_workbench_filters(
+            query,
+            ("sku_id", "brand_id", "warehouse_id", "salesperson_id", "customer_id", "channel_id", "province", "city"),
+        )
+        if workbench == "customer_ranking":
+            if series_kind:
+                raise OperationError("客户排行不支持序列参数。", fields={"series": "请移除series。"})
+            if period["start_date"] != today.replace(day=1).isoformat() or period["end_date"] != today.isoformat():
+                raise OperationError("客户排行仅支持本月累计日期。", fields={"start_date": "请使用北京时间本月1日至今天。", "end_date": "请使用北京时间本月1日至今天。"})
+        else:
+            expected_start = (today - timedelta(days=1)).isoformat()
+            if series_kind != "day":
+                raise OperationError("增速统计需要逐日序列。", fields={"series": "请使用day。"})
+            if period["start_date"] != expected_start or period["end_date"] != today.isoformat():
+                raise OperationError("增速统计仅支持昨天至今天。", fields={"start_date": "请使用北京时间昨天至今天。", "end_date": "请使用北京时间昨天至今天。"})
     series_start = series_end = None
     if series_kind == "day":
         if scope != "delivered" or period["period"] != "custom":
@@ -302,12 +353,28 @@ def _sales_data(actor, query, *, today=None):
             lines = lines.filter(**{model_field: value})
     groups = {}
     daily_revenue = defaultdict(lambda: ZERO) if series_kind == "day" else None
+    workbench_daily_revenue = defaultdict(lambda: ZERO) if workbench == "day_over_day" else None
+    customer_revenue = {} if workbench == "customer_ranking" else None
     for line in lines.iterator():
         order, sku = line.order, line.sku
-        if daily_revenue is not None:
+        delivered_at = None
+        if daily_revenue is not None or customer_revenue is not None:
             delivered_at = order.shipped_at if order.delivery_mode == SalesOrder.DeliveryMode.SHIPMENT else order.completed_at
+        if daily_revenue is not None:
             day = delivered_at.astimezone(REPORT_TIME_ZONE).date().isoformat()
             daily_revenue[day] += line.revenue_amount
+            if workbench_daily_revenue is not None and delivered_at <= now:
+                workbench_daily_revenue[day] += line.revenue_amount
+        if customer_revenue is not None and order.customer_id and delivered_at <= now:
+            customer = customer_revenue.setdefault(
+                order.customer_id,
+                {"amount": ZERO, "latest_order": None, "customer_name": ""},
+            )
+            customer["amount"] += line.revenue_amount
+            latest_order = (delivered_at, order.pk)
+            if customer["latest_order"] is None or latest_order > customer["latest_order"]:
+                customer["latest_order"] = latest_order
+                customer["customer_name"] = order.customer_name_snapshot
         key = (
             sku.pk, line.warehouse_id, order.salesperson_id, order.customer_id, order.channel_id,
             order.province_snapshot, order.city_snapshot,
@@ -360,6 +427,38 @@ def _sales_data(actor, query, *, today=None):
         "quantity_by_unit": [{"unit": unit, "quantity": quantity} for unit, quantity in sorted(quantity_by_unit.items())],
         "scope": scope,
     }
+    if customer_revenue is not None:
+        summary["workbench"] = {
+            "customer_ranking": [
+                {
+                    "customer_id": str(customer_id),
+                    "customer_name": customer["customer_name"],
+                    "amount": _money(customer["amount"]),
+                }
+                for customer_id, customer in sorted(
+                    customer_revenue.items(), key=lambda entry: (-entry[1]["amount"], entry[0])
+                )[:3]
+            ],
+        }
+    elif workbench == "day_over_day":
+        today_amount = workbench_daily_revenue[period["end_date"]]
+        yesterday_amount = workbench_daily_revenue[period["start_date"]]
+        if yesterday_amount:
+            with localcontext() as context:
+                context.prec = 50
+                growth = ((today_amount / yesterday_amount - Decimal("1")) * Decimal("100")).quantize(
+                    Decimal("0.01"), rounding=ROUND_HALF_UP
+                )
+            growth_percent = f"{growth:.2f}"
+        else:
+            growth_percent = None
+        summary["workbench"] = {
+            "day_over_day": {
+                "today_amount": _money(today_amount),
+                "yesterday_amount": _money(yesterday_amount),
+                "growth_percent": growth_percent,
+            },
+        }
     series = None
     if daily_revenue is not None:
         series = []
@@ -589,6 +688,9 @@ def _filter_options(actor, report):
 def build_report(actor, report, query):
     if report not in REPORTS:
         raise OperationError("报表不存在。", status=404, code="not_found")
+    workbench = query.get("workbench", "")
+    if "workbench" in query and workbench not in WORKBENCH_REPORTS.get(report, set()):
+        raise OperationError("工作台统计标记无效。", fields={"workbench": "请移除或使用当前报表支持的标记。"})
     now = _now_local()
     series = None
     if report == "inventory":
@@ -597,7 +699,7 @@ def build_report(actor, report, query):
         items, columns, summary = _inventory_data(actor, query)
         metadata = _with_query_metadata(report, query, basis="当前库存余额", date_filter=False)
     elif report == "sales":
-        items, columns, summary, series = _sales_data(actor, query, today=now.date())
+        items, columns, summary, series = _sales_data(actor, query, today=now.date(), now=now)
         scope = query.get("scope", "delivered") or "delivered"
         basis = "未交付订单（无交付日期）" if scope == "unshipped" else "快递发货时间／现场交付时间"
         metadata = _with_query_metadata(report, query, basis=basis, today=now.date())

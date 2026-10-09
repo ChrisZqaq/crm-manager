@@ -1,5 +1,6 @@
 from datetime import date, datetime
 from decimal import Decimal
+from io import BytesIO
 from unittest.mock import patch
 from uuid import uuid4
 from zoneinfo import ZoneInfo
@@ -7,8 +8,10 @@ from zoneinfo import ZoneInfo
 from django.contrib.auth.models import Permission
 from django.test import SimpleTestCase
 from django.utils import timezone
+from openpyxl import load_workbook
 
 from .models import (
+    Brand,
     BusinessControl,
     BusinessOperation,
     CommissionAdjustment,
@@ -16,8 +19,11 @@ from .models import (
     InventoryBalance,
     InventoryHold,
     PaymentRecord,
+    Product,
+    ProductLanguageOption,
     ReceiptImage,
     SalesOrder,
+    SKU,
     Warehouse,
 )
 from .operations import OperationError
@@ -60,6 +66,231 @@ class ReportPhase6Tests(Phase4Base):
 
     def _set_sales_date(self, order, field, value):
         SalesOrder.objects.filter(pk=order.pk).update(**{field: value})
+
+    def _create_report_order(self, amount, delivered_at, *, customer=None, customer_name=None, actor=None, delivery_mode=SalesOrder.DeliveryMode.ON_SITE):
+        address_snapshot = {
+            "recipient": "Synthetic Recipient",
+            "contact": "Synthetic Contact",
+            "province": "北京市",
+            "city": "北京市",
+            "detail": "Synthetic street 1",
+        } if delivery_mode == SalesOrder.DeliveryMode.SHIPMENT else {}
+        payload = self.order_payload(
+            delivery_mode=delivery_mode,
+            address_snapshot=address_snapshot,
+            lines=[{"sku_id": self.sku.pk, "warehouse_id": self.warehouse.pk, "quantity": 1, "sale_price": str(amount)}],
+        )
+        if customer:
+            payload["customer_id"] = customer.pk
+        _, _, order = self.preview_and_confirm(payload, actor=actor)
+        fields = {"status": SalesOrder.Status.COMPLETED}
+        fields["shipped_at" if delivery_mode == SalesOrder.DeliveryMode.SHIPMENT else "completed_at"] = delivered_at
+        if customer_name is not None:
+            fields["customer_name_snapshot"] = customer_name
+        SalesOrder.objects.filter(pk=order.pk).update(**fields)
+        return order
+
+    def test_workbench_customer_ranking_is_opt_in_scoped_and_snapshot_based(self):
+        customer_a = self.create_customer(name="Ranking A")
+        customer_b = self.create_customer(name="Ranking B")
+        customer_c = self.create_customer(name="Ranking C")
+        customer_d = self.create_customer(name="Ranking D")
+        other_customer = self.create_customer(self.sales_two, name="Other Sales Customer")
+        self._create_report_order("40.000", datetime(2026, 10, 2, 12, tzinfo=SHANGHAI), customer=customer_a, customer_name="A旧快照")
+        latest_a = self._create_report_order(
+            "60.000", datetime(2026, 10, 8, 12, tzinfo=SHANGHAI), customer=customer_a,
+            customer_name="A新快照", delivery_mode=SalesOrder.DeliveryMode.SHIPMENT,
+        )
+        self._create_report_order("90.000", datetime(2026, 10, 7, 12, tzinfo=SHANGHAI), customer=customer_b, customer_name="B快照")
+        self._create_report_order("80.000", datetime(2026, 10, 6, 12, tzinfo=SHANGHAI), customer=customer_c, customer_name="C快照")
+        self._create_report_order("70.000", datetime(2026, 10, 5, 12, tzinfo=SHANGHAI), customer=customer_d, customer_name="D快照")
+        self._create_report_order("999.000", datetime(2026, 10, 8, 12, tzinfo=SHANGHAI), customer_name="门店散客")
+        self._create_report_order("500.000", datetime(2026, 10, 8, 12, tzinfo=SHANGHAI), customer=other_customer, actor=self.sales_two)
+        self._create_report_order("5000.000", datetime(2026, 10, 9, 20, tzinfo=SHANGHAI), customer=customer_a, customer_name="未来快照")
+        self._create_report_order("2000.000", datetime(2026, 9, 30, 12, tzinfo=SHANGHAI), customer=customer_a)
+
+        query = {
+            "period": "custom", "start_date": "2026-10-01", "end_date": "2026-10-09",
+            "scope": "delivered", "page_size": 1,
+        }
+        now = datetime(2026, 10, 9, 12, tzinfo=SHANGHAI)
+        with patch("crm.reports._now_local", return_value=now):
+            self.assertEqual(self.client.get("/api/v1/reports/sales", query).status_code, 401)
+            no_permission = self.User.objects.create_user(username="report-no-permission", password="test-only-password")
+            self.client.force_login(no_permission)
+            self.assertEqual(self.client.get("/api/v1/reports/sales", query).status_code, 403)
+
+            self.client.force_login(self.sales)
+            default = self.client.get("/api/v1/reports/sales", query)
+            opted_in = self.client.get("/api/v1/reports/sales", {**query, "workbench": "customer_ranking"})
+            self.assertEqual((default.status_code, opted_in.status_code), (200, 200))
+            default_data, data = default.json(), opted_in.json()
+            self.assertNotIn("workbench", default_data["summary"])
+            self.assertEqual(data["summary"].get("totals"), default_data["summary"].get("totals"))
+            self.assertEqual(data["items"], default_data["items"])
+            self.assertEqual(data["columns"], default_data["columns"])
+            self.assertEqual(data["total"], default_data["total"])
+            self.assertEqual(data["summary"]["workbench"]["customer_ranking"], [
+                {"customer_id": str(customer_a.pk), "customer_name": "A新快照", "amount": "100.000"},
+                {"customer_id": str(customer_b.pk), "customer_name": "B快照", "amount": "90.000"},
+                {"customer_id": str(customer_c.pk), "customer_name": "C快照", "amount": "80.000"},
+            ])
+
+            self.client.force_login(self.owner)
+            owner_data = self.client.get("/api/v1/reports/sales", {**query, "workbench": "customer_ranking"}).json()
+            self.assertEqual(owner_data["summary"]["workbench"]["customer_ranking"][0]["customer_id"], str(other_customer.pk))
+
+            report_only = self.User.objects.create_user(username="report-without-customer-view", password="test-only-password")
+            report_only.user_permissions.add(Permission.objects.get(content_type__app_label="crm", codename="view_salesorder"))
+            self.assertFalse(report_only.has_perm("crm.view_customer"))
+            SalesOrder.objects.filter(pk=latest_a.pk).update(salesperson=report_only)
+            self.client.force_login(report_only)
+            report_only_data = self.client.get("/api/v1/reports/sales", {**query, "workbench": "customer_ranking"}).json()
+            self.assertEqual(report_only_data["summary"]["workbench"]["customer_ranking"], [
+                {"customer_id": str(customer_a.pk), "customer_name": "A新快照", "amount": "60.000"},
+            ])
+
+            self.client.force_login(self.sales)
+            for invalid in (
+                {**query, "workbench": "unknown"},
+                {**query, "workbench": ""},
+                {**query, "workbench": "ip_language_stock_count"},
+                {**query, "workbench": "customer_ranking", "end_date": "2026-10-08"},
+                {**query, "workbench": "customer_ranking", "scope": "unshipped"},
+                {**query, "workbench": "customer_ranking", "brand_id": str(self.brand.pk)},
+            ):
+                response = self.client.get("/api/v1/reports/sales", invalid)
+                self.assertEqual(response.status_code, 400, response.content)
+                self.assertTrue(response.json()["error"]["fields"])
+
+            default_report = build_report(self.sales, "sales", query)
+            workbench_report = build_report(self.sales, "sales", {**query, "workbench": "customer_ranking"})
+            exported_rows = []
+            for report in (default_report, workbench_report):
+                workbook = load_workbook(BytesIO(workbook_bytes(report)), read_only=True)
+                exported_rows.append(list(workbook.active.iter_rows(min_row=6, values_only=True)))
+                workbook.close()
+            self.assertEqual(exported_rows[0], exported_rows[1])
+
+    def test_workbench_day_over_day_uses_beijing_dates_and_decimal_rounding(self):
+        self._create_report_order(
+            "80.000", datetime(2026, 10, 8, 15, 59, 59, 999999, tzinfo=ZoneInfo("UTC")),
+            delivery_mode=SalesOrder.DeliveryMode.SHIPMENT,
+        )
+        self._create_report_order(
+            "89.876", datetime(2026, 10, 8, 16, 0, tzinfo=ZoneInfo("UTC")),
+            delivery_mode=SalesOrder.DeliveryMode.ON_SITE,
+        )
+        self._create_report_order("50.000", datetime(2026, 10, 9, 20, tzinfo=SHANGHAI))
+        query = {
+            "workbench": "day_over_day", "period": "custom", "start_date": "2026-10-08",
+            "end_date": "2026-10-09", "scope": "delivered", "series": "day",
+        }
+        self.client.force_login(self.sales)
+        with patch("crm.reports._now_local", return_value=datetime(2026, 10, 9, 12, tzinfo=SHANGHAI)):
+            response = self.client.get("/api/v1/reports/sales", query)
+            self.assertEqual(response.status_code, 200, response.content)
+            data = response.json()
+            self.assertEqual(data["series"], [
+                {"date": "2026-10-08", "revenue_amount": "80.000"},
+                {"date": "2026-10-09", "revenue_amount": "139.876"},
+            ])
+            self.assertEqual(data["summary"]["workbench"]["day_over_day"], {
+                "today_amount": "89.876", "yesterday_amount": "80.000", "growth_percent": "12.35",
+            })
+            for invalid in (
+                {**query, "start_date": "2026-10-07"},
+                {**query, "scope": "unshipped"},
+                {**query, "series": ""},
+            ):
+                failed = self.client.get("/api/v1/reports/sales", invalid)
+                self.assertEqual(failed.status_code, 400, failed.content)
+                self.assertTrue(failed.json()["error"]["fields"])
+
+    def test_workbench_day_over_day_returns_null_growth_for_zero_yesterday(self):
+        self._create_report_order("10.000", datetime(2026, 10, 9, 10, tzinfo=SHANGHAI))
+        query = {
+            "workbench": "day_over_day", "period": "custom", "start_date": "2026-10-08",
+            "end_date": "2026-10-09", "scope": "delivered", "series": "day",
+        }
+        self.client.force_login(self.sales)
+        with patch("crm.reports._now_local", return_value=datetime(2026, 10, 9, 12, tzinfo=SHANGHAI)):
+            response = self.client.get("/api/v1/reports/sales", query)
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(response.json()["summary"]["workbench"]["day_over_day"], {
+            "today_amount": "10.000", "yesterday_amount": "0.000", "growth_percent": None,
+        })
+
+    def test_inventory_workbench_counts_enabled_positive_available_ip_language_pairs(self):
+        InventoryBalance.objects.create(sku=self.sku, warehouse=self.second_warehouse, on_hand=2)
+        same_language_sku = SKU.objects.create(product=self.product, code="TST-0002", unit="盒")
+        InventoryBalance.objects.create(sku=same_language_sku, warehouse=self.second_warehouse, on_hand=3)
+
+        english = ProductLanguageOption.objects.get_or_create(name="英文")[0]
+        japanese = ProductLanguageOption.objects.get_or_create(name="日文")[0]
+        korean = ProductLanguageOption.objects.get_or_create(name="韩文")[0]
+        english_product = Product.objects.create(
+            brand=self.brand, type=Product.Type.BOOSTER, name="Active English", language=english,
+        )
+        english_sku = SKU.objects.create(product=english_product, code="TST-0003", unit="盒")
+        InventoryBalance.objects.create(sku=english_sku, warehouse=self.warehouse, on_hand=1)
+
+        for number in (4, 5):
+            merchandise = Product.objects.create(
+                brand=self.brand, type=Product.Type.MERCHANDISE, name=f"Blank Language {number}",
+            )
+            sku = SKU.objects.create(product=merchandise, code=f"TST-{number:04d}", unit="个")
+            InventoryBalance.objects.create(sku=sku, warehouse=self.warehouse, on_hand=1)
+
+        other_brand = Brand.objects.create(name="Other Active IP", sku_prefix="OTH-")
+        other_blank = Product.objects.create(brand=other_brand, type=Product.Type.MERCHANDISE, name="Other Blank")
+        other_blank_sku = SKU.objects.create(product=other_blank, code="OTH-0001", unit="个")
+        InventoryBalance.objects.create(sku=other_blank_sku, warehouse=self.warehouse, on_hand=1)
+        locked_product = Product.objects.create(brand=other_brand, type=Product.Type.BOOSTER, name="Locked Stock", language=japanese)
+        locked_sku = SKU.objects.create(product=locked_product, code="OTH-0002", unit="盒")
+        InventoryBalance.objects.create(sku=locked_sku, warehouse=self.warehouse, on_hand=2, occupied=2)
+
+        inactive_brand = Brand.objects.create(name="Disabled IP", sku_prefix="OFF-", is_active=False)
+        inactive_brand_product = Product.objects.create(
+            brand=inactive_brand, type=Product.Type.BOOSTER, name="Disabled Brand Product", language=korean,
+        )
+        inactive_brand_sku = SKU.objects.create(product=inactive_brand_product, code="OFF-0001", unit="盒")
+        InventoryBalance.objects.create(sku=inactive_brand_sku, warehouse=self.warehouse, on_hand=2)
+        inactive_product = Product.objects.create(
+            brand=self.brand, type=Product.Type.BOOSTER, name="Disabled Product", language=korean, is_active=False,
+        )
+        inactive_product_sku = SKU.objects.create(product=inactive_product, code="TST-0006", unit="盒")
+        InventoryBalance.objects.create(sku=inactive_product_sku, warehouse=self.warehouse, on_hand=2)
+        inactive_sku_product = Product.objects.create(
+            brand=self.brand, type=Product.Type.BOOSTER, name="Disabled SKU Product", language=japanese,
+        )
+        inactive_sku = SKU.objects.create(product=inactive_sku_product, code="TST-0007", unit="盒", is_active=False)
+        InventoryBalance.objects.create(sku=inactive_sku, warehouse=self.warehouse, on_hand=2)
+
+        query = {"workbench": "ip_language_stock_count", "page_size": 1}
+        self.client.force_login(self.sales)
+        opted_in = self.client.get("/api/v1/reports/inventory", query)
+        default = self.client.get("/api/v1/reports/inventory", {"page_size": 1})
+        self.assertEqual((opted_in.status_code, default.status_code), (200, 200))
+        opted_in_data, default_data = opted_in.json(), default.json()
+        self.assertEqual(opted_in_data["summary"]["workbench"]["in_stock_ip_language_combination_count"], 4)
+        self.assertNotIn("workbench", default_data["summary"])
+        self.assertEqual(opted_in_data["items"], default_data["items"])
+        self.assertGreater(opted_in_data["total"], 1)
+
+        no_permission = self.User.objects.create_user(username="inventory-report-no-permission", password="test-only-password")
+        self.client.force_login(no_permission)
+        self.assertEqual(self.client.get("/api/v1/reports/inventory", query).status_code, 403)
+        for invalid in (
+            {**query, "workbench": "unknown"},
+            {**query, "workbench": ""},
+            {**query, "workbench": "customer_ranking"},
+            {**query, "workbench": "ip_language_stock_count", "warehouse_id": str(self.warehouse.pk)},
+        ):
+            self.client.force_login(self.sales)
+            response = self.client.get("/api/v1/reports/inventory", invalid)
+            self.assertEqual(response.status_code, 400, response.content)
+            self.assertTrue(response.json()["error"]["fields"])
 
     def test_sales_groups_order_lines_per_unit_warehouse_and_snapshot_region(self):
         second_balance = InventoryBalance.objects.create(
