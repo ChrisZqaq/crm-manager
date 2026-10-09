@@ -149,6 +149,8 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
 .link-button:hover { background: transparent; text-decoration: underline; }
 .dashboard-grid { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(260px, .85fr); gap: 16px; align-items: start; }
 .dashboard-side { display: grid; align-content: start; gap: 16px; }
+.dashboard-side .card-body > .empty-state { margin-bottom: 0; padding: 10px 12px; }
+.dashboard-side > section > .inline-status:empty { display: none; }
 .dashboard-trend { grid-column: 1 / -1; }
 .trend-chart { display: grid; min-height: 190px; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 10px; align-items: end; border-bottom: 1px solid var(--line); padding: 12px 0 0; }
 .trend-column { display: grid; height: 170px; min-width: 0; grid-template-rows: 18px 1fr 22px; justify-items: center; gap: 4px; }

@@ -32,11 +32,11 @@
   {% if order.status == "awaiting_payment" or order.status == "ready_to_ship" %}
     {% if can_edit_sales_order %}<p><a class="button-link" href="{% url 'order-edit' order.pk %}">修改订单</a></p>{% endif %}
     {% if can_cancel_sales_order %}
-      <button id="cancel" class="button-primary" type="button" aria-controls="cancel-confirmation" aria-expanded="false">取消订单并释放占货</button>
+      <p><button id="cancel" class="button-danger" type="button" aria-controls="cancel-confirmation" aria-expanded="false">取消订单并释放占货</button></p>
       <section id="cancel-confirmation" hidden aria-labelledby="cancel-confirmation-title">
         <h2 id="cancel-confirmation-title">确认取消订单</h2>
         <p>确认后将取消订单并释放该订单占用的库存。</p>
-        <button id="confirm-cancel" class="button-primary" type="button">确认取消订单并释放占货</button>
+        <button id="confirm-cancel" class="button-danger" type="button">确认取消订单并释放占货</button>
         <button id="cancel-back" type="button">返回</button>
       </section>
     {% endif %}

@@ -6,7 +6,11 @@
 <section class="page-heading"><div><h1>销售订单</h1><p>日期按系统下单时点筛选；履约状态和收款核对状态分别显示。</p></div>{% if perms.crm.add_salesorder %}<a class="button-primary" href="{% url 'order-new' %}">新建订单</a>{% endif %}</section>
 <form class="data-card filter-bar" id="order-filters" role="search">
   <div class="filter-field filter-search"><label for="order-query">订单编号、客户、渠道或销售</label><input id="order-query" name="q" type="search" value="{{ request.GET.q }}" maxlength="120"></div>
-  <div class="filter-field"><label for="order-status">履约状态</label><select id="order-status" name="status"><option value="">全部</option>{% for value,label in status_options %}<option value="{{ value }}" {% if request.GET.status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+  <input id="order-status" type="hidden" name="status" value="{{ request.GET.status }}">
+  <nav class="tab-list order-status-tabs" aria-label="按履约状态筛选">
+    <button type="button" data-order-status="" aria-pressed="{% if not request.GET.status %}true{% else %}false{% endif %}" class="{% if not request.GET.status %}is-active{% endif %}">全部</button>
+    {% for value,label in status_options %}<button type="button" data-order-status="{{ value }}" aria-pressed="{% if request.GET.status == value %}true{% else %}false{% endif %}" class="{% if request.GET.status == value %}is-active{% endif %}">{{ label }}</button>{% endfor %}
+  </nav>
   <div class="filter-field"><label for="order-salesperson">销售</label><select id="order-salesperson" name="salesperson_id" data-filter-options="salespeople"><option value="">全部</option></select></div>
   <div class="filter-field"><label for="order-warehouse">出货仓</label><select id="order-warehouse" name="warehouse_id" data-filter-options="warehouses"><option value="">全部</option></select></div>
   <div class="filter-field"><label for="order-start">下单日期起</label><input id="order-start" name="start_date" type="date" value="{{ request.GET.start_date }}"></div>
@@ -56,6 +60,7 @@
     finally{body.removeAttribute('aria-busy');}
   }
   form.addEventListener('submit',event=>{event.preventDefault();page=1;load();});
+  form.querySelectorAll('[data-order-status]').forEach(button=>button.addEventListener('click',()=>{form.elements.status.value=button.dataset.orderStatus;form.querySelectorAll('[data-order-status]').forEach(item=>{const active=item===button;item.classList.toggle('is-active',active);item.setAttribute('aria-pressed',String(active));});page=1;load();}));
   document.getElementById('order-previous').addEventListener('click',()=>{if(page>1){page--;load();}});
   document.getElementById('order-next').addEventListener('click',()=>{if(page<pageCount){page++;load();}});
   load();

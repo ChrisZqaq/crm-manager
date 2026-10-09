@@ -2,6 +2,8 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
 from django.test import TestCase
 
+from crm.models import PaymentRecord, SalesOrder
+
 
 class ApprovedWorkbenchAndPaymentUITests(TestCase):
     @classmethod
@@ -51,3 +53,26 @@ class ApprovedWorkbenchAndPaymentUITests(TestCase):
         self.client.force_login(self.verifier)
         response = self.client.get("/reports/payments/")
         self.assertContains(response, "verify-payment")
+
+    def test_status_shortcuts_keep_existing_statuses_and_selected_filters(self):
+        self.client.force_login(self.orders)
+
+        response = self.client.get("/orders/", {"status": "cancelled", "q": "sample", "verification_status": "passed"})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'id="order-status" type="hidden" name="status" value="cancelled"')
+        for value, label in SalesOrder.Status.choices:
+            self.assertContains(response, f'data-order-status="{value}"')
+            self.assertContains(response, label)
+        self.assertContains(response, 'aria-pressed="true" class="is-active">已取消</button>')
+        self.assertContains(response, 'name="q" type="search" value="sample"')
+        self.assertContains(response, 'name="verification_status"')
+
+        response = self.client.get("/reports/payments/", {"status": "problem", "q": "sample", "paused": "true"})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'name="status" value="problem"')
+        self.assertContains(response, 'name="status" value="problem" aria-pressed="true" class="is-active">待处理</button>')
+        for value, label in PaymentRecord.Status.choices:
+            self.assertContains(response, f'name="status" value="{value}"')
+            self.assertContains(response, label)
+        self.assertContains(response, 'name="q" value="sample"')
+        self.assertContains(response, 'name="paused"')
