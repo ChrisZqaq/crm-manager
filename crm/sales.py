@@ -896,6 +896,14 @@ def confirm_sales_order(actor, operation_key_value, preview_token, request_id=""
             _require(actor, "change_salesorder" if is_amend else "add_salesorder")
             replay = _operation_replay(actor, key, action, input_hash)
             if replay is not None:
+                customer_id = BusinessOperation.objects.filter(
+                    action="customer_order_invoice_update",
+                    payload__order_operation_key=str(key),
+                ).values_list("customer_id", flat=True).first()
+                if customer_id is not None:
+                    _require(actor, "change_customer")
+                    if not customer_queryset_for(actor, changing=True).filter(pk=customer_id).exists():
+                        raise OperationError("客户不存在或不在可维护范围。", status=404, code="not_found")
                 return replay
             if control.last_sequence != preview["sequence"]:
                 raise OperationError("预览后业务数据已变化，请重新预览。", status=409, code="stale_preview")

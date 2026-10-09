@@ -900,3 +900,122 @@ class SalesOrderPhase3Tests(Phase3Base):
         denied = other_sales.get("/api/v1/inventory", {"sku_id": self.sku.pk, "order_id": order.pk})
         self.assertEqual(denied.status_code, 404)
         self.assertEqual(denied.json()["error"]["code"], "not_found")
+
+    def _replay_order_in_new_session(self, key, preview_token):
+        client = Client()
+        client.force_login(self.User.objects.get(pk=self.sales.pk))
+        return client.post(
+            "/api/v1/orders",
+            data=json.dumps({"operation_key": str(key), "preview_token": preview_token}),
+            content_type="application/json",
+        )
+
+    def test_invoice_update_order_replay_requires_current_change_permission(self):
+        customer = self.create_customer(invoice_title="原抬头")
+        preview = preview_sales_order(self.sales, self.order_payload(
+            customer_id=customer.pk,
+            requires_invoice=True,
+            invoice_title="更新后的抬头",
+        ))
+        key = uuid4()
+        result = confirm_sales_order(self.sales, key, preview["preview_token"])
+        customer.refresh_from_db()
+        self.assertEqual(customer.invoice_title, "更新后的抬头")
+        self.assertTrue(BusinessOperation.objects.filter(
+            action="customer_order_invoice_update",
+            payload__order_operation_key=str(key),
+            customer=customer,
+        ).exists())
+
+        Group.objects.get(name=ROLE_SALES).permissions.remove(
+            Permission.objects.get(content_type__app_label="crm", codename="change_customer")
+        )
+        before = (
+            customer.version,
+            customer.invoice_title,
+            SalesOrder.objects.count(),
+            BusinessOperation.objects.count(),
+            InventoryBalance.objects.get(pk=self.balance.pk).occupied,
+            BusinessControl.objects.get(pk=1).last_sequence,
+        )
+        replay = self._replay_order_in_new_session(key, preview["preview_token"])
+        self.assertEqual(replay.status_code, 403)
+        self.assertEqual(replay.json()["error"]["code"], "permission_denied")
+        customer.refresh_from_db()
+        self.assertEqual((
+            customer.version,
+            customer.invoice_title,
+            SalesOrder.objects.count(),
+            BusinessOperation.objects.count(),
+            InventoryBalance.objects.get(pk=self.balance.pk).occupied,
+            BusinessControl.objects.get(pk=1).last_sequence,
+        ), before)
+        self.assertEqual(result["order_id"], SalesOrder.objects.get().pk)
+
+    def test_invoice_unchanged_order_replay_needs_no_change_permission(self):
+        customer = self.create_customer(invoice_title="原抬头")
+        preview = preview_sales_order(self.sales, self.order_payload(
+            customer_id=customer.pk,
+            requires_invoice=True,
+            invoice_title="原抬头",
+        ))
+        key = uuid4()
+        result = confirm_sales_order(self.sales, key, preview["preview_token"])
+        self.assertFalse(BusinessOperation.objects.filter(
+            action="customer_order_invoice_update",
+            payload__order_operation_key=str(key),
+        ).exists())
+        before = (
+            SalesOrder.objects.count(),
+            BusinessOperation.objects.count(),
+            InventoryBalance.objects.get(pk=self.balance.pk).occupied,
+            BusinessControl.objects.get(pk=1).last_sequence,
+        )
+        Group.objects.get(name=ROLE_SALES).permissions.remove(
+            Permission.objects.get(content_type__app_label="crm", codename="change_customer")
+        )
+
+        replay = self._replay_order_in_new_session(key, preview["preview_token"])
+        self.assertEqual(replay.status_code, 200, replay.content)
+        self.assertEqual(replay.json(), result)
+        self.assertEqual((
+            SalesOrder.objects.count(),
+            BusinessOperation.objects.count(),
+            InventoryBalance.objects.get(pk=self.balance.pk).occupied,
+            BusinessControl.objects.get(pk=1).last_sequence,
+        ), before)
+
+    def test_invoice_update_order_replay_requires_current_customer_scope(self):
+        customer = self.create_customer(invoice_title="原抬头")
+        preview = preview_sales_order(self.sales, self.order_payload(
+            customer_id=customer.pk,
+            requires_invoice=True,
+            invoice_title="更新后的抬头",
+        ))
+        key = uuid4()
+        confirm_sales_order(self.sales, key, preview["preview_token"])
+        customer.refresh_from_db()
+        transfer_customer(self.owner, customer.pk, {
+            "owner_id": self.sales_two.pk,
+            "expected_version": customer.version,
+            "operation_key": str(uuid4()),
+        })
+        replay_user = self.User.objects.get(pk=self.sales.pk)
+        self.assertTrue(replay_user.has_perm("crm.change_customer"))
+        self.assertFalse(customer_queryset_for(replay_user, changing=True).filter(pk=customer.pk).exists())
+        before = (
+            SalesOrder.objects.count(),
+            BusinessOperation.objects.count(),
+            InventoryBalance.objects.get(pk=self.balance.pk).occupied,
+            BusinessControl.objects.get(pk=1).last_sequence,
+        )
+
+        replay = self._replay_order_in_new_session(key, preview["preview_token"])
+        self.assertEqual(replay.status_code, 404)
+        self.assertEqual(replay.json()["error"]["code"], "not_found")
+        self.assertEqual((
+            SalesOrder.objects.count(),
+            BusinessOperation.objects.count(),
+            InventoryBalance.objects.get(pk=self.balance.pk).occupied,
+            BusinessControl.objects.get(pk=1).last_sequence,
+        ), before)
