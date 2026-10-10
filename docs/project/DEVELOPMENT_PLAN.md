@@ -210,3 +210,5 @@ RELEASE-IP-UPDATE执行完成：云aluola_crm_dev及本机aluola_crm_local_demo�
 UI-HOME-REFINE客户手绘已澄清：用户确认仍为今日新增人数，23%只是示意、不新增增长公式。现实现新增为—，真实数接口尚未接入；后端仅只读核对最小依赖并报告，不恢复应用写入；候选不冒充已实现数据。
 
 UI-HOME-REFINE新增客户依赖只读收口：现Customer.created_at可复用，现列表仅total无日期计数；最小GET customers include_created_today摘要合同已记录，权限/owner/归档/过滤范围同total，服务端北京时间今天计数，不按创建操作者归因。仅合同准备，UI继续候选；未批准实施、不影响已运行0f835。
+
+2026-10-11 UI-HOME-REFINE候选交付待批准：UI独立home-refine-v1/index.html SHA256 6c80552e7fcb7841ef8856bfe8f6c3a221d92e1fa81987ac370d4d653a3fe3f7，局部八卡及真实比例轴候选，1280/390及单日/全零仅合成原型证据；预览18770/home-refine-v1/。UI直接请用户审具体版本，未批准实施；当前已发布应用0f835保持，无源码差异。新增客户接口合同待正式后端窗口，不把候选数当真实数据。
