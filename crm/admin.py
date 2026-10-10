@@ -18,6 +18,24 @@ from .permissions import ROLE_NAMES, ROLE_OWNER
 
 
 class NoAdminHistory:
+    change_list_template = "crm/admin_change_list.html"
+    change_form_template = "crm/admin_change_form.html"
+    class Media:
+        css = {"all": ("crm/admin.css",)}
+
+    field_labels = {
+        "name": "名称", "sku_prefix": "SKU前缀", "type": "商品类型", "series": "系列",
+        "language": "语言", "official_code": "官方编号", "code": "SKU编号", "unit": "售卖单位",
+        "barcode": "包装条码", "pack_type": "包装类型", "box_spec": "箱规格",
+        "inner_box_spec": "内盒规格", "pack_spec": "包规格", "address": "地址",
+        "is_active": "启用", "is_staff": "可登录后台", "is_superuser": "超级管理员",
+        "groups": "角色", "permissions": "权限", "changed_at": "变更时间",
+        "actor": "操作人", "target_user": "员工", "role_name": "角色名称",
+        "before": "变更前", "after": "变更后", "method": "收款方式",
+        "responsibility": "归属", "email": "邮箱", "username": "账号",
+        "first_name": "名", "last_name": "姓",
+    }
+
     def log_addition(self, request, obj, message):
         pass
 
@@ -26,6 +44,12 @@ class NoAdminHistory:
 
     def log_deletion(self, request, obj, object_repr):
         pass
+
+    def formfield_for_dbfield(self, db_field, request, **kwargs):
+        field = super().formfield_for_dbfield(db_field, request, **kwargs)
+        if field and db_field.name in self.field_labels:
+            field.label = self.field_labels[db_field.name]
+        return field
 
 
 class ArchiveAdmin(NoAdminHistory, admin.ModelAdmin):
@@ -273,3 +297,6 @@ class ChannelAdmin(ArchiveAdmin):
 
 
 admin.site.index_template = "crm/admin_index.html"
+admin.site.site_header = "阿罗拉潮玩空间 CRM 管理后台"
+admin.site.site_title = "CRM 管理后台"
+admin.site.index_title = "系统管理"

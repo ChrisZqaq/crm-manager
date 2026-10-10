@@ -33,6 +33,39 @@ class ApprovedWorkbenchAndPaymentUITests(TestCase):
         grant(cls.order_writer, "add_salesorder", "view_customer", "add_customer", "view_inventorybalance")
         grant(cls.order_writer_without_customers, "add_salesorder", "view_inventorybalance")
 
+    def test_revision_layout_contract_is_present_without_changing_permissions(self):
+        self.client.force_login(self.orders)
+        customer_page = self.client.get("/customers/")
+        self.assertContains(customer_page, 'class="customer-detail-dialog" id="customer-detail"')
+        self.assertNotContains(customer_page, 'class="data-card detail-panel')
+
+        self.client.force_login(self.inventory)
+        workbench = self.client.get("/")
+        self.assertContains(workbench, "in_stock_ip_language_combinations_preview")
+        self.assertContains(workbench, "low-stock-preview")
+        self.assertContains(workbench, "?low_stock=true")
+
+        self.client.force_login(self.catalog)
+        self.assertContains(self.client.get("/catalog/"), "<th>IP</th><th>语言</th>")
+
+        self.client.force_login(self.order_writer)
+        order = self.client.get("/orders/new/")
+        self.assertContains(order, 'class="line-quantity"')
+        self.assertContains(order, 'class="order-preview data-card card-body"')
+        self.assertContains(order, "available_for_order??item.available")
+
+        self.client.force_login(self.admin)
+        admin = self.client.get("/admin/")
+        self.assertContains(admin, "阿罗拉潮玩空间 CRM 管理后台")
+        self.assertContains(admin, "业务资料")
+        product_admin = self.client.get("/admin/crm/product/")
+        self.assertContains(product_admin, "商品")
+        self.assertContains(product_admin, "新增商品")
+        self.assertContains(product_admin, "/static/crm/admin.css")
+        product_admin_add = self.client.get("/admin/crm/product/add/")
+        self.assertContains(product_admin_add, "新建商品")
+        self.assertContains(product_admin_add, "IP")
+
     def test_workbench_is_available_without_data_permissions_and_gates_requests(self):
         self.client.force_login(self.basic)
         response = self.client.get("/")

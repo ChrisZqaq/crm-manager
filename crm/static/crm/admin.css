@@ -1,0 +1,7 @@
+:root { --primary: #302c6c; --secondary: #25234f; --accent: #e99a0d; }
+#header { background: #302c6c; color: #fff; }
+#branding h1, #branding h1 a:link, #branding h1 a:visited, #site-name a { color: #fff; }
+#user-tools a:focus, #user-tools a:hover { color: #f3c365; }
+div.breadcrumbs { background: #f2f4fa; color: #555a75; }
+.module h2, .module caption, .inline-group h2 { background: #302c6c; }
+input:focus, select:focus, textarea:focus { border-color: #e99a0d; }

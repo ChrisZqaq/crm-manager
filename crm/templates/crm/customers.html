@@ -12,10 +12,10 @@
 </form>
 <p id="customer-status" role="status" aria-live="polite"></p>
 <div class="split-layout" id="customer-layout">
-  <section class="data-card"><div class="table-scroll"><table><thead><tr><th>客户</th><th>联系方式</th><th>公司</th><th>发票抬头</th><th>负责人</th><th>状态</th><th>操作</th></tr></thead><tbody id="customers"><tr><td colspan="7" class="empty-state">正在加载客户…</td></tr></tbody></table></div>
+  <section class="data-card"><p id="customer-empty" class="empty-state">正在加载客户…</p><div class="table-scroll"><table><thead><tr><th>客户</th><th>联系方式</th><th>公司</th><th>发票抬头</th><th>负责人</th><th>状态</th><th>操作</th></tr></thead><tbody id="customers"></tbody></table></div>
     <div class="pagination"><span id="customer-page"></span><button id="customer-previous" type="button">上一页</button><button id="customer-next" type="button">下一页</button></div>
   </section>
-  <aside class="data-card detail-panel is-mobile-hidden" id="customer-detail" aria-labelledby="customer-detail-title"><div class="card-head detail-toolbar"><h2 id="customer-detail-title">客户详情</h2><div><button type="button" class="button-link desktop-detail-close" data-close-customer>关闭详情</button><button type="button" class="mobile-only" data-close-customer>返回列表</button></div></div><div class="card-body" id="customer-detail-body"><p class="empty-state">选择客户查看资料。</p></div></aside>
+  <dialog class="customer-detail-dialog" id="customer-detail" aria-labelledby="customer-detail-title"><div class="card-head detail-toolbar"><h2 id="customer-detail-title">客户详情</h2><button type="button" class="button-link" data-close-customer>关闭</button></div><div class="card-body" id="customer-detail-body"><p class="empty-state">选择客户查看资料。</p></div></dialog>
 </div>
 <dialog id="customer-dialog" aria-labelledby="customer-dialog-title">
   <form id="customer-editor" method="dialog">
@@ -42,7 +42,7 @@
   let ownerId=initial.get('owner_id')||'',ownerOptionsLoaded=false;
   let page=Number(initial.get('page')||1),pageCount=1,canArchive={{ perms.crm.archive_customer|yesno:'true,false' }}||{{ request.user.is_superuser|yesno:'true,false' }},canEditCustomer={{ perms.crm.change_customer|yesno:'true,false' }}||{{ request.user.is_superuser|yesno:'true,false' }};
   const esc=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
-  function empty(messageText){const row=document.createElement('tr'),cell=document.createElement('td');cell.colSpan=7;cell.className='empty-state';cell.textContent=messageText;row.append(cell);body.replaceChildren(row);}
+  function empty(messageText){body.replaceChildren();const state=document.getElementById('customer-empty');state.textContent=messageText;state.hidden=false;}
   async function load(){
     message.textContent='';
     const params=new URLSearchParams({page:String(page),page_size:'50',include_archived:String(archived.checked),q:query.value.trim()});
@@ -58,14 +58,14 @@
         ownerId=owner.value;
         ownerOptionsLoaded=true;
       }
-      if(data.items.length){body.innerHTML=data.items.map(item=>`<tr><td><button type="button" class="link-button" data-customer="${item.id}">${esc(item.name)}</button></td><td>${esc(item.contact)}</td><td>${esc(item.company||'—')}</td><td>${esc(item.invoice_title||'—')}</td><td>${esc(item.owner_name)}</td><td>${item.is_active?'正常':'已归档'}</td><td>${canEditCustomer?`<button type="button" data-edit="${item.id}">编辑</button>`:''} ${item.is_active&&canArchive?`<button type="button" data-archive="${item.id}" data-version="${item.version}">归档</button>`:''}</td></tr>`).join('');}
+      document.getElementById('customer-empty').hidden=true;if(data.items.length){body.innerHTML=data.items.map(item=>`<tr><td><button type="button" class="link-button" data-customer="${item.id}">${esc(item.name)}</button></td><td>${esc(item.contact)}</td><td>${esc(item.company||'—')}</td><td>${esc(item.invoice_title||'—')}</td><td>${esc(item.owner_name)}</td><td>${item.is_active?'正常':'已归档'}</td><td>${canEditCustomer?`<button type="button" data-edit="${item.id}">编辑</button>`:''} ${item.is_active&&canArchive?`<button type="button" data-archive="${item.id}" data-version="${item.version}">归档</button>`:''}</td></tr>`).join('');[...body.rows].forEach((row,index)=>{row.dataset.customerRow=data.items[index].id;row.tabIndex=0;row.setAttribute('aria-label',`查看客户${data.items[index].name}`);});}
       else empty('没有匹配的客户。');
       pageCount=Math.max(1,Math.ceil(data.total/data.page_size));document.getElementById('customer-page').textContent=`共${data.total}位 · ${data.page}/${pageCount}`;document.getElementById('customer-previous').disabled=data.page<=1;document.getElementById('customer-next').disabled=data.page>=pageCount;
       const url=new URL(location.href);url.search=params.toString();history.replaceState(null,'',url);
     }catch(error){empty('请求未完成。');message.textContent=error.message;message.setAttribute('role','alert');}
   }
   async function showCustomer(id){
-    const panel=document.getElementById('customer-detail'),detail=document.getElementById('customer-detail-body');panel.classList.add('is-mobile-active');panel.classList.remove('is-mobile-hidden');document.getElementById('customer-layout').classList.add('mobile-detail-open');detail.replaceChildren(Object.assign(document.createElement('p'),{className:'muted',textContent:'正在加载客户资料…'}));
+    const panel=document.getElementById('customer-detail'),detail=document.getElementById('customer-detail-body');if(!panel.open)panel.showModal();detail.replaceChildren(Object.assign(document.createElement('p'),{className:'muted',textContent:'正在加载客户资料…'}));
     try{
       const item=await api(`/api/v1/customers/${encodeURIComponent(id)}`);detail.replaceChildren();
       const heading=document.createElement('h3');heading.textContent=item.name;detail.append(heading);
@@ -117,7 +117,9 @@
     if(!confirm('归档该客户？历史订单会保留。'))return;
     try{button.dataset.operationKey ||= crypto.randomUUID();await api(`/api/v1/customers/${button.dataset.archive}/archive`,'POST',{expected_version:Number(button.dataset.version),operation_key:button.dataset.operationKey});await load();}catch(error){message.textContent=error.message;message.setAttribute('role','alert');}
   });
-  document.querySelectorAll('[data-close-customer]').forEach(button=>button.addEventListener('click',()=>{const panel=document.getElementById('customer-detail'),detail=document.getElementById('customer-detail-body');detail.replaceChildren(Object.assign(document.createElement('p'),{className:'empty-state',textContent:'选择客户查看资料。'}));panel.classList.remove('is-mobile-active');panel.classList.add('is-mobile-hidden');document.getElementById('customer-layout').classList.remove('mobile-detail-open');}));
+  body.addEventListener('click',event=>{const row=event.target.closest('[data-customer-row]');if(row&&!event.target.closest('button')){row.focus();showCustomer(row.dataset.customerRow);}});
+  body.addEventListener('keydown',event=>{const row=event.target.closest('[data-customer-row]');if(row&&(event.key==='Enter'||event.key===' ')){event.preventDefault();showCustomer(row.dataset.customerRow);}});
+  document.querySelectorAll('[data-close-customer]').forEach(button=>button.addEventListener('click',()=>document.getElementById('customer-detail').close()));
   document.getElementById('customer-previous').addEventListener('click',()=>{if(page>1){page--;load();}});document.getElementById('customer-next').addEventListener('click',()=>{if(page<pageCount){page++;load();}});
   load();
 })();

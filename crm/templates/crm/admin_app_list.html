@@ -1,0 +1,24 @@
+{% if app_list %}
+  {% for app in app_list %}
+    <div class="app-{{ app.app_label }} module{% if app.app_url in request.path|urlencode %} current-app{% endif %}">
+      <table>
+        <caption><a href="{{ app.app_url }}" class="section">{% if app.app_label == 'crm' %}业务资料{% else %}系统账户与权限{% endif %}</a></caption>
+        <tbody>
+        {% for model in app.models %}
+          {% with model_name=model.object_name|lower %}
+          <tr class="model-{{ model_name }}{% if model.admin_url in request.path|urlencode %} current-model{% endif %}">
+            <th scope="row" id="{{ app.app_label }}-{{ model_name }}">
+              {% if model.admin_url %}<a href="{{ model.admin_url }}">{% endif %}
+              {% if model.object_name == 'Brand' %}IP{% elif model.object_name == 'Product' %}商品{% elif model.object_name == 'ProductLanguageOption' %}商品语言{% elif model.object_name == 'SKU' %}商品规格（SKU）{% elif model.object_name == 'Warehouse' %}仓库{% elif model.object_name == 'Supplier' %}供应商{% elif model.object_name == 'PaymentAccount' %}收款账户{% elif model.object_name == 'Channel' %}销售渠道{% elif model.object_name == 'User' %}员工账号{% elif model.object_name == 'Group' %}角色权限{% elif model.object_name == 'PermissionChange' %}权限变更记录{% else %}{{ model.name }}{% endif %}
+              {% if model.admin_url %}</a>{% endif %}
+            </th>
+            {% if model.add_url %}<td><a class="addlink" href="{{ model.add_url }}">新增</a></td>{% else %}<td></td>{% endif %}
+            {% if model.admin_url and show_changelinks %}<td>{% if model.view_only %}<a class="viewlink" href="{{ model.admin_url }}">查看</a>{% else %}<a class="changelink" href="{{ model.admin_url }}">管理</a>{% endif %}</td>{% elif show_changelinks %}<td></td>{% endif %}
+          </tr>
+          {% endwith %}
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endfor %}
+{% else %}<p>当前账号没有可管理的项目。</p>{% endif %}

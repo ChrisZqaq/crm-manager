@@ -4,14 +4,14 @@
 {% block topbar_title %}工作台{% endblock %}
 {% block content %}
 <section class="page-heading">
-  <div><h1>今天的门店业务</h1><p>数据按当前账号权限显示；待确认统计口径以“—”标记。</p></div>
+  <div><h1>今天的门店业务</h1></div>
   {% if perms.crm.add_salesorder %}<div class="page-actions"><a class="button-primary" href="{% url 'order-new' %}">新建订单</a></div>{% endif %}
 </section>
 <section class="summary-grid workbench-summary" aria-label="业务摘要">
   <article class="data-card summary-card"><span class="summary-label">今日销售额</span><div class="summary-horizontal"><strong id="today-sales">—</strong><span class="summary-side">增速<br><span id="today-growth" aria-live="polite">—</span></span></div><span class="summary-note" id="today-sales-status" role="status" aria-live="polite">已交付销售；北京时间</span></article>
-  <article class="data-card summary-card"><span class="summary-label">客户</span><div class="summary-horizontal"><strong id="customer-total">—</strong><span class="summary-side">新增<br>—</span></div><span class="summary-note">新增统计口径待确认</span>{% if perms.crm.view_salesorder %}<span class="summary-note">本月消费排行</span><ol id="customer-ranking" class="status-preview" aria-label="本月客户购买金额排行" aria-live="polite"><li class="muted">加载中…</li></ol>{% endif %}</article>
-  <article class="data-card summary-card"><span class="summary-label">在售商品组合</span><div class="summary-horizontal"><strong id="product-total">—</strong><span class="summary-side">IP × 语言</span></div><span class="summary-note" id="product-total-status" role="status" aria-live="polite">组合与新增口径待确认</span></article>
-  <article class="data-card summary-card"><span class="summary-label">低库存提醒</span><div class="summary-horizontal"><strong id="low-stock-total">—</strong><span class="summary-side">条</span></div><span class="summary-note">当前账号可见库存记录</span></article>
+  <article class="data-card summary-card"><div class="card-head"><h2>客户</h2>{% if perms.crm.view_customer %}<a href="{% url 'customers' %}">全部</a>{% endif %}</div><div class="summary-horizontal"><strong id="customer-total">—</strong><span class="summary-side">新增<br>—</span>{% if perms.crm.view_salesorder %}<ol id="customer-ranking" class="status-preview" aria-label="本月客户购买金额排行" aria-live="polite"><li class="muted">加载中…</li></ol>{% endif %}</div></article>
+  <article class="data-card summary-card"><div class="card-head"><h2>在售商品组合</h2>{% if perms.crm.view_brand and perms.crm.view_product and perms.crm.view_sku %}<a href="{% url 'catalog-search' %}">全部</a>{% endif %}</div><div class="summary-horizontal"><strong id="product-total">—</strong><span class="summary-side">IP × 语言</span></div>{% if perms.crm.view_inventorybalance %}<ul id="product-preview" class="status-preview" aria-label="有库存IP与语言组合"><li class="muted">加载中…</li></ul>{% endif %}<span class="summary-note" id="product-total-status" role="status" aria-live="polite"></span></article>
+  <article class="data-card summary-card"><div class="card-head"><h2>低库存提醒</h2>{% if perms.crm.view_inventorybalance %}<a href="{% url 'inventory' %}?low_stock=true">全部</a>{% endif %}</div><div class="summary-horizontal"><strong id="low-stock-total">—</strong><span class="summary-side">条</span></div>{% if perms.crm.view_inventorybalance %}<ul id="low-stock-preview" class="status-preview" aria-label="低库存记录"><li class="muted">加载中…</li></ul>{% endif %}</article>
 </section>
 
 <section class="status-grid" aria-label="待处理订单">
@@ -101,7 +101,7 @@
       if(!Array.isArray(rows)||rows.some(row=>!row||typeof row.customer_name!=='string'||typeof row.amount!=='string')) throw new Error('客户排行数据格式无效。');
       list.replaceChildren();
       if(!rows.length){noRows('customer-ranking','暂无客户消费排行。');return;}
-      rows.forEach((row,index)=>{const item=document.createElement('li');item.textContent=`${index+1}. ${row.customer_name} · ¥${row.amount}`;list.append(item);});
+      rows.forEach((row,index)=>{const item=document.createElement('li'),link=document.createElement('a');link.href=`/customers/?q=${encodeURIComponent(row.customer_name)}`;link.textContent=`${index+1}. ${row.customer_name} · ¥${row.amount}`;item.append(link);list.append(item);});
     } catch(error) { noRows('customer-ranking',`${error.message}；刷新页面重试。`); }
   })();
   const loadOrders = async (status, countId, listId, statusId) => {
@@ -121,8 +121,8 @@
   (async()=>{try{const data=await get('/api/v1/customers?page_size=1');set('customer-total',data.total);}catch{set('customer-total','暂不可用');}})();
   {% endif %}
   {% if perms.crm.view_inventorybalance %}
-  (async()=>{try{const data=await get('/api/v1/reports/inventory?low_stock=true&page_size=1');set('low-stock-total',data.total);}catch{set('low-stock-total','暂不可用');}})();
-  (async()=>{try{const data=await get('/api/v1/reports/inventory?workbench=ip_language_stock_count&page_size=1');const count=data.summary?.workbench?.in_stock_ip_language_combination_count;if(!Number.isInteger(count)||count<0)throw new Error('组合数量数据格式无效。');set('product-total',count);set('product-total-status','启用IP × 语言；所有仓可售数量大于0');}catch(error){set('product-total','暂不可用');set('product-total-status',`${error.message}；刷新页面重试。`);}})();
+    (async()=>{try{const data=await get('/api/v1/reports/inventory?low_stock=true&page_size=2');set('low-stock-total',data.total);const list=document.getElementById('low-stock-preview');if(list){list.replaceChildren();if(!data.items?.length){noRows('low-stock-preview','当前没有低库存记录。');return;}for(const row of data.items){const li=document.createElement('li'),link=document.createElement('a');link.href='/inventory/?low_stock=true';link.textContent=`${row.product_name||row.product||'商品'} · ${row.code||row.sku_code||''} · ${row.available} ${row.unit||''}`;li.append(link);list.append(li);}}}catch(error){set('low-stock-total','暂不可用');noRows('low-stock-preview',`列表暂不可用：${error.message}`);}})();
+    (async()=>{try{const data=await get('/api/v1/reports/inventory?workbench=ip_language_stock_count&page_size=1');const summary=data.summary?.workbench,count=summary?.in_stock_ip_language_combination_count,preview=summary?.in_stock_ip_language_combinations_preview;if(!Number.isInteger(count)||count<0||!Array.isArray(preview))throw new Error('组合数据格式无效。');set('product-total',count);const list=document.getElementById('product-preview');if(list){list.replaceChildren();for(const row of preview){const li=document.createElement('li'),link=document.createElement('a');link.href=`/catalog/?brand_id=${encodeURIComponent(row.brand_id)}`;link.textContent=`${row.brand_name} · ${row.language_name||'未标语言'}`;li.append(link);list.append(li);}if(!preview.length)noRows('product-preview','暂无有库存组合。');}}catch(error){set('product-total','暂不可用');set('product-total-status',`${error.message}；刷新页面重试。`);noRows('product-preview','组合列表暂不可用。');}})();
   {% endif %}
 })();
 </script>

@@ -19,11 +19,12 @@
   <button class="button-primary" type="submit">筛选</button><a class="button-link" href="{% url 'orders' %}">重置</a>
 </form>
 <p class="inline-status" id="order-status-message" role="status" aria-live="polite"></p>
-<section class="data-card"><div class="table-scroll"><table><thead><tr><th>订单编号</th><th>客户</th><th>销售</th><th>出货仓</th><th class="numeric">订单金额</th><th>履约</th><th>收款核对</th><th>操作</th></tr></thead><tbody id="orders"><tr><td colspan="8" class="empty-state">正在加载订单…</td></tr></tbody></table></div>
+<section class="data-card"><p id="orders-empty" class="empty-state">正在加载订单…</p><div class="table-scroll"><table><thead><tr><th>订单编号</th><th>客户</th><th>销售</th><th>出货仓</th><th class="numeric">订单金额</th><th>履约</th><th>收款核对</th><th>操作</th></tr></thead><tbody id="orders"></tbody></table></div>
 <div class="pagination"><span id="order-page"></span><button id="order-previous" type="button">上一页</button><button id="order-next" type="button">下一页</button></div></section>
 <script>
 (() => {
   const form=document.getElementById('order-filters'), body=document.getElementById('orders'), message=document.getElementById('order-status-message');
+  const emptyState=document.getElementById('orders-empty');
   const controls=[...form.querySelectorAll('input,select')];
   const initial=new URLSearchParams(location.search);
   for(const control of controls)if(control.name&&initial.has(control.name)){if(control.dataset.filterOptions)control.dataset.requestedValue=initial.get(control.name);else control.value=initial.get(control.name);}
@@ -36,8 +37,8 @@
     delete select.dataset.requestedValue;
   }
   const rowsFor=(data)=>{
-    body.replaceChildren();
-    if(!data.items.length){const row=document.createElement('tr'),cell=document.createElement('td');cell.colSpan=8;cell.className='empty-state';cell.textContent='没有匹配的订单。';row.append(cell);body.append(row);return;}
+    body.replaceChildren();emptyState.hidden=Boolean(data.items.length);
+    if(!data.items.length){emptyState.textContent='没有匹配的订单。';return;}
     for(const item of data.items){
       const row=document.createElement('tr'), warehouses=[...new Set((item.lines||[]).map(line=>line.warehouse).filter(Boolean))];
       const cells=[String(item.id),item.customer_name||'门店散客',item.salesperson,warehouses.join('、')||'—',`¥${item.revenue_amount}`,item.status_label,item.payment?.status_label||'未登记'];
@@ -56,7 +57,7 @@
       rowsFor(data);pageCount=Math.max(1,Math.ceil(data.total/data.page_size));document.getElementById('order-page').textContent=`共${data.total}单 · ${data.page}/${pageCount}`;
       document.getElementById('order-previous').disabled=data.page<=1;document.getElementById('order-next').disabled=data.page>=pageCount;
       const url=new URL(location.href);url.search=params.toString();history.replaceState(null,'',url);
-    }catch(error){const row=document.createElement('tr'),cell=document.createElement('td');cell.colSpan=8;cell.className='error-row';cell.textContent='订单加载失败。';row.append(cell);body.replaceChildren(row);message.textContent=error.message;message.setAttribute('role','alert');}
+    }catch(error){emptyState.hidden=false;emptyState.textContent='订单加载失败。';body.replaceChildren();message.textContent=error.message;message.setAttribute('role','alert');}
     finally{body.removeAttribute('aria-busy');}
   }
   form.addEventListener('submit',event=>{event.preventDefault();page=1;load();});

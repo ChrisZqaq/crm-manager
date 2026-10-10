@@ -4,9 +4,8 @@
 {% block topbar_title %}{% if order %}修改订单{% else %}新建订单{% endif %}{% endblock %}
 {% block content %}
 <section class="page-heading"><h1>{% if order %}修改订单 {{ order.pk }}{% else %}新建订单{% endif %}</h1></section>
-<div class="legacy-content">
-<form hidden>{% csrf_token %}</form>
-  <form id="order-form">
+<div class="legacy-content order-editor">
+  <form id="order-form" class="order-form">
       {% if not order %}<label>客户来源<select id="customer-mode">{% if perms.crm.view_customer %}<option value="existing">已有客户</option>{% endif %}<option value="walk_in" {% if not perms.crm.view_customer %}selected{% endif %}>现场客户 / 不关联</option>{% if perms.crm.add_customer %}<option value="new">新建客户</option>{% endif %}</select></label>{% endif %}
       <label id="existing-customer-field">已有客户 <select id="customer"><option value="">请选择客户</option></select></label>
       {% if perms.crm.view_customer %}<label>查找客户 <input id="customer-query" type="search" placeholder="姓名、公司或联系方式"><button id="search-customers" type="button">查找</button><button id="more-customers" type="button" hidden>加载更多客户</button></label>{% endif %}
@@ -27,7 +26,7 @@
       </fieldset>
     <button id="preview" class="button-primary" type="submit">预览成本与占货</button>
   </form>
-  <section id="preview-result" hidden><h2>订单预览</h2><pre id="summary"></pre><button id="confirm" class="button-primary" type="button">确认并占货</button></section>
+  <section id="preview-result" class="order-preview data-card card-body"><h2>订单预览</h2><p id="summary" class="muted">填写商品明细后预览服务器计算结果。</p><button id="confirm" class="button-primary" type="button" disabled>确认并占货</button></section>
   <p id="status" role="status"></p>
   {{ initial|json_script:"order-initial" }}
   <script>
@@ -47,7 +46,7 @@
     function customerAddresses(){const item=customers.find(row=>String(row.id)===customerSelect.value);savedAddress.innerHTML='<option value="">手工填写</option>';for(const address of item?.addresses||[])option(savedAddress,address.id,`${address.recipient} · ${address.province}${address.city} ${address.detail}`);}
     function addLine(value={}){
       const row=document.createElement('fieldset');row.className='order-line';
-      row.innerHTML='<legend>商品</legend><label>SKU <select data-field="sku" required></select></label><label>仓库 <select data-field="warehouse" required></select></label><p data-availability class="muted">可售量：—</p><label>数量 <input data-field="quantity" type="number" min="1" step="1" required></label><label>单价 <input data-field="sale_price" inputmode="decimal" required></label><button type="button" data-remove>移除商品</button>';
+      row.innerHTML='<legend>商品</legend><label class="line-sku">商品 / SKU <select data-field="sku" required></select></label><label class="line-warehouse">仓库 <select data-field="warehouse" required></select></label><label class="line-quantity">数量<input data-field="quantity" type="number" min="1" step="1" required><small data-availability class="muted">可售量：—</small></label><label class="line-price">单价 <input data-field="sale_price" inputmode="decimal" required></label><button class="line-remove" type="button" data-remove aria-label="移除此SKU">移除</button>';
         const skuSelect=row.querySelector('[data-field="sku"]'),warehouseSelect=row.querySelector('[data-field="warehouse"]');
       if(value.sku_id&&value.sku_code)skuCache.set(String(value.sku_id),{id:value.sku_id,code:value.sku_code,unit:value.unit||'',product:{name:value.product_name||''}});
         if(value.warehouse_id&&value.warehouse)warehouseCache.set(String(value.warehouse_id),{id:value.warehouse_id,name:value.warehouse});
@@ -84,7 +83,7 @@
         customerAddresses();
       }catch(error){status.textContent=error.message;document.getElementById('preview').disabled=true;}
     }
-    function invalidatePreview(){previewToken=null;document.getElementById('preview-result').hidden=true;}
+    function invalidatePreview(){previewToken=null;document.getElementById('summary').textContent='填写商品明细后预览服务器计算结果。';document.getElementById('confirm').disabled=true;}
     document.getElementById('add-line').addEventListener('click',()=>{addLine();invalidatePreview();});lines.addEventListener('click',event=>{if(event.target.closest('[data-remove]'))invalidatePreview();});
       document.getElementById('search-customers')?.addEventListener('click',()=>searchCustomers().catch(error=>{status.textContent=error.message;}));
       document.getElementById('search-skus').addEventListener('click',()=>searchSkus().catch(error=>{status.textContent=error.message;}));
@@ -107,7 +106,7 @@
     document.getElementById('order-form').addEventListener('input',invalidatePreview);
     document.getElementById('order-form').addEventListener('change',invalidatePreview);
     document.getElementById('order-form').addEventListener('submit',async event=>{
-      event.preventDefault();status.textContent='';const button=document.getElementById('preview');button.disabled=true;try{const payload=buildPayload(),url=initial?`/api/v1/orders/${initial.id}/amend/preview`:'/api/v1/orders/preview';const preview=await api(url,'POST',payload);previewToken=preview.preview_token;operationKey=crypto.randomUUID();document.getElementById('summary').textContent=`收入：${preview.revenue_amount}\n成本：${preview.cost_amount}\n毛利：${preview.margin_amount}\n提成预估：${preview.commission_estimate??'—'}\n\n${preview.lines.map(line=>`${line.code} × ${line.quantity} · 收入 ${line.revenue_amount} · 单位成本 ${line.unit_cost_snapshot} · 成本 ${line.order_cost_amount}`).join('\n')}`;document.getElementById('preview-result').hidden=false;}
+      event.preventDefault();status.textContent='';const button=document.getElementById('preview');button.disabled=true;try{const payload=buildPayload(),url=initial?`/api/v1/orders/${initial.id}/amend/preview`:'/api/v1/orders/preview';const preview=await api(url,'POST',payload);previewToken=preview.preview_token;operationKey=crypto.randomUUID();document.getElementById('summary').textContent=`收入：${preview.revenue_amount}\n成本：${preview.cost_amount}\n毛利：${preview.margin_amount}\n提成预估：${preview.commission_estimate??'—'}\n\n${preview.lines.map(line=>`${line.code} × ${line.quantity} · 收入 ${line.revenue_amount} · 单位成本 ${line.unit_cost_snapshot} · 成本 ${line.order_cost_amount}`).join('\n')}`;document.getElementById('confirm').disabled=false;}
       catch(error){status.textContent=Object.entries(error.data?.error?.fields||{}).map(([field,value])=>`${field}：${value}`).join('；')||error.message;status.setAttribute('role','alert');}
       finally{button.disabled=false;}
     });

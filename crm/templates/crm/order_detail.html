@@ -24,7 +24,7 @@
     </ul></section>
   {% endif %}
   {% if can_view_commission and initial.commission_review %}
-    <p>正式核定提成：{{ initial.commission_review.approved_amount|default:"尚未核定" }}；首次计入：{{ initial.commission_review.first_earned_at|default:"—" }}；{% if initial.commission_review.needs_review %}当前金额待复核{% else %}当前金额已复核{% endif %}</p>
+    <p>正式核定提成：{{ initial.commission_review.approved_amount|default:"尚未核定" }}；首次计入：{{ initial.commission_review.first_earned_at|date:"Y-m-d H:i"|default:"—" }}；{% if initial.commission_review.needs_review %}当前金额待复核{% else %}当前金额已复核{% endif %}</p>
   {% endif %}
   <table><thead><tr><th>SKU</th><th>仓库</th><th>数量</th><th>单价</th><th>收入</th><th>成本单价快照</th><th>成本合计</th><th>出库运费</th></tr></thead><tbody>
     {% for line in initial.lines %}<tr><td>{{ line.sku_code }}</td><td>{{ line.warehouse }}</td><td>{{ line.quantity }}</td><td>{{ line.unit_price }}</td><td>{{ line.revenue_amount }}</td><td>{{ line.unit_cost_snapshot }}</td><td>{{ line.order_cost_amount }}</td><td>{{ line.outbound_freight }}</td></tr>{% empty %}<tr><td colspan="8">暂无明细。</td></tr>{% endfor %}

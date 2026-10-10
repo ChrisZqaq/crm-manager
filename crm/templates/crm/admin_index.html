@@ -1,6 +1,6 @@
 {% extends "admin/base_site.html" %}
 {% load i18n static %}
-{% block extrastyle %}{{ block.super }}<link rel="stylesheet" href="{% static 'admin/css/dashboard.css' %}">{% endblock %}
+{% block extrastyle %}{{ block.super }}<link rel="stylesheet" href="{% static 'admin/css/dashboard.css' %}"><link rel="stylesheet" href="{% static 'crm/admin.css' %}">{% endblock %}
 {% block coltype %}colMS{% endblock %}
 {% block bodyclass %}{{ block.super }} dashboard{% endblock %}
 {% block nav-breadcrumbs %}{% endblock %}
@@ -26,6 +26,6 @@
   {% if perms.crm.view_productlanguageoption or request.user.is_superuser %}
     <p><a href="/admin/crm/productlanguageoption/">商品语言管理</a></p>
   {% endif %}
-  {% include "admin/app_list.html" with app_list=app_list show_changelinks=True %}
+  {% include "crm/admin_app_list.html" with app_list=app_list show_changelinks=True %}
 </div>
 {% endblock %}
