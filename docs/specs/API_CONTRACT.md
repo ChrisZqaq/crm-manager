@@ -220,3 +220,7 @@ UI-LIST-FILTERS集中核对补充（待实施）：orders.filter_options另含 `
 - inventory的workbench=ip_language_stock_count：summary.workbench返回in_stock_ip_language_combination_count。保留view_inventorybalance和原查询授权范围；仅启用IP/商品/SKU，所有仓可售合计大于0的SKU参与brand_id＋language_id去重，同组合多仓/多SKU只计一次；空语言按该IP下一组，不跨IP混成一组。与用户最终“可售数量”口径一致。
 
 销售/库存原列表仍正常分页；工作台可page_size=1降低items响应，summary是全部当前筛选授权结果，不受分页影响。前端发上述明确查询，服务端拒绝不支持标记或与其口径不符的scope/日期，不能借标记额外扩权。
+
+### 获批商品卡组合预览（2026-10-10，待实现）
+
+已有inventory workbench=ip_language_stock_count在summary.workbench增加in_stock_ip_language_combinations_preview数组，最多3项，每项{brand_id,brand_name,language_id,language_name}；ID为整数，language_id可null，对应language_name为“未标语言”。复用与count完全同一合格去重集合，按brand_id升序、language_id升序（null优先）取前3，不依报表items分页或客户端抽样。count仍为全量数量；无合格项返回[]。原授权/可售及启用规则不变，不加端点、查询参数、表或业务统计，默认报表及Excel保持兼容。
