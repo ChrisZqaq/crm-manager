@@ -3,7 +3,7 @@
 {% block title %}客户 · 阿罗拉潮玩空间{% endblock %}
 {% block topbar_title %}客户{% endblock %}
 {% block content %}
-<section class="page-heading"><div><h1>客户</h1><p>{% if perms.crm.view_all_customers or request.user.is_superuser %}全部可见客户{% else %}我的客户{% endif %}</p></div>{% if perms.crm.add_customer or request.user.is_superuser %}<button class="button-primary" type="button" id="new-customer">新建客户</button>{% endif %}</section>
+<section class="page-heading"><div><h1>客户</h1></div>{% if perms.crm.add_customer or request.user.is_superuser %}<button class="button-primary" type="button" id="new-customer">新建客户</button>{% endif %}</section>
 <form class="data-card filter-bar" id="customer-filters" role="search">
   <div class="filter-field filter-search"><label for="customer-query">客户姓名、公司或联系方式</label><input id="customer-query" type="search" maxlength="120" autocomplete="off"></div>
   {% if perms.crm.view_all_customers or request.user.is_superuser %}<div class="filter-field"><label for="customer-owner">客户负责人</label><select id="customer-owner" name="owner_id"><option value="">全部</option></select></div>{% endif %}

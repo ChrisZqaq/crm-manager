@@ -5,3 +5,30 @@
 div.breadcrumbs { background: #f2f4fa; color: #555a75; }
 .module h2, .module caption, .inline-group h2 { background: #302c6c; }
 input:focus, select:focus, textarea:focus { border-color: #e99a0d; }
+
+body.crm-admin { min-width: 320px; background: var(--canvas); color: var(--ink); font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; }
+body.crm-admin #container { width: 100%; min-width: 320px; min-height: 100vh; height: auto; }
+body.crm-admin #header, body.crm-admin #nav-sidebar, body.crm-admin #footer { display: none; }
+body.crm-admin #main { display: block; min-width: 0; margin: 0 0 0 180px; padding: 24px 26px 36px; background: var(--canvas); }
+body.crm-admin #main > .content { width: auto; min-width: 0; max-width: none; padding: 0; background: transparent; }
+body.crm-admin #content, body.crm-admin .colMS, body.crm-admin .colSM { margin: 0; padding: 0; background: transparent; }
+body.crm-admin #content-main, body.crm-admin #content-related { min-width: 0; max-width: 100%; }
+body.crm-admin #content-related { float: none; width: auto; margin: 16px 0 0; }
+body.crm-admin .sidebar .nav-item { color: #e5e6f2; }
+body.crm-admin .sidebar .nav-item:hover, body.crm-admin .sidebar .nav-item.is-active { color: #fff; }
+body.crm-admin h1 { margin: 0 0 16px; color: var(--ink); font-size: 25px; }
+body.crm-admin .breadcrumbs { margin: 0 0 16px; border-radius: 8px; padding: 9px 12px; background: var(--surface); color: var(--muted); }
+body.crm-admin .module { overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius-card); background: var(--surface); box-shadow: var(--shadow-card); }
+body.crm-admin .module h2, body.crm-admin .module caption, body.crm-admin .inline-group h2 { background: var(--brand); }
+body.crm-admin .object-tools a:link, body.crm-admin .object-tools a:visited { border-radius: 6px; background: var(--brand); }
+body.crm-admin input, body.crm-admin select, body.crm-admin textarea { max-width: 100%; border-radius: var(--radius-control); }
+body.crm-admin .messagelist { padding-left: 0; }
+
+@media (max-width: 1024px) {
+  body.crm-admin #main { margin-left: 168px; padding-inline: 18px; }
+}
+
+@media (max-width: 760px) {
+  body.crm-admin #main { margin-left: 0; padding: 64px 14px 28px; }
+  body.crm-admin h1 { font-size: 22px; }
+}

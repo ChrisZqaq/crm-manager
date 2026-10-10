@@ -3,7 +3,7 @@
 {% block title %}销售订单 · 阿罗拉潮玩空间{% endblock %}
 {% block topbar_title %}销售订单{% endblock %}
 {% block content %}
-<section class="page-heading"><div><h1>销售订单</h1><p>日期按系统下单时点筛选；履约状态和收款核对状态分别显示。</p></div>{% if perms.crm.add_salesorder %}<a class="button-primary" href="{% url 'order-new' %}">新建订单</a>{% endif %}</section>
+<section class="page-heading"><div><h1>销售订单</h1></div>{% if perms.crm.add_salesorder %}<a class="button-primary" href="{% url 'order-new' %}">新建订单</a>{% endif %}</section>
 <form class="data-card filter-bar" id="order-filters" role="search">
   <div class="filter-field filter-search"><label for="order-query">订单编号、客户、渠道或销售</label><input id="order-query" name="q" type="search" value="{{ request.GET.q }}" maxlength="120"></div>
   <input id="order-status" type="hidden" name="status" value="{{ request.GET.status }}">

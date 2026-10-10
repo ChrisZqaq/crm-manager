@@ -18,7 +18,6 @@
           <div class="filter-field"><label for="product-series">系列</label><input id="product-series" name="series" value="{{ request.GET.series }}"></div>
           <button class="button-primary" type="submit">查询</button><button type="reset" id="product-reset">重置</button>
         </form>
-        <p class="muted card-body">可查看启用和停用SKU；下单选品仍仅使用启用SKU。</p>
         {% if error %}<p role="alert">{{ error }}</p>{% endif %}
         <p class="inline-status" id="product-status" role="status" aria-live="polite"></p>
         <div class="table-scroll"><table>

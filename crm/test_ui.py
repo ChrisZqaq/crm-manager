@@ -56,7 +56,9 @@ class ApprovedWorkbenchAndPaymentUITests(TestCase):
 
         self.client.force_login(self.admin)
         admin = self.client.get("/admin/")
-        self.assertContains(admin, "阿罗拉潮玩空间 CRM 管理后台")
+        self.assertContains(admin, 'id="primary-navigation"')
+        self.assertNotContains(admin, 'id="header"')
+        self.assertContains(admin, "阿罗拉潮玩空间 CRM")
         self.assertContains(admin, "业务资料")
         product_admin = self.client.get("/admin/crm/product/")
         self.assertContains(product_admin, "商品")

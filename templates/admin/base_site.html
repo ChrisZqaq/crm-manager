@@ -1,0 +1,20 @@
+{% extends "admin/base.html" %}
+{% load static %}
+
+{% block title %}{{ title|default:'管理后台' }} | 阿罗拉潮玩空间 CRM{% endblock %}
+{% block dark-mode-vars %}{% endblock %}
+{% block bodyclass %}app-body crm-admin{% endblock %}
+{% block branding %}{% endblock %}
+{% block usertools %}{% endblock %}
+{% block header %}
+  {% if not is_popup %}
+    <aside class="sidebar" id="primary-navigation" aria-label="主导航">{% include "crm/sidebar_contents.html" %}</aside>
+    <button class="sidebar-scrim" data-menu-close aria-label="关闭导航" tabindex="-1"></button>
+    <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="primary-navigation" aria-label="打开导航" data-menu-toggle>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+    </button>
+  {% endif %}
+{% endblock %}
+{% block nav-sidebar %}{% endblock %}
+{% block responsive %}{{ block.super }}<link rel="stylesheet" href="{% static 'crm/app.css' %}"><link rel="stylesheet" href="{% static 'crm/admin.css' %}">{% endblock %}
+{% block extrabody %}{{ block.super }}<script src="{% static 'crm/app.js' %}" defer></script>{% endblock %}
