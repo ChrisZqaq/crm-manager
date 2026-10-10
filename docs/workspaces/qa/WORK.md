@@ -460,3 +460,12 @@ UI角色第二轮独立报告另指出：长客户名使桌面排行卡片增高
 QA六张实服截图、`geometry.json`与 `SHA256SUMS` 在 [`QA review-0f835cb`](review-0f835cb/)；UI四张独立列表/只读详情截图及QA截图副本在 [`UI review-0f835cb`](../ui/review-0f835cb/)，UI已独立看过全部位置并确认通过，双方截图SHA256校验通过。
 
 **收尾与限制：**端口18781服务已停止，确认本轮库无其他连接后删除隔离库及 `.local/qa_breadcrumb_0f835_20261010_yiakcpp/`；浏览器标签关闭并复位默认视口，共享PostgreSQL保持运行。未触碰任何旧测试库。未跑自动测试/全套回归；本轮只验导航、根宽、链接及首页/popup样式，不评商品列表列内容在窄屏的可读性。
+
+### RELEASE-IP-UPDATE｜发布后只读烟测（2026-10-10）
+
+按负责人派发，对本机演示 `http://127.0.0.1:8765/` 与云端测试入口 `http://106.52.174.55:18888/` 做短程只读烟测。部署记录版本为应用SHA `0f835cb2086852ae20f2f82aed8a40070281a0b4`、发布提交 `160b5930ca774e675916b6ac4b2ae061ac88c23d`；本地发布包SHA256与部署记录一致（`81c91222b881a9e18423bffdc43fb9c56ae4d7ed728f6bdee9f421a26ae804af`）。QA当前工作区HEAD为 `d440aaa04fc9f23bf0eef53bdfac3a15853eb546`，相对固定SHA的 `crm/`、`config/`、`manage.py` 无差异。
+
+- **真实登录与页面：**本机 `demo-sales`、`demo-owner` 以及云端 `iptest-sales` 均通过实际登录表单建立会话。每个会话GET `/`（工作台）、`/catalog/`、`/orders/`、`/inventory/`、`/reports/inventory/` 均为200并呈现对应页面标题。
+- **API只读权限：**三个会话的 `GET /api/v1/products?page_size=1`、`GET /api/v1/products?include_inventory=true&page_size=1`、`GET /api/v1/orders?page_size=1`、`GET /api/v1/inventory?page_size=1`、`GET /api/v1/reports/inventory?page=1&page_size=1` 均返回200和application/json。所有分页参数限制为1；没有展开或记录业务明细。云端订单列表为0项，其他合成列表可返回摘要。
+- **权限查询与静态资源：**本机老板账号GET `/admin/` 和 `/admin/auth/user/` 均200，员工列表提供“普通角色”列；本机销售及云端销售GET这些后台入口后被引导至 `/admin/login/`。三处服务的 `app.css`、`app.js` GET均200。云端18888入口从当前测试网络可达，未遇到安全组来源阻断；未调整安全组。
+- **写入与限制：**表单POST仅用于登录，页面、API、权限页、静态资源检查均为GET。未提交订单或其他业务数据，未改账号/权限，未迁移数据库、重启服务或清理运行时。未跑全套自动测试、完整业务流程或跨来源网络可达性检查；云端使用销售角色进行GET-only验证，不代表独立只读角色的存在。
