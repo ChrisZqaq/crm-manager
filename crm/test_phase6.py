@@ -273,10 +273,40 @@ class ReportPhase6Tests(Phase4Base):
         default = self.client.get("/api/v1/reports/inventory", {"page_size": 1})
         self.assertEqual((opted_in.status_code, default.status_code), (200, 200))
         opted_in_data, default_data = opted_in.json(), default.json()
-        self.assertEqual(opted_in_data["summary"]["workbench"]["in_stock_ip_language_combination_count"], 4)
+        workbench_summary = opted_in_data["summary"]["workbench"]
+        self.assertEqual(workbench_summary["in_stock_ip_language_combination_count"], 4)
+        expected_preview = [
+            {"brand_id": self.brand.pk, "brand_name": self.brand.name, "language_id": self.product.language_id,
+             "language_name": self.product.language.name},
+            {"brand_id": self.brand.pk, "brand_name": self.brand.name, "language_id": english.pk,
+             "language_name": english.name},
+            {"brand_id": self.brand.pk, "brand_name": self.brand.name, "language_id": None,
+             "language_name": "未标语言"},
+            {"brand_id": other_brand.pk, "brand_name": other_brand.name, "language_id": None,
+             "language_name": "未标语言"},
+        ]
+        expected_preview.sort(
+            key=lambda row: (row["brand_id"], row["language_id"] is not None, row["language_id"] or 0)
+        )
+        preview = workbench_summary["in_stock_ip_language_combinations_preview"]
+        self.assertEqual(preview, expected_preview[:3])
+        self.assertEqual(len(preview), 3)
+        self.assertTrue(all(set(row) == {"brand_id", "brand_name", "language_id", "language_name"} for row in preview))
         self.assertNotIn("workbench", default_data["summary"])
         self.assertEqual(opted_in_data["items"], default_data["items"])
+        self.assertEqual(opted_in_data["columns"], default_data["columns"])
+        self.assertEqual(opted_in_data["total"], default_data["total"])
         self.assertGreater(opted_in_data["total"], 1)
+
+        exported_rows = []
+        for report in (
+            build_report(self.sales, "inventory", {"page_size": 1}),
+            build_report(self.sales, "inventory", query),
+        ):
+            workbook = load_workbook(BytesIO(workbook_bytes(report)), read_only=True)
+            exported_rows.append(list(workbook.active.iter_rows(min_row=6, values_only=True)))
+            workbook.close()
+        self.assertEqual(exported_rows[0], exported_rows[1])
 
         no_permission = self.User.objects.create_user(username="inventory-report-no-permission", password="test-only-password")
         self.client.force_login(no_permission)

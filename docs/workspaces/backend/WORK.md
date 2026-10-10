@@ -304,3 +304,44 @@ UV_PROJECT_ENVIRONMENT=/Users/chrisz/.cache/aluola-crm-uiquery1-venv CRM_DB_NAME
 
 - 应用固定提交：`5f04dfc9cd074c314197c84383dfc04d2bf39adb`。提交后已停止应用文件写入；本次补记仅改本角色WORK。
 - 接下来将固定版本交负责人和QA；QA须等负责人确认该固定基线后再独立开测。此交付不包含前端接入、浏览器完整链路、部署或上线。
+
+## UI-DASHBOARD-STATS-PREVIEW｜只读依赖评估（2026-10-10）
+
+依据：负责人直接委托的获批UI数据缺口评估；审批依据为 `docs/workspaces/ui/revision-v1/HANDOFF.md` 第27行。当前QA应用基线 `0c6b43a`，工作区HEAD `e69a6a2`；核对 `crm` 在该基线后无差异。本次只读，无应用/API合同修改，也未运行测试。
+
+### 字段与口径建议
+
+- 在 `summary.workbench` 增加 `in_stock_ip_language_combinations_preview` 数组，最多3项；每项仅 `brand_id`、`brand_name`、`language_id`、`language_name`。ID沿用商品目录API的整数形式，`language_id` 可为 `null`；空语言的 `language_name` 固定显示“未标语言”。
+- 预览与现有 `in_stock_ip_language_combination_count` 使用同一个合格组合集合：仅启用IP/商品/SKU，且该SKU跨所有仓库的可售量合计大于0；每个 `(brand_id, language_id)` 去重一次。count继续返回全量；preview按 `brand_id`、`language_id` 升序取前三项。空语言排序建议明确为 `language_id` 的NULL优先，以便混合空值和整数时仍有确定顺序。
+- 组合集合为空时preview为 `[]`、count为0。前端只渲染服务端给出的preview，不从分页items拼接或补全。
+
+### 可复用点、权限与兼容
+
+- `_inventory_data` 已有 `available_by_sku` 和 `sku_groups`；当前count正是从所有仓位的可售量累加后，筛出正数SKU并按 `(brand_id, language_id)` 去重。新增预览可直接投影该集合，不引入第二套判断。已有余额对象预取了IP名称；语言名称目前未 `select_related`，若实施只需给现有余额查询补 `sku__product__language`，避免逐行读取语言产生N+1。
+- 没有现成的IP×语言组合预览。`products_api(include_inventory=true)` 虽返回商品的IP/语言及当前页SKU库存，但按商品分页、粒度不同，不能代表所有满足条件的去重组合；不适合作为预览源。`product_data` 的ID为整数，可作为字段类型约定参照。
+- 请求仍使用 `/api/v1/reports/inventory?workbench=ip_language_stock_count&page_size=1`。现有报表和 `inventory_rows` 均要求 `view_inventorybalance`；workbench拒绝仓库、IP、SKU、低库存和订单上下文筛选，保持全量当前余额范围。分页只影响items，不影响摘要。默认响应不加preview，Excel只消费items/columns，摘要不影响导出。
+
+### 最小回归建议
+
+扩展 `test_inventory_workbench_counts_enabled_positive_available_ip_language_pairs`：现有夹具已有4个合格组合，断言count仍为4、preview恰为3项、字段集合严格等于上述4字段且按ID排序；至少包含同组合跨仓/多SKU去重及空语言标签。已有测试已覆盖全仓可售为零、停用IP/商品/SKU排除、`page_size=1` 全量摘要、默认响应不含workbench及无权限403；保留这些断言，并对default/opt-in导出的工作表行做相等比较即可验证Excel兼容。不需新端点、参数、模型、权限或统计规则。
+
+下一步由负责人决定QA完成后的单写入者窗口；本轮只提供依赖评估，应用保持冻结。
+
+## USER-REVISION-STOCK-PREVIEW｜实现与固定交付（2026-10-10）
+
+依据：负责人正式开放的最小后端写入窗口及 `docs/specs/API_CONTRACT.md` 最后“获批商品卡组合预览”条款。起始QA应用基线 `0c6b43a`；本轮唯一应用写入者。只改 `crm/reports.py`、`crm/test_phase6.py` 和本角色WORK；未改前端、Admin、公共合同、用户模板或其他角色文件。
+
+### 实现
+
+- `summary.workbench.in_stock_ip_language_combinations_preview` 从生成全量 count 的同一 `(brand_id, language_id)` 正可售组合集合中按 `brand_id` 升序、`language_id` 升序且NULL优先取前三项；每项只有 `brand_id`、`brand_name`、`language_id`、`language_name`，ID为整数，空语言ID为null、名称为“未标语言”。count仍为全集数量。
+- 对既有余额查询增加商品语言 `select_related`，名称读取不产生逐行查询。没有增加端点、参数、模型、迁移、日志或权限；默认响应、items/分页、Excel列和行维持原口径。
+
+### 自测与资源清理
+
+- 专用合成PostgreSQL基库 `aluola_crm_stock_preview_20261010` 上运行2项测试通过：`test_inventory_workbench_counts_enabled_positive_available_ip_language_pairs`、`test_inventory_report_keeps_live_balance_and_hoard_reason`。新回归验证count为4而预览仅3项、字段精确、ID排序/NULL优先及空语言名；保留跨仓/多SKU去重、零可售、停用实体、page_size=1全量摘要、默认响应和403覆盖，并比较default/opt-in库存Excel表格行。
+- `manage.py check`、`makemigrations --check --dry-run`、`py_compile`、`git diff --check` 均通过；无模型迁移差异。测试运行器已清理 `test_aluola_crm_stock_preview_20261010`；已确认并删除本轮创建的基库。未连接或更改现存/演示库，也未启动或停止服务。
+
+### 固定与交接
+
+- 应用固定提交SHA将在提交后补记；固定后停止应用写入。
+- 发送负责人和QA后，QA待负责人确认新固定基线再做定向独立验证。此为后端自测，不代表QA/UI验收。

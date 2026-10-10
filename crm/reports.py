@@ -224,7 +224,11 @@ def _inventory_data(actor, query):
     balance_ids = [int(item["id"]) for item in items]
     balances = {
         row.pk: row
-        for row in InventoryBalance.objects.filter(pk__in=balance_ids).select_related("sku__product__brand").prefetch_related("holds")
+        for row in (
+            InventoryBalance.objects.filter(pk__in=balance_ids)
+            .select_related("sku__product__brand", "sku__product__language")
+            .prefetch_related("holds")
+        )
     }
     occupied_counts = {
         (row["warehouse_id"], row["sku_id"]): row["order_count"]
@@ -235,12 +239,20 @@ def _inventory_data(actor, query):
     }
     available_by_sku = defaultdict(int)
     sku_groups = {}
+    combination_labels = {}
     for item in items:
         balance = balances[int(item["id"])]
         sku, product = balance.sku, balance.sku.product
         if workbench and sku.is_active and product.is_active and product.brand.is_active:
+            combination = (product.brand_id, product.language_id)
             available_by_sku[sku.pk] += item["available"]
-            sku_groups[sku.pk] = (product.brand_id, product.language_id)
+            sku_groups[sku.pk] = combination
+            combination_labels[combination] = {
+                "brand_id": product.brand_id,
+                "brand_name": product.brand.name,
+                "language_id": product.language_id,
+                "language_name": product.language.name if product.language_id else "未标语言",
+            }
         item["barcode"] = balance.sku.barcode
         item["occupied_order_count"] = occupied_counts.get((balance.warehouse_id, balance.sku_id), 0)
         reasons = []
@@ -276,10 +288,18 @@ def _inventory_data(actor, query):
         ],
     }
     if workbench:
+        in_stock_combinations = {
+            sku_groups[sku_id] for sku_id, available in available_by_sku.items() if available > 0
+        }
         summary["workbench"] = {
-            "in_stock_ip_language_combination_count": len({
-                sku_groups[sku_id] for sku_id, available in available_by_sku.items() if available > 0
-            }),
+            "in_stock_ip_language_combination_count": len(in_stock_combinations),
+            "in_stock_ip_language_combinations_preview": [
+                combination_labels[combination]
+                for combination in sorted(
+                    in_stock_combinations,
+                    key=lambda value: (value[0], value[1] is not None, value[1] or 0),
+                )[:3]
+            ],
         }
     return items, columns, summary
 
