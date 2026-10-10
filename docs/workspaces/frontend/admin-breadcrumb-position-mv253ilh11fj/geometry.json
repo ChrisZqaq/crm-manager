@@ -1,0 +1,525 @@
+[
+  {
+    "label": "desktop/list",
+    "status": 200,
+    "viewport": {
+      "width": 1280,
+      "height": 720
+    },
+    "root": {
+      "clientWidth": 1280,
+      "scrollWidth": 1280
+    },
+    "nav": {
+      "rect": {
+        "x": 180,
+        "y": 0,
+        "width": 1100,
+        "height": 53,
+        "left": 180,
+        "top": 0,
+        "right": 1280,
+        "bottom": 53
+      },
+      "ariaLabel": "条形导航"
+    },
+    "breadcrumbs": {
+      "rect": {
+        "x": 206,
+        "y": 24,
+        "width": 1048,
+        "height": 21,
+        "left": 206,
+        "top": 24,
+        "right": 1254,
+        "bottom": 45
+      },
+      "text": "首页 › 业务资料 › 商品",
+      "display": "block",
+      "visibility": "visible",
+      "color": "rgb(111, 117, 147)",
+      "background": "rgba(0, 0, 0, 0)",
+      "links": [
+        {
+          "text": "首页",
+          "href": "/admin/"
+        },
+        {
+          "text": "业务资料",
+          "href": "/admin/crm/"
+        }
+      ]
+    },
+    "heading": {
+      "text": "商品",
+      "rect": {
+        "x": 206,
+        "y": 53,
+        "width": 1048,
+        "height": 31.25,
+        "left": 206,
+        "top": 53,
+        "right": 1254,
+        "bottom": 84.25
+      }
+    },
+    "menu": {
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "left": 0,
+        "top": 0,
+        "right": 0,
+        "bottom": 0
+      },
+      "display": "none",
+      "visible": false,
+      "overlapsBreadcrumbs": false
+    },
+    "screenshot": "/Users/chrisz/Documents/projects/aluolaCRM/docs/workspaces/frontend/admin-breadcrumb-position-mv253ilh11fj/desktop-list.png"
+  },
+  {
+    "label": "desktop/add",
+    "status": 200,
+    "viewport": {
+      "width": 1280,
+      "height": 720
+    },
+    "root": {
+      "clientWidth": 1280,
+      "scrollWidth": 1280
+    },
+    "nav": {
+      "rect": {
+        "x": 180,
+        "y": 0,
+        "width": 1100,
+        "height": 53,
+        "left": 180,
+        "top": 0,
+        "right": 1280,
+        "bottom": 53
+      },
+      "ariaLabel": "条形导航"
+    },
+    "breadcrumbs": {
+      "rect": {
+        "x": 206,
+        "y": 24,
+        "width": 1048,
+        "height": 21,
+        "left": 206,
+        "top": 24,
+        "right": 1254,
+        "bottom": 45
+      },
+      "text": "首页 › 业务资料 › 商品",
+      "display": "block",
+      "visibility": "visible",
+      "color": "rgb(111, 117, 147)",
+      "background": "rgba(0, 0, 0, 0)",
+      "links": [
+        {
+          "text": "首页",
+          "href": "/admin/"
+        },
+        {
+          "text": "业务资料",
+          "href": "/admin/crm/"
+        }
+      ]
+    },
+    "heading": {
+      "text": "新建商品",
+      "rect": {
+        "x": 206,
+        "y": 53,
+        "width": 1048,
+        "height": 31.25,
+        "left": 206,
+        "top": 53,
+        "right": 1254,
+        "bottom": 84.25
+      }
+    },
+    "menu": {
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "left": 0,
+        "top": 0,
+        "right": 0,
+        "bottom": 0
+      },
+      "display": "none",
+      "visible": false,
+      "overlapsBreadcrumbs": false
+    },
+    "screenshot": "/Users/chrisz/Documents/projects/aluolaCRM/docs/workspaces/frontend/admin-breadcrumb-position-mv253ilh11fj/desktop-add.png"
+  },
+  {
+    "label": "desktop/change",
+    "status": 200,
+    "viewport": {
+      "width": 1280,
+      "height": 720
+    },
+    "root": {
+      "clientWidth": 1280,
+      "scrollWidth": 1280
+    },
+    "nav": {
+      "rect": {
+        "x": 180,
+        "y": 0,
+        "width": 1100,
+        "height": 53,
+        "left": 180,
+        "top": 0,
+        "right": 1280,
+        "bottom": 53
+      },
+      "ariaLabel": "条形导航"
+    },
+    "breadcrumbs": {
+      "rect": {
+        "x": 206,
+        "y": 24,
+        "width": 1048,
+        "height": 21,
+        "left": 206,
+        "top": 24,
+        "right": 1254,
+        "bottom": 45
+      },
+      "text": "首页 › 业务资料 › 商品",
+      "display": "block",
+      "visibility": "visible",
+      "color": "rgb(111, 117, 147)",
+      "background": "rgba(0, 0, 0, 0)",
+      "links": [
+        {
+          "text": "首页",
+          "href": "/admin/"
+        },
+        {
+          "text": "业务资料",
+          "href": "/admin/crm/"
+        }
+      ]
+    },
+    "heading": {
+      "text": "编辑商品",
+      "rect": {
+        "x": 206,
+        "y": 53,
+        "width": 1048,
+        "height": 31.25,
+        "left": 206,
+        "top": 53,
+        "right": 1254,
+        "bottom": 84.25
+      }
+    },
+    "menu": {
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "left": 0,
+        "top": 0,
+        "right": 0,
+        "bottom": 0
+      },
+      "display": "none",
+      "visible": false,
+      "overlapsBreadcrumbs": false
+    },
+    "screenshot": "/Users/chrisz/Documents/projects/aluolaCRM/docs/workspaces/frontend/admin-breadcrumb-position-mv253ilh11fj/desktop-change.png"
+  },
+  {
+    "label": "mobile/list",
+    "status": 200,
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "root": {
+      "clientWidth": 390,
+      "scrollWidth": 390
+    },
+    "nav": {
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 93,
+        "left": 0,
+        "top": 0,
+        "right": 390,
+        "bottom": 93
+      },
+      "ariaLabel": "条形导航"
+    },
+    "breadcrumbs": {
+      "rect": {
+        "x": 14,
+        "y": 64,
+        "width": 362,
+        "height": 21,
+        "left": 14,
+        "top": 64,
+        "right": 376,
+        "bottom": 85
+      },
+      "text": "首页 › 业务资料 › 商品",
+      "display": "block",
+      "visibility": "visible",
+      "color": "rgb(111, 117, 147)",
+      "background": "rgba(0, 0, 0, 0)",
+      "links": [
+        {
+          "text": "首页",
+          "href": "/admin/"
+        },
+        {
+          "text": "业务资料",
+          "href": "/admin/crm/"
+        }
+      ]
+    },
+    "heading": {
+      "text": "商品",
+      "rect": {
+        "x": 14,
+        "y": 93,
+        "width": 362,
+        "height": 27.5,
+        "left": 14,
+        "top": 93,
+        "right": 376,
+        "bottom": 120.5
+      }
+    },
+    "menu": {
+      "rect": {
+        "x": 10,
+        "y": 9,
+        "width": 44,
+        "height": 44,
+        "left": 10,
+        "top": 9,
+        "right": 54,
+        "bottom": 53
+      },
+      "display": "grid",
+      "visible": true,
+      "overlapsBreadcrumbs": false
+    },
+    "screenshot": "/Users/chrisz/Documents/projects/aluolaCRM/docs/workspaces/frontend/admin-breadcrumb-position-mv253ilh11fj/mobile-list.png"
+  },
+  {
+    "label": "mobile/add",
+    "status": 200,
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "root": {
+      "clientWidth": 390,
+      "scrollWidth": 390
+    },
+    "nav": {
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 93,
+        "left": 0,
+        "top": 0,
+        "right": 390,
+        "bottom": 93
+      },
+      "ariaLabel": "条形导航"
+    },
+    "breadcrumbs": {
+      "rect": {
+        "x": 14,
+        "y": 64,
+        "width": 362,
+        "height": 21,
+        "left": 14,
+        "top": 64,
+        "right": 376,
+        "bottom": 85
+      },
+      "text": "首页 › 业务资料 › 商品",
+      "display": "block",
+      "visibility": "visible",
+      "color": "rgb(111, 117, 147)",
+      "background": "rgba(0, 0, 0, 0)",
+      "links": [
+        {
+          "text": "首页",
+          "href": "/admin/"
+        },
+        {
+          "text": "业务资料",
+          "href": "/admin/crm/"
+        }
+      ]
+    },
+    "heading": {
+      "text": "新建商品",
+      "rect": {
+        "x": 14,
+        "y": 93,
+        "width": 362,
+        "height": 27.5,
+        "left": 14,
+        "top": 93,
+        "right": 376,
+        "bottom": 120.5
+      }
+    },
+    "menu": {
+      "rect": {
+        "x": 10,
+        "y": 9,
+        "width": 44,
+        "height": 44,
+        "left": 10,
+        "top": 9,
+        "right": 54,
+        "bottom": 53
+      },
+      "display": "grid",
+      "visible": true,
+      "overlapsBreadcrumbs": false
+    },
+    "screenshot": "/Users/chrisz/Documents/projects/aluolaCRM/docs/workspaces/frontend/admin-breadcrumb-position-mv253ilh11fj/mobile-add.png"
+  },
+  {
+    "label": "mobile/change",
+    "status": 200,
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "root": {
+      "clientWidth": 390,
+      "scrollWidth": 390
+    },
+    "nav": {
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 93,
+        "left": 0,
+        "top": 0,
+        "right": 390,
+        "bottom": 93
+      },
+      "ariaLabel": "条形导航"
+    },
+    "breadcrumbs": {
+      "rect": {
+        "x": 14,
+        "y": 64,
+        "width": 362,
+        "height": 21,
+        "left": 14,
+        "top": 64,
+        "right": 376,
+        "bottom": 85
+      },
+      "text": "首页 › 业务资料 › 商品",
+      "display": "block",
+      "visibility": "visible",
+      "color": "rgb(111, 117, 147)",
+      "background": "rgba(0, 0, 0, 0)",
+      "links": [
+        {
+          "text": "首页",
+          "href": "/admin/"
+        },
+        {
+          "text": "业务资料",
+          "href": "/admin/crm/"
+        }
+      ]
+    },
+    "heading": {
+      "text": "编辑商品",
+      "rect": {
+        "x": 14,
+        "y": 93,
+        "width": 362,
+        "height": 27.5,
+        "left": 14,
+        "top": 93,
+        "right": 376,
+        "bottom": 120.5
+      }
+    },
+    "menu": {
+      "rect": {
+        "x": 10,
+        "y": 9,
+        "width": 44,
+        "height": 44,
+        "left": 10,
+        "top": 9,
+        "right": 54,
+        "bottom": 53
+      },
+      "display": "grid",
+      "visible": true,
+      "overlapsBreadcrumbs": false
+    },
+    "screenshot": "/Users/chrisz/Documents/projects/aluolaCRM/docs/workspaces/frontend/admin-breadcrumb-position-mv253ilh11fj/mobile-change.png"
+  },
+  {
+    "label": "tablet/list",
+    "status": 200,
+    "viewport": {
+      "width": 900,
+      "height": 720
+    },
+    "root": {
+      "clientWidth": 900,
+      "scrollWidth": 900
+    },
+    "nav": {
+      "x": 168,
+      "y": 0,
+      "width": 732,
+      "height": 53
+    },
+    "breadcrumbs": {
+      "x": 186,
+      "y": 24,
+      "width": 696,
+      "height": 21
+    },
+    "main": {
+      "x": 168,
+      "y": 53,
+      "width": 732,
+      "height": 667
+    },
+    "heading": {
+      "x": 186,
+      "y": 53,
+      "width": 696,
+      "height": 31.25
+    },
+    "text": "首页 › 业务资料 › 商品"
+  }
+]

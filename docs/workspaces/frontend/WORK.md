@@ -203,3 +203,11 @@ UI-QUERY-1契约冻结（负责人同步，2026-10-08；后端仍实施中，不
 - 证据限制：浏览器截图以临时CUA实屏方式查看，未能持久写入截图文件；可见列表截图为1280×720。该浏览器没有viewport调节能力，故没有在390px实际视口检查页面溢出/纵向间距，也没有测量1280px下的DOM scrollWidth；390px结论未验证。自动回归覆盖空商品表“0 件商品”，真实合成页面覆盖3件商品。
 - 环境记录：较早曾对 `CRM_DB_NAME=admin_polish_20261010` 和 `admin_polish_mv24emvm` 运行 `manage.py test crm.test_ui --keepdb`，各7项通过。两次的 `Using existing test database` 是keepdb固定提示，不能证明创建前已存在；Django 5.2.17 runner源码确认每次均调用 `migrate --run-syncdb` 和 `createcachetable`（verbosity 0），是否实际应用了schema/cache表变更未知。两库创建前存在性都不能严格证明，故现在保持原状，不连接、不清理。第二库中已持久创建一个合成管理员、1个“测试IP”Brand和3条“验证商品”记录；登录POST可能还存了Django session，之后列表/add/change只读GET，favicon请求为404。QA确认第一库非其资产、无活动连接；负责人将此作为 `TEST-DB-REUSE` 公共问题记录，具体原始所有者/影响未知。后一轮严格创建的 `apui_f52rhgw0oq` 则在精确查无名后由本任务创建，服务停止、活动连接数为0后只删除该库；独立临时测试库查无后由runner新建并自动删除。
 - 此应用版本已固定；不推送、不部署，前端停止应用写入，交负责人及UI设计师针对两处复核。其余页面移动端和业务行为未在本窗口重测。
+
+## ADMIN-BREADCRUMB-POSITION 固定交付（2026-10-10）
+
+- 依据负责人唯一写入窗口及应用基线 `d8c4ed61177c10fc498d1ae83383233a23398a94`；应用固定提交 `0f835cb2086852ae20f2f82aed8a40070281a0b4`。只改 `crm/static/crm/admin.css`：给 change-list/change-form 的 `#container > nav` 对齐现有桌面/平板侧栏和主内容内缩，手机移到菜单下方；对应减少同类 `#main` 上内距以保持标题纵坐标。未改breadcrumbs/ARIA、模板、计数分页、模型、权限或控件宽度。
+- 独立Chromium真实浏览器＋本轮合成PG库实测商品列表、新增及编辑页，各1280×720与390×844 GET，共6页；全部HTTP200，三层文字“首页 › 业务资料 › 商品”、两条链接和 `aria-label=条形导航` 保留。六屏中breadcrumb与标题坐标一致：1280下breadcrumb x206/y24、标题x206/y53；390下breadcrumb x14/y64、标题x14/y93。手机菜单按钮x10/y9/44×44、底边53，与面包屑上缘64间隔11px，无重叠；六页根clientWidth与scrollWidth分别均为1280/1280或390/390。另在900宽列表实测 nav x168、breadcrumb x186/y24、标题x186/y53，根900/900。保持透明底/品牌文字色。
+- 六张合成实屏截图和坐标数据见[定向证据目录](admin-breadcrumb-position-mv253ilh11fj/)（`desktop-{list,add,change}.png`、`mobile-{list,add,change}.png`、`geometry.json`）。Django启动system check通过，`git diff --check`通过；未重跑业务/计数/权限套件、未提交商品表单。
+- 环境已清：只在精确查名不存在后创建 `apb_mv253ilh11fj`，迁移并加入合成管理员、测试IP、3商品；仅本轮localhost:18779服务使用。关闭浏览器/服务、确认0活动连接后删除自建库；未连接或清理其他角色资产，不改默认开发库。
+- 固定后停止应用写入；不推送、不部署。交负责人及UI仅复核面包屑定位，不重开核心/计数验收。其他模型页、Admin首页及popup未在本轮实屏验证；选择器限定change-list/change-form，未发现已知风险。
