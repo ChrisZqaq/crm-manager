@@ -17,7 +17,8 @@ body.crm-admin #content-related { float: none; width: auto; margin: 16px 0 0; }
 body.crm-admin .sidebar .nav-item { color: #e5e6f2; }
 body.crm-admin .sidebar .nav-item:hover, body.crm-admin .sidebar .nav-item.is-active { color: #fff; }
 body.crm-admin h1 { margin: 0 0 16px; color: var(--ink); font-size: 25px; }
-body.crm-admin .breadcrumbs { margin: 0 0 16px; border-radius: 8px; padding: 9px 12px; background: var(--surface); color: var(--muted); }
+body.crm-admin .breadcrumbs { margin: 0 0 8px; padding: 0; background: transparent; color: var(--muted); }
+body.crm-admin .breadcrumbs a { color: var(--brand); }
 body.crm-admin .module { overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius-card); background: var(--surface); box-shadow: var(--shadow-card); }
 body.crm-admin .module h2, body.crm-admin .module caption, body.crm-admin .inline-group h2 { background: var(--brand); }
 body.crm-admin .object-tools a:link, body.crm-admin .object-tools a:visited { border-radius: 6px; background: var(--brand); }
