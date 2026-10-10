@@ -224,3 +224,7 @@ UI-LIST-FILTERS集中核对补充（待实施）：orders.filter_options另含 `
 ### 获批商品卡组合预览（2026-10-10，待实现）
 
 已有inventory workbench=ip_language_stock_count在summary.workbench增加in_stock_ip_language_combinations_preview数组，最多3项，每项{brand_id,brand_name,language_id,language_name}；ID为整数，language_id可null，对应language_name为“未标语言”。复用与count完全同一合格去重集合，按brand_id升序、language_id升序（null优先）取前3，不依报表items分页或客户端抽样。count仍为全量数量；无合格项返回[]。原授权/可售及启用规则不变，不加端点、查询参数、表或业务统计，默认报表及Excel保持兼容。
+
+### UI-HOME-REFINE今日新增客户（2026-10-10，待实现）
+
+现有GET customers新增可选include_created_today=true|false（使用现有布尔参数校验）；仅true时顶层增加整数created_today_total，默认响应不变。复用客户total完全相同的权限、当前owner、默认排除归档及既有q/owner_id/include_archived过滤后的QuerySet，在分页前按created_at北京时间当天零点至单次捕获的当前时刻计数；分页items不增加创建时间，不新增端点/表/权限，不前端全库计数。该数表示当前授权和状态范围内今天创建的客户，不是按创建人归因。工作台同一请求customers?page_size=1&include_created_today=true消费total及created_today_total，无view_customer不请求、不伪造0。用户已明确23%仅草图，不新增增长指标；本接口待获批局部UI任务的正式实现窗口。
