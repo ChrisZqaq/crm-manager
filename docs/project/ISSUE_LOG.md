@@ -75,3 +75,5 @@ USER-REVISION-INVOICE-REPLAY-AUTH已关闭（2026-10-09）：694aaad固定最小
 2026-10-10 USER-REVISION-FINAL-UI核心已关闭：7ba254 QA真实服务及UI固定设计核心通过，原期初POST/导航、303.7px首页、订单分区小计、最大编号、admin左壳、中文错误及390问题关闭。仅两低项保留：后台商品计数3 products中文化；旧白色breadcrumbs及多余间距最小品牌整理（导航语义保留）。不以控件比例/未穷举页面为新阻断，不重开已通过范围。
 
 2026-10-10 TEST-DB-REUSE：前端ADMIN-POLISH使用已存在test_admin_polish_20261010及--keepdb跑7项UI后发现非唯一自建库；已停止触碰且不删除，改随机唯一新库。QA只读确认该库非其资产、当前存在且连接数0；所有权与既有影响未知，不能因TestCase事务回滚宣称无影响。前端需报告runner迁移与实际命令/时间，保留最小诊断，不擅自改旧库；此事不改变固定7ba254既有验收证据。
+
+TEST-DB-REUSE补充：前端报告约16:15–16:18两次--keepdb测试（admin_polish_20261010及admin_polish_mv24emvm）均7项OK；创建前未紧贴查库，因此两个测试库此前存在/本次新建及runner迁移行为未证实，日志“Using existing”本身不足证明真复用。第二库后创建合成superuser/Brand/3Product并启动GET演示后已停服务。两库均保持不再触碰、不删；后续只用明确查无/CREATE成功的新库、独立TEST.NAME且不用keepdb。修正前段把日志当已证明复用的表述，所有权与实际旧数据影响仍未知。
