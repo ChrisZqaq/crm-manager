@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>登录 · 阿罗拉潮玩空间</title>
+  <style>
+    :root { --brand:#302c6c; --accent:#e99a0d; --ink:#28293f; --muted:#626780; --line:#dce0eb; --bg:#f2f4fa; --error:#a3424c; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.5 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif; }
+    button,input { font:inherit; }
+    button { cursor:pointer; }
+    button:focus-visible,input:focus-visible { outline:3px solid var(--accent); outline-offset:3px; }
+    main { min-height:100svh; display:grid; place-items:center; padding:40px 24px; }
+    .login-shell { width:min(960px,100%); display:grid; grid-template-columns:44% 56%; background:white; border:1px solid #e4e7f0; border-radius:18px; overflow:hidden; box-shadow:0 16px 60px #28293f0b; }
+    .brand-panel { background:var(--brand); color:white; padding:56px 40px 36px; display:flex; flex-direction:column; min-height:540px; }
+    .brand-center { margin:auto 0; }
+    .logo-box { padding:24px 20px; background:white; border-radius:10px; }
+    .logo-box img { width:100%; height:auto; display:block; }
+    .brand-label { margin:30px 0 0; font-size:22px; font-weight:500; letter-spacing:2px; }
+    .accent-line { width:32px; height:4px; background:var(--accent); border-radius:2px; margin-top:16px; }
+    .brand-foot { font-size:12px; color:#dad8ec; margin-top:64px; }
+    .form-panel { padding:64px 64px 32px; display:flex; flex-direction:column; justify-content:center; }
+    .eyebrow { color:var(--muted); font-size:13px; margin:0 0 8px; }
+    h1 { font-size:28px; line-height:1.3; margin:0 0 32px; font-weight:650; }
+    label { display:block; font-size:14px; font-weight:500; margin-bottom:9px; }
+    .field { margin-bottom:22px; }
+    input { width:100%; min-height:48px; padding:11px 14px; border:1px solid var(--line); border-radius:7px; background:white; color:var(--ink); }
+    input::placeholder { color:#858aa1; font-size:14px; }
+    input[aria-invalid="true"] { border-color:var(--error); }
+    .password-control { position:relative; }
+    .password-control input { padding-right:56px; }
+    .password-toggle { position:absolute; right:3px; top:3px; width:44px; height:42px; display:grid; place-items:center; color:var(--muted); border:0; background:transparent; border-radius:5px; }
+    .password-toggle:hover { color:var(--brand); background:#f2f1f9; }
+    .password-toggle svg { width:20px; height:20px; }
+    .error { margin:7px 0 0; color:var(--error); font-size:13px; }
+    .error:empty { display:none; }
+    .submit { width:100%; min-height:48px; color:white; background:var(--brand); border:1px solid var(--brand); border-radius:7px; font-weight:600; margin-top:4px; }
+    .submit:hover { background:#252151; }
+    .status { font-size:13px; color:var(--muted); margin:14px 0 0; }
+    .status:empty { display:none; }
+    .prototype-note { font-size:12px; color:var(--muted); margin:36px 0 0; }
+    @media(max-width:680px) {
+      main { padding:24px 16px; }
+      .login-shell { max-width:420px; grid-template-columns:1fr; border-radius:14px; }
+      .brand-panel { min-height:0; padding:26px 30px; }
+      .brand-center { margin:0; }
+      .logo-box { max-width:248px; margin:0 auto; padding:14px 16px; border-radius:7px; }
+      .brand-label { font-size:14px; letter-spacing:2px; margin:16px 0 0; text-align:center; }
+      .accent-line,.brand-foot { display:none; }
+      .form-panel { padding:30px 26px 26px; }
+      .eyebrow { display:none; }
+      h1 { font-size:24px; margin-bottom:26px; }
+      .prototype-note { margin-top:26px; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="login-shell">
+      <section class="brand-panel" aria-label="阿罗拉品牌">
+        <div class="brand-center">
+          <div class="logo-box"><img src="brand-logo.png" alt="阿罗拉潮玩空间" width="2354" height="966"></div>
+          <p class="brand-label">门店业务管理</p>
+          <div class="accent-line" aria-hidden="true"></div>
+        </div>
+        <div class="brand-foot">ALOLA · 阿罗拉潮玩空间</div>
+      </section>
+      <section class="form-panel" aria-labelledby="login-heading">
+        <p class="eyebrow">阿罗拉潮玩空间</p>
+        <h1 id="login-heading">欢迎登录</h1>
+        <form id="login-form" novalidate>
+          <div class="field">
+            <label for="username">账号</label>
+            <input id="username" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="请输入员工账号" required aria-describedby="username-error">
+            <p id="username-error" class="error"></p>
+          </div>
+          <div class="field">
+            <label for="password">密码</label>
+            <div class="password-control">
+              <input id="password" name="password" type="password" autocomplete="current-password" placeholder="请输入密码" required aria-describedby="password-error">
+              <button class="password-toggle" id="toggle-password" type="button" aria-label="显示密码" aria-pressed="false" aria-controls="password">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
+            <p id="password-error" class="error"></p>
+          </div>
+          <button class="submit" type="submit">登录</button>
+          <p class="status" id="login-status" role="status"></p>
+        </form>
+        <p class="prototype-note">登录页设计预览 · 未连接账号验证</p>
+      </section>
+    </div>
+  </main>
+  <script>
+    const form = document.querySelector('#login-form');
+    const username = document.querySelector('#username');
+    const password = document.querySelector('#password');
+    const toggle = document.querySelector('#toggle-password');
+    toggle.onclick = () => {
+      const show = password.type === 'password';
+      password.type = show ? 'text' : 'password';
+      toggle.setAttribute('aria-label', show ? '隐藏密码' : '显示密码');
+      toggle.setAttribute('aria-pressed', String(show));
+    };
+    form.onsubmit = event => {
+      event.preventDefault();
+      let firstInvalid;
+      [username, password].forEach(input => {
+        const invalid = !input.value.trim();
+        input.setAttribute('aria-invalid', String(invalid));
+        document.querySelector('#' + input.id + '-error').textContent = invalid ? (input === username ? '请输入账号' : '请输入密码') : '';
+        if (invalid && !firstInvalid) firstInvalid = input;
+      });
+      document.querySelector('#login-status').textContent = firstInvalid ? '' : '这是设计预览，账号及密码不会提交。';
+      if (firstInvalid) firstInvalid.focus();
+    };
+    [username, password].forEach(input => input.oninput = () => {
+      input.removeAttribute('aria-invalid');
+      document.querySelector('#' + input.id + '-error').textContent = '';
+      document.querySelector('#login-status').textContent = '';
+    });
+  </script>
+</body>
+</html>

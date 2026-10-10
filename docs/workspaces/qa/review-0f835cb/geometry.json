@@ -1,0 +1,144 @@
+{
+  "fixed_sha": "0f835cb2086852ae20f2f82aed8a40070281a0b4",
+  "actual_head": "8a3e126f4344c68f25ff74c46800e98eb9c89507",
+  "application_paths_unchanged_from_fixed": [
+    "crm/",
+    "config/",
+    "manage.py"
+  ],
+  "pages": [
+    {
+      "view": "product_list",
+      "desktop": "01-product-list-desktop.jpg",
+      "mobile": "04-product-list-mobile.jpg"
+    },
+    {
+      "view": "product_add_get",
+      "desktop": "02-product-add-desktop.jpg",
+      "mobile": "05-product-add-mobile.jpg"
+    },
+    {
+      "view": "product_change_get",
+      "desktop": "03-product-change-desktop.jpg",
+      "mobile": "06-product-change-mobile.jpg"
+    }
+  ],
+  "desktop_1280x720": {
+    "root": {
+      "clientWidth": 1280,
+      "scrollWidth": 1280,
+      "bodyClientWidth": 1280,
+      "bodyScrollWidth": 1280
+    },
+    "primary_nav": {
+      "x": 180,
+      "y": 0,
+      "width": 1100,
+      "height": 53
+    },
+    "breadcrumbs": {
+      "x": 206,
+      "y": 24,
+      "width": 1048,
+      "height": 21,
+      "text": "首页 › 业务资料 › 商品"
+    },
+    "heading": {
+      "x": 206,
+      "y": 53,
+      "width": 1048,
+      "height": 31.25
+    },
+    "links": [
+      {
+        "text": "首页",
+        "x": 206,
+        "y": 26,
+        "href": "/admin/",
+        "hit_test": true
+      },
+      {
+        "text": "业务资料",
+        "x": 247.664,
+        "y": 26,
+        "href": "/admin/crm/",
+        "hit_test": true
+      }
+    ]
+  },
+  "mobile_390x844": {
+    "root": {
+      "clientWidth": 390,
+      "scrollWidth": 390,
+      "bodyClientWidth": 390,
+      "bodyScrollWidth": 390
+    },
+    "primary_nav": {
+      "x": 0,
+      "y": 0,
+      "width": 390,
+      "height": 93
+    },
+    "breadcrumbs": {
+      "x": 14,
+      "y": 64,
+      "width": 362,
+      "height": 21,
+      "text": "首页 › 业务资料 › 商品"
+    },
+    "heading": {
+      "x": 14,
+      "y": 93,
+      "width": 362,
+      "height": 27.5
+    },
+    "mobile_menu": {
+      "x": 10,
+      "y": 9,
+      "width": 44,
+      "height": 44,
+      "bottom": 53,
+      "gap_before_breadcrumbs": 11
+    },
+    "links": [
+      {
+        "text": "首页",
+        "x": 14,
+        "y": 66,
+        "href": "/admin/",
+        "hit_test": true
+      },
+      {
+        "text": "业务资料",
+        "x": 55.664,
+        "y": 66,
+        "href": "/admin/crm/",
+        "hit_test": true
+      }
+    ]
+  },
+  "link_navigation": {
+    "clicked": "业务资料",
+    "from": "/admin/crm/product/1/change/",
+    "to": "/admin/crm/",
+    "result": "HTTP page loaded"
+  },
+  "admin_home": {
+    "viewport": "1280x720",
+    "root_client_scroll": [
+      1280,
+      1280
+    ],
+    "body_class": "app-body crm-admin dashboard",
+    "result": "normal layout"
+  },
+  "related_brand_popup": {
+    "route": "/admin/crm/brand/add/?_to_field=id&_popup=1",
+    "root_client_scroll": [
+      1280,
+      1280
+    ],
+    "body_class": "popup app-body crm-admin app-crm model-brand change-form",
+    "result": "GET displayed form normally; no submission"
+  }
+}

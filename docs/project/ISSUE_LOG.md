@@ -79,3 +79,5 @@ USER-REVISION-INVOICE-REPLAY-AUTH已关闭（2026-10-09）：694aaad固定最小
 TEST-DB-REUSE补充：前端报告约16:15–16:18两次--keepdb测试（admin_polish_20261010及admin_polish_mv24emvm）均7项OK；创建前未紧贴查库，因此两个测试库此前存在/本次新建及runner迁移行为未证实，日志“Using existing”本身不足证明真复用。第二库后创建合成superuser/Brand/3Product并启动GET演示后已停服务。两库均保持不再触碰、不删；后续只用明确查无/CREATE成功的新库、独立TEST.NAME且不用keepdb。修正前段把日志当已证明复用的表述，所有权与实际旧数据影响仍未知。
 
 2026-10-10 d8c4ed两低项定向QA/UI：产品101件中文计数/分页/显示全部/筛选及权限通过，其他模型原分页保留。面包屑透明底后实际nav仍x0/y0被桌面侧栏遮挡、手机菜单重叠，列表/add/change均证实；仅定位未通过。保留三层语义，修nav外层与主内容位置，无需新业务或重跑核心。QA18779及独立库清理，证据UI/QA review-d8c4ed归档；旧admin_polish库未触碰。
+
+2026-10-10本轮UI残留全部关闭：固定0f835cb导航定向QA/UI通过，d8c4ed中文计数/分页与7ba254核心功能/设计通过。无已知本轮发布阻断，允许更新合成测试环境；V01正式切换条件及TEST-DB-REUSE环境所有权/影响未知仍保留，不因UI通过清旧库或导正式数据。
