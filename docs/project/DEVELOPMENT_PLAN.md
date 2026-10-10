@@ -204,3 +204,5 @@ RELEASE-IP-UPDATE本机前置：8765无监听，PG正常；demo旧语言“简�
 RELEASE-IP-UPDATE执行完成：云aluola_crm_dev及本机aluola_crm_local_demo迁移0014/check/static通过，固定app0f835cb、分发160b593。两处登录/静态/私有媒体/非法Host为200/200/404/400，云销售真实登录首页200；本机角色登录等待最后只读烟测。发布前DB/本机4媒体文件私有备份保留，dump列表/gzip校验成功，不代表完整ownerACL恢复演练。云unit active；本机PID12704/exec22644、8765 runserver--noreload从项目根运行，当前应用无漂移，后续恢复应用写入前须保护用户演示运行版本（固定制品留.local），不得把文档HEAD称运行源码更新。部署角色记录cb93abe。实际运行数据与云各自独立、无真实期初；正式上线条件保持。
 
 2026-10-10 RELEASE-IP-UPDATE最终验收关闭：QA本机demo-sales/demo-owner及云iptest-sales真实登录，工作台/catalog/orders/inventory/库存报表与对应JSON API、CSS/JS均200；老板后台/员工查询200，销售被引导admin/login，云从当前测试网络可达。只登录POST，其余GET，无业务写入/账号改动/迁移重启，包hash匹配及应用无漂移。发布已完成，角色进入只读支持，后续新任务负责人排单写入者；真实期初/NAS/正式切换仍待独立条件。
+
+2026-10-10用户试用新增UI-HOME-REFINE：用户在UI会话提出八摘要卡统一尺寸/标题、左右指标预览、销售与增速双大数、删除注释和趋势图真实比例/圆点修正。仅UI独立目录局部候选与用户批准流程恢复，旧获批源及已发布应用0f835保持不改；前端/后端不自动恢复。手绘客户23%含义由UI向用户确认，新指标若有则负责人收口，现有统计不擅改。此为新试用设计反馈，不撤销上一轮已验证事实。
