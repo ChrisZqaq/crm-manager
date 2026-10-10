@@ -343,5 +343,5 @@ UV_PROJECT_ENVIRONMENT=/Users/chrisz/.cache/aluola-crm-uiquery1-venv CRM_DB_NAME
 
 ### 固定与交接
 
-- 应用固定提交SHA将在提交后补记；固定后停止应用写入。
+- 应用固定提交：`a1ae3043d83110dead4a575be0b27d1f5c77f550`。提交后已停止应用写入；本次补记只改本角色WORK。
 - 发送负责人和QA后，QA待负责人确认新固定基线再做定向独立验证。此为后端自测，不代表QA/UI验收。
