@@ -1,0 +1,33 @@
+{
+  "task": "UI-HOME-REFINE-ERROR-FIT",
+  "baseline_application_commit": "5a3e97d2073532032db5312b5630d166b22b7f06",
+  "fixed_application_commit": "c29ca9ac83f0cafcca2085179f06c7113e15de4b",
+  "scope": "Reuse fitMetrics after the workbench sales failure placeholder is assigned.",
+  "synthetic_only": true,
+  "viewports": [
+    {
+      "name": "desktop",
+      "width": 1280,
+      "height": 900
+    },
+    {
+      "name": "mobile",
+      "width": 390,
+      "height": 844
+    }
+  ],
+  "faults": [
+    "network rejection",
+    "HTTP 503 non-JSON",
+    "HTTP 409 JSON business error"
+  ],
+  "screenshots": [
+    "desktop-network.png",
+    "mobile-network.png",
+    "desktop-non_json.png",
+    "mobile-non_json.png",
+    "desktop-json_business.png",
+    "mobile-json_business.png"
+  ],
+  "measurements": "geometry.json"
+}

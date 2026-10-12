@@ -1,0 +1,376 @@
+{
+  "baseline": "5a3e97d2073532032db5312b5630d166b22b7f06",
+  "synthetic": true,
+  "scenarios": {
+    "network": {
+      "expected": "网络连接失败",
+      "viewports": {
+        "desktop": {
+          "viewport": 1280,
+          "documentWidth": 1280,
+          "sales": {
+            "text": "暂不可用",
+            "font": "22.75px",
+            "client": 95,
+            "scroll": 95,
+            "range": {
+              "left": 223,
+              "right": 314,
+              "width": 91,
+              "height": 27
+            },
+            "column": {
+              "left": 223,
+              "right": 318.2,
+              "width": 95.2,
+              "height": 53.89
+            },
+            "element": {
+              "left": 223,
+              "right": 318.2,
+              "width": 95.2,
+              "height": 27.3
+            }
+          },
+          "growth": {
+            "text": "暂不可用",
+            "font": "27px",
+            "client": 119,
+            "scroll": 119,
+            "range": {
+              "left": 323.2,
+              "right": 431.2,
+              "width": 108,
+              "height": 32
+            },
+            "column": {
+              "left": 318.2,
+              "right": 442,
+              "width": 123.8,
+              "height": 53.89
+            },
+            "element": {
+              "left": 323.2,
+              "right": 442,
+              "width": 118.8,
+              "height": 32.39
+            }
+          },
+          "status": "网络连接失败，请稍后重试。；刷新页面重试。",
+          "card": {
+            "left": 206,
+            "right": 459,
+            "width": 253,
+            "height": 184
+          }
+        },
+        "mobile": {
+          "viewport": 390,
+          "documentWidth": 390,
+          "sales": {
+            "text": "暂不可用",
+            "font": "32px",
+            "client": 144,
+            "scroll": 144,
+            "range": {
+              "left": 29,
+              "right": 157,
+              "width": 128,
+              "height": 38
+            },
+            "column": {
+              "left": 29,
+              "right": 173.34,
+              "width": 144.34,
+              "height": 59.89
+            },
+            "element": {
+              "left": 29,
+              "right": 173.34,
+              "width": 144.34,
+              "height": 38.39
+            }
+          },
+          "growth": {
+            "text": "暂不可用",
+            "font": "32px",
+            "client": 183,
+            "scroll": 183,
+            "range": {
+              "left": 178.34,
+              "right": 306.34,
+              "width": 128,
+              "height": 38
+            },
+            "column": {
+              "left": 173.34,
+              "right": 360.98,
+              "width": 187.64,
+              "height": 59.89
+            },
+            "element": {
+              "left": 178.34,
+              "right": 360.98,
+              "width": 182.64,
+              "height": 38.39
+            }
+          },
+          "status": "网络连接失败，请稍后重试。；刷新页面重试。",
+          "card": {
+            "left": 12,
+            "right": 378,
+            "width": 366,
+            "height": 184
+          }
+        }
+      }
+    },
+    "non_json": {
+      "expected": "HTTP 503",
+      "viewports": {
+        "desktop": {
+          "viewport": 1280,
+          "documentWidth": 1280,
+          "sales": {
+            "text": "暂不可用",
+            "font": "22.75px",
+            "client": 95,
+            "scroll": 95,
+            "range": {
+              "left": 223,
+              "right": 314,
+              "width": 91,
+              "height": 27
+            },
+            "column": {
+              "left": 223,
+              "right": 318.2,
+              "width": 95.2,
+              "height": 53.89
+            },
+            "element": {
+              "left": 223,
+              "right": 318.2,
+              "width": 95.2,
+              "height": 27.3
+            }
+          },
+          "growth": {
+            "text": "暂不可用",
+            "font": "27px",
+            "client": 119,
+            "scroll": 119,
+            "range": {
+              "left": 323.2,
+              "right": 431.2,
+              "width": 108,
+              "height": 32
+            },
+            "column": {
+              "left": 318.2,
+              "right": 442,
+              "width": 123.8,
+              "height": 53.89
+            },
+            "element": {
+              "left": 323.2,
+              "right": 442,
+              "width": 118.8,
+              "height": 32.39
+            }
+          },
+          "status": "服务器错误响应无法读取（HTTP 503），请稍后重试。；刷新页面重试。",
+          "card": {
+            "left": 206,
+            "right": 459,
+            "width": 253,
+            "height": 184
+          }
+        },
+        "mobile": {
+          "viewport": 390,
+          "documentWidth": 390,
+          "sales": {
+            "text": "暂不可用",
+            "font": "32px",
+            "client": 144,
+            "scroll": 144,
+            "range": {
+              "left": 29,
+              "right": 157,
+              "width": 128,
+              "height": 38
+            },
+            "column": {
+              "left": 29,
+              "right": 173.34,
+              "width": 144.34,
+              "height": 59.89
+            },
+            "element": {
+              "left": 29,
+              "right": 173.34,
+              "width": 144.34,
+              "height": 38.39
+            }
+          },
+          "growth": {
+            "text": "暂不可用",
+            "font": "32px",
+            "client": 183,
+            "scroll": 183,
+            "range": {
+              "left": 178.34,
+              "right": 306.34,
+              "width": 128,
+              "height": 38
+            },
+            "column": {
+              "left": 173.34,
+              "right": 360.98,
+              "width": 187.64,
+              "height": 59.89
+            },
+            "element": {
+              "left": 178.34,
+              "right": 360.98,
+              "width": 182.64,
+              "height": 38.39
+            }
+          },
+          "status": "服务器错误响应无法读取（HTTP 503），请稍后重试。；刷新页面重试。",
+          "card": {
+            "left": 12,
+            "right": 378,
+            "width": 366,
+            "height": 184
+          }
+        }
+      }
+    },
+    "json_business": {
+      "expected": "合成业务拒绝保留。",
+      "viewports": {
+        "desktop": {
+          "viewport": 1280,
+          "documentWidth": 1280,
+          "sales": {
+            "text": "暂不可用",
+            "font": "22.75px",
+            "client": 95,
+            "scroll": 95,
+            "range": {
+              "left": 223,
+              "right": 314,
+              "width": 91,
+              "height": 27
+            },
+            "column": {
+              "left": 223,
+              "right": 318.2,
+              "width": 95.2,
+              "height": 53.89
+            },
+            "element": {
+              "left": 223,
+              "right": 318.2,
+              "width": 95.2,
+              "height": 27.3
+            }
+          },
+          "growth": {
+            "text": "暂不可用",
+            "font": "27px",
+            "client": 119,
+            "scroll": 119,
+            "range": {
+              "left": 323.2,
+              "right": 431.2,
+              "width": 108,
+              "height": 32
+            },
+            "column": {
+              "left": 318.2,
+              "right": 442,
+              "width": 123.8,
+              "height": 53.89
+            },
+            "element": {
+              "left": 323.2,
+              "right": 442,
+              "width": 118.8,
+              "height": 32.39
+            }
+          },
+          "status": "合成业务拒绝保留。；刷新页面重试。",
+          "card": {
+            "left": 206,
+            "right": 459,
+            "width": 253,
+            "height": 184
+          }
+        },
+        "mobile": {
+          "viewport": 390,
+          "documentWidth": 390,
+          "sales": {
+            "text": "暂不可用",
+            "font": "32px",
+            "client": 144,
+            "scroll": 144,
+            "range": {
+              "left": 29,
+              "right": 157,
+              "width": 128,
+              "height": 38
+            },
+            "column": {
+              "left": 29,
+              "right": 173.34,
+              "width": 144.34,
+              "height": 59.89
+            },
+            "element": {
+              "left": 29,
+              "right": 173.34,
+              "width": 144.34,
+              "height": 38.39
+            }
+          },
+          "growth": {
+            "text": "暂不可用",
+            "font": "32px",
+            "client": 183,
+            "scroll": 183,
+            "range": {
+              "left": 178.34,
+              "right": 306.34,
+              "width": 128,
+              "height": 38
+            },
+            "column": {
+              "left": 173.34,
+              "right": 360.98,
+              "width": 187.64,
+              "height": 59.89
+            },
+            "element": {
+              "left": 178.34,
+              "right": 360.98,
+              "width": 182.64,
+              "height": 38.39
+            }
+          },
+          "status": "合成业务拒绝保留。；刷新页面重试。",
+          "card": {
+            "left": 12,
+            "right": 378,
+            "width": 366,
+            "height": 184
+          }
+        }
+      }
+    }
+  },
+  "fixed_application_commit": "c29ca9ac83f0cafcca2085179f06c7113e15de4b"
+}
