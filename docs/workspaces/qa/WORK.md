@@ -551,3 +551,11 @@ QA浏览器内API响应85个200、2个模拟409、2个模拟503；隔离库业�
 六张截图、Range/盒尺寸/状态与恢复数据、`manifest.json` 及 `SHA256SUMS` 在 [`review-error-fit-c29ca9a/`](review-error-fit-c29ca9a/)。manifest SHA256为 `fcd6cee7bdc2bc2422d7681cea90688d49056e6dc23b5682b5c50159a63835c9`；清单7项通过。UI独立查看六图并确认相同无交叠结果；副本在 [`../ui/review-error-fit-c29ca9a/`](../ui/review-error-fit-c29ca9a/) 共8个文件，QA逐项核对源/副本SHA一致。UI只评图，没有独立运行站点/API。
 
 清理：停止本轮服务并确认18783无监听；确认库owner为`crm_dev`、活动连接0后删除，复查库不存在且共享PostgreSQL查询正常。8765及其他数据库未触碰。未跑Django套件、完整回归或平板/真实手机。
+
+### RELEASE-HOME-UPDATE｜模板纠正后最终短烟测（2026-10-12）
+
+依据发行提交 `5218025891dce41959828d517d87fc48c437fa68`、应用树 `c29ca9ac83f0cafcca2085179f06c7113e15de4b`。最终83文件包SHA256 `9d470833f4dfe2ff856cded4bea9e76b78ed9ebf0e9e8e96555746165ebccaff`：本机独立重算一致，归档清单含 `templates/admin/base_site.html`、`templates/admin/pagination.html`；部署WORK记录云端暂存包hash相同。SSH复核云端两个已部署模板SHA分别为 `47a3f3c98bb658b43980578c4f51451833756e3f96636e53110b0049b46d703e`、`6941fc4966f2ee4fe451dbf4663d1deee15bf19ff9f3a58c48cf04b4a8c0337d`，与固定源及本机包一致；云CRM unit active、NRestarts=0。
+
+仅使用既有本机销售凭据一次真实登录（登录表GET 200，登录后到 `/catalog/`），未记录账号或凭据。固定副本 `127.0.0.1:8765`：首页GET 200，`#customer-created-today` 存在且显示数值，首页发出的 `include_created_today=true` 请求200；独立客户API GET 200、JSON中的 `total` 与 `created_today_total` 均为非负整数、`items` 为数组且最多1项。销售 `series=day` GET 200，返回7个日期升序点，点含字符串 `revenue_amount`。销售 GET `/admin/` 被重定向到 `/admin/login/`。`/static/crm/app.css` GET 200、`text/css`、32,455字节，SHA256 `d7d4403d464c781542748846c94a8344e0073f1919bd29f9de3f0bdf406e14d4`，与固定副本源文件一致。
+
+云端公网入口按负责人要求仅做一次 `--noproxy` 5秒直连探测，连接超时；不重试、不调整安全组。云端真实销售登录及修正包后的公网API未取得新证据。管理员登录同样未验证：本机没有可用staff凭据或现成owner会话，云端无staff账号；未试错、使用 `force_login`、改账号或权限。因此本次部署后的真实管理员品牌sidebar和商品中文计数未验证；既有合成管理员/分页证据不代替部署后真实会话。未跑完整页面/业务矩阵、390视口或真实手机检查；除常规登录会话/last_login外，无业务写入、数据库或代码改动。
