@@ -365,10 +365,11 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
 .workbench-card .card-head h2 { margin: 0; font-size: 14px; }
 .workbench-card .card-head a { flex: 0 0 auto; font-size: 12px; }
 .workbench-card-body { display: grid; min-width: 0; flex: 1; grid-template-columns: minmax(74px, 38%) minmax(0, 1fr); align-items: stretch; gap: 0; padding: 0; }
-.workbench-sales-card .workbench-card-body { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.workbench-sales-card .workbench-card-body { grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); }
 .workbench-sales-card .workbench-side { padding-left: 4px; }
-.workbench-sales-card .workbench-measure > strong { font-size: clamp(16px, 1.4vw, 18px); }
-.workbench-sales-card #today-growth { font-size: clamp(14px, 1.05vw, 15px); white-space: nowrap; }
+.workbench-sales-card .workbench-measure > strong, .workbench-sales-card #today-growth { display: block; width: 100%; min-width: 0; white-space: nowrap; }
+.workbench-sales-card .workbench-measure > strong { font-size: 28px; }
+.workbench-sales-card #today-growth { font-size: 27px; }
 .workbench-measure { display: grid; min-width: 0; align-content: center; justify-items: start; gap: 5px; }
 .workbench-measure-label { color: var(--muted); font-size: 11px; }
 .workbench-measure > strong, .workbench-measure-value strong, .workbench-side > strong { display: inline; min-width: 0; color: var(--brand); font-size: 27px; line-height: 1.2; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
@@ -397,6 +398,7 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
 .workbench-chart-data { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 @media (max-width: 760px) {
   .workbench-card-body { grid-template-columns: minmax(74px, 30%) minmax(0, 1fr); }
+  .workbench-sales-card .workbench-measure > strong, .workbench-sales-card #today-growth { font-size: 32px; }
 }
 @media (max-width: 480px) {
   .workbench-summary, .status-grid { grid-template-columns: minmax(0, 1fr); gap: 12px; }
