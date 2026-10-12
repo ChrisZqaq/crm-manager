@@ -1,0 +1,676 @@
+{
+  "fixedSha": "c29ca9ac83f0cafcca2085179f06c7113e15de4b",
+  "testedAt": "2026-10-12T10:44:35.769Z",
+  "scope": "Only network abort, HTTP 503 non-JSON, and HTTP 409 JSON error-state fitting at 1280x720 and 390x844; no successful growth, owner preview, chart, or prior regression matrix retested.",
+  "browser": {
+    "name": "Google Chrome via Playwright Core",
+    "headless": true,
+    "proxy": "disabled for direct localhost access",
+    "deviceScaleFactor": 1
+  },
+  "service": "http://127.0.0.1:18783",
+  "syntheticOnly": true,
+  "permissions": [
+    "view_salesorder",
+    "view_customer"
+  ],
+  "errorCases": [
+    {
+      "name": "network",
+      "type": "abort",
+      "expectedMessage": "网络连接失败，请稍后重试。"
+    },
+    {
+      "name": "nonJson503",
+      "type": "503",
+      "expectedMessage": "服务器错误响应无法读取（HTTP 503），请稍后重试。"
+    },
+    {
+      "name": "business409",
+      "type": "409",
+      "expectedMessage": "合成业务拒绝保留。"
+    }
+  ],
+  "results": [
+    {
+      "scenario": "network",
+      "viewport": {
+        "innerWidth": 1280,
+        "innerHeight": 720,
+        "clientWidth": 1280,
+        "scrollWidth": 1280
+      },
+      "injectedRouteHits": {
+        "day_over_day": 1,
+        "trend": 1
+      },
+      "screenshot": "network-desktop-1280.png",
+      "body": {
+        "clientWidth": 1280,
+        "scrollWidth": 1280
+      },
+      "sales": {
+        "text": "暂不可用",
+        "box": {
+          "left": 223,
+          "right": 318.203125,
+          "top": 149.9375,
+          "bottom": 177.234375,
+          "width": 95.203125,
+          "height": 27.296875
+        },
+        "clientWidth": 95,
+        "scrollWidth": 95,
+        "whiteSpace": "nowrap",
+        "fontSize": "22.75px",
+        "rangeRects": [
+          {
+            "left": 223,
+            "right": 314,
+            "top": 149.9375,
+            "bottom": 176.9375,
+            "width": 91,
+            "height": 27
+          }
+        ],
+        "rangeBounds": {
+          "left": 223,
+          "right": 314,
+          "top": 149.9375,
+          "bottom": 176.9375
+        }
+      },
+      "growth": {
+        "text": "暂不可用",
+        "box": {
+          "left": 323.203125,
+          "right": 442,
+          "top": 147.390625,
+          "bottom": 179.78125,
+          "width": 118.796875,
+          "height": 32.390625
+        },
+        "clientWidth": 119,
+        "scrollWidth": 119,
+        "whiteSpace": "nowrap",
+        "fontSize": "27px",
+        "rangeRects": [
+          {
+            "left": 323.203125,
+            "right": 431.203125,
+            "top": 147.390625,
+            "bottom": 179.390625,
+            "width": 108,
+            "height": 32
+          }
+        ],
+        "rangeBounds": {
+          "left": 323.203125,
+          "right": 431.203125,
+          "top": 147.390625,
+          "bottom": 179.390625
+        }
+      },
+      "adjacency": {
+        "textOverlapPx": 0,
+        "salesInsideOwnColumn": true,
+        "growthInsideOwnColumn": true
+      },
+      "messages": {
+        "sales": "网络连接失败，请稍后重试。；刷新页面重试。",
+        "trend": "网络连接失败，请稍后重试。"
+      },
+      "trendFallback": "销售趋势暂不可用。",
+      "recovery": true,
+      "checks": {
+        "noRootOverflow": true,
+        "salesSingleLine": true,
+        "growthSingleLine": true,
+        "salesNoTextOverflow": true,
+        "growthNoTextOverflow": true,
+        "salesWithinColumn": true,
+        "growthWithinColumn": true,
+        "noAdjacentOverlap": true,
+        "routeHitsBoth": true,
+        "recovered": true
+      },
+      "pass": true
+    },
+    {
+      "scenario": "network",
+      "viewport": {
+        "innerWidth": 390,
+        "innerHeight": 844,
+        "clientWidth": 390,
+        "scrollWidth": 390
+      },
+      "injectedRouteHits": {
+        "day_over_day": 1,
+        "trend": 1
+      },
+      "screenshot": "network-mobile-390.png",
+      "body": {
+        "clientWidth": 390,
+        "scrollWidth": 390
+      },
+      "sales": {
+        "text": "暂不可用",
+        "box": {
+          "left": 29,
+          "right": 173.34375,
+          "top": 187.390625,
+          "bottom": 225.78125,
+          "width": 144.34375,
+          "height": 38.390625
+        },
+        "clientWidth": 144,
+        "scrollWidth": 144,
+        "whiteSpace": "nowrap",
+        "fontSize": "32px",
+        "rangeRects": [
+          {
+            "left": 29,
+            "right": 157,
+            "top": 187.390625,
+            "bottom": 225.390625,
+            "width": 128,
+            "height": 38
+          }
+        ],
+        "rangeBounds": {
+          "left": 29,
+          "right": 157,
+          "top": 187.390625,
+          "bottom": 225.390625
+        }
+      },
+      "growth": {
+        "text": "暂不可用",
+        "box": {
+          "left": 178.34375,
+          "right": 360.984375,
+          "top": 187.390625,
+          "bottom": 225.78125,
+          "width": 182.640625,
+          "height": 38.390625
+        },
+        "clientWidth": 183,
+        "scrollWidth": 183,
+        "whiteSpace": "nowrap",
+        "fontSize": "32px",
+        "rangeRects": [
+          {
+            "left": 178.34375,
+            "right": 306.34375,
+            "top": 187.390625,
+            "bottom": 225.390625,
+            "width": 128,
+            "height": 38
+          }
+        ],
+        "rangeBounds": {
+          "left": 178.34375,
+          "right": 306.34375,
+          "top": 187.390625,
+          "bottom": 225.390625
+        }
+      },
+      "adjacency": {
+        "textOverlapPx": 0,
+        "salesInsideOwnColumn": true,
+        "growthInsideOwnColumn": true
+      },
+      "messages": {
+        "sales": "网络连接失败，请稍后重试。；刷新页面重试。",
+        "trend": "网络连接失败，请稍后重试。"
+      },
+      "trendFallback": "销售趋势暂不可用。",
+      "recovery": true,
+      "checks": {
+        "noRootOverflow": true,
+        "salesSingleLine": true,
+        "growthSingleLine": true,
+        "salesNoTextOverflow": true,
+        "growthNoTextOverflow": true,
+        "salesWithinColumn": true,
+        "growthWithinColumn": true,
+        "noAdjacentOverlap": true,
+        "routeHitsBoth": true,
+        "recovered": true
+      },
+      "pass": true
+    },
+    {
+      "scenario": "nonJson503",
+      "viewport": {
+        "innerWidth": 1280,
+        "innerHeight": 720,
+        "clientWidth": 1280,
+        "scrollWidth": 1280
+      },
+      "injectedRouteHits": {
+        "day_over_day": 1,
+        "trend": 1
+      },
+      "screenshot": "nonJson503-desktop-1280.png",
+      "body": {
+        "clientWidth": 1280,
+        "scrollWidth": 1280
+      },
+      "sales": {
+        "text": "暂不可用",
+        "box": {
+          "left": 223,
+          "right": 318.203125,
+          "top": 149.9375,
+          "bottom": 177.234375,
+          "width": 95.203125,
+          "height": 27.296875
+        },
+        "clientWidth": 95,
+        "scrollWidth": 95,
+        "whiteSpace": "nowrap",
+        "fontSize": "22.75px",
+        "rangeRects": [
+          {
+            "left": 223,
+            "right": 314,
+            "top": 149.9375,
+            "bottom": 176.9375,
+            "width": 91,
+            "height": 27
+          }
+        ],
+        "rangeBounds": {
+          "left": 223,
+          "right": 314,
+          "top": 149.9375,
+          "bottom": 176.9375
+        }
+      },
+      "growth": {
+        "text": "暂不可用",
+        "box": {
+          "left": 323.203125,
+          "right": 442,
+          "top": 147.390625,
+          "bottom": 179.78125,
+          "width": 118.796875,
+          "height": 32.390625
+        },
+        "clientWidth": 119,
+        "scrollWidth": 119,
+        "whiteSpace": "nowrap",
+        "fontSize": "27px",
+        "rangeRects": [
+          {
+            "left": 323.203125,
+            "right": 431.203125,
+            "top": 147.390625,
+            "bottom": 179.390625,
+            "width": 108,
+            "height": 32
+          }
+        ],
+        "rangeBounds": {
+          "left": 323.203125,
+          "right": 431.203125,
+          "top": 147.390625,
+          "bottom": 179.390625
+        }
+      },
+      "adjacency": {
+        "textOverlapPx": 0,
+        "salesInsideOwnColumn": true,
+        "growthInsideOwnColumn": true
+      },
+      "messages": {
+        "sales": "服务器错误响应无法读取（HTTP 503），请稍后重试。；刷新页面重试。",
+        "trend": "服务器错误响应无法读取（HTTP 503），请稍后重试。"
+      },
+      "trendFallback": "销售趋势暂不可用。",
+      "recovery": true,
+      "checks": {
+        "noRootOverflow": true,
+        "salesSingleLine": true,
+        "growthSingleLine": true,
+        "salesNoTextOverflow": true,
+        "growthNoTextOverflow": true,
+        "salesWithinColumn": true,
+        "growthWithinColumn": true,
+        "noAdjacentOverlap": true,
+        "routeHitsBoth": true,
+        "recovered": true
+      },
+      "pass": true
+    },
+    {
+      "scenario": "nonJson503",
+      "viewport": {
+        "innerWidth": 390,
+        "innerHeight": 844,
+        "clientWidth": 390,
+        "scrollWidth": 390
+      },
+      "injectedRouteHits": {
+        "day_over_day": 1,
+        "trend": 1
+      },
+      "screenshot": "nonJson503-mobile-390.png",
+      "body": {
+        "clientWidth": 390,
+        "scrollWidth": 390
+      },
+      "sales": {
+        "text": "暂不可用",
+        "box": {
+          "left": 29,
+          "right": 173.34375,
+          "top": 187.390625,
+          "bottom": 225.78125,
+          "width": 144.34375,
+          "height": 38.390625
+        },
+        "clientWidth": 144,
+        "scrollWidth": 144,
+        "whiteSpace": "nowrap",
+        "fontSize": "32px",
+        "rangeRects": [
+          {
+            "left": 29,
+            "right": 157,
+            "top": 187.390625,
+            "bottom": 225.390625,
+            "width": 128,
+            "height": 38
+          }
+        ],
+        "rangeBounds": {
+          "left": 29,
+          "right": 157,
+          "top": 187.390625,
+          "bottom": 225.390625
+        }
+      },
+      "growth": {
+        "text": "暂不可用",
+        "box": {
+          "left": 178.34375,
+          "right": 360.984375,
+          "top": 187.390625,
+          "bottom": 225.78125,
+          "width": 182.640625,
+          "height": 38.390625
+        },
+        "clientWidth": 183,
+        "scrollWidth": 183,
+        "whiteSpace": "nowrap",
+        "fontSize": "32px",
+        "rangeRects": [
+          {
+            "left": 178.34375,
+            "right": 306.34375,
+            "top": 187.390625,
+            "bottom": 225.390625,
+            "width": 128,
+            "height": 38
+          }
+        ],
+        "rangeBounds": {
+          "left": 178.34375,
+          "right": 306.34375,
+          "top": 187.390625,
+          "bottom": 225.390625
+        }
+      },
+      "adjacency": {
+        "textOverlapPx": 0,
+        "salesInsideOwnColumn": true,
+        "growthInsideOwnColumn": true
+      },
+      "messages": {
+        "sales": "服务器错误响应无法读取（HTTP 503），请稍后重试。；刷新页面重试。",
+        "trend": "服务器错误响应无法读取（HTTP 503），请稍后重试。"
+      },
+      "trendFallback": "销售趋势暂不可用。",
+      "recovery": true,
+      "checks": {
+        "noRootOverflow": true,
+        "salesSingleLine": true,
+        "growthSingleLine": true,
+        "salesNoTextOverflow": true,
+        "growthNoTextOverflow": true,
+        "salesWithinColumn": true,
+        "growthWithinColumn": true,
+        "noAdjacentOverlap": true,
+        "routeHitsBoth": true,
+        "recovered": true
+      },
+      "pass": true
+    },
+    {
+      "scenario": "business409",
+      "viewport": {
+        "innerWidth": 1280,
+        "innerHeight": 720,
+        "clientWidth": 1280,
+        "scrollWidth": 1280
+      },
+      "injectedRouteHits": {
+        "day_over_day": 1,
+        "trend": 1
+      },
+      "screenshot": "business409-desktop-1280.png",
+      "body": {
+        "clientWidth": 1280,
+        "scrollWidth": 1280
+      },
+      "sales": {
+        "text": "暂不可用",
+        "box": {
+          "left": 223,
+          "right": 318.203125,
+          "top": 149.9375,
+          "bottom": 177.234375,
+          "width": 95.203125,
+          "height": 27.296875
+        },
+        "clientWidth": 95,
+        "scrollWidth": 95,
+        "whiteSpace": "nowrap",
+        "fontSize": "22.75px",
+        "rangeRects": [
+          {
+            "left": 223,
+            "right": 314,
+            "top": 149.9375,
+            "bottom": 176.9375,
+            "width": 91,
+            "height": 27
+          }
+        ],
+        "rangeBounds": {
+          "left": 223,
+          "right": 314,
+          "top": 149.9375,
+          "bottom": 176.9375
+        }
+      },
+      "growth": {
+        "text": "暂不可用",
+        "box": {
+          "left": 323.203125,
+          "right": 442,
+          "top": 147.390625,
+          "bottom": 179.78125,
+          "width": 118.796875,
+          "height": 32.390625
+        },
+        "clientWidth": 119,
+        "scrollWidth": 119,
+        "whiteSpace": "nowrap",
+        "fontSize": "27px",
+        "rangeRects": [
+          {
+            "left": 323.203125,
+            "right": 431.203125,
+            "top": 147.390625,
+            "bottom": 179.390625,
+            "width": 108,
+            "height": 32
+          }
+        ],
+        "rangeBounds": {
+          "left": 323.203125,
+          "right": 431.203125,
+          "top": 147.390625,
+          "bottom": 179.390625
+        }
+      },
+      "adjacency": {
+        "textOverlapPx": 0,
+        "salesInsideOwnColumn": true,
+        "growthInsideOwnColumn": true
+      },
+      "messages": {
+        "sales": "合成业务拒绝保留。；刷新页面重试。",
+        "trend": "合成业务拒绝保留。"
+      },
+      "trendFallback": "销售趋势暂不可用。",
+      "recovery": true,
+      "checks": {
+        "noRootOverflow": true,
+        "salesSingleLine": true,
+        "growthSingleLine": true,
+        "salesNoTextOverflow": true,
+        "growthNoTextOverflow": true,
+        "salesWithinColumn": true,
+        "growthWithinColumn": true,
+        "noAdjacentOverlap": true,
+        "routeHitsBoth": true,
+        "recovered": true
+      },
+      "pass": true
+    },
+    {
+      "scenario": "business409",
+      "viewport": {
+        "innerWidth": 390,
+        "innerHeight": 844,
+        "clientWidth": 390,
+        "scrollWidth": 390
+      },
+      "injectedRouteHits": {
+        "day_over_day": 1,
+        "trend": 1
+      },
+      "screenshot": "business409-mobile-390.png",
+      "body": {
+        "clientWidth": 390,
+        "scrollWidth": 390
+      },
+      "sales": {
+        "text": "暂不可用",
+        "box": {
+          "left": 29,
+          "right": 173.34375,
+          "top": 187.390625,
+          "bottom": 225.78125,
+          "width": 144.34375,
+          "height": 38.390625
+        },
+        "clientWidth": 144,
+        "scrollWidth": 144,
+        "whiteSpace": "nowrap",
+        "fontSize": "32px",
+        "rangeRects": [
+          {
+            "left": 29,
+            "right": 157,
+            "top": 187.390625,
+            "bottom": 225.390625,
+            "width": 128,
+            "height": 38
+          }
+        ],
+        "rangeBounds": {
+          "left": 29,
+          "right": 157,
+          "top": 187.390625,
+          "bottom": 225.390625
+        }
+      },
+      "growth": {
+        "text": "暂不可用",
+        "box": {
+          "left": 178.34375,
+          "right": 360.984375,
+          "top": 187.390625,
+          "bottom": 225.78125,
+          "width": 182.640625,
+          "height": 38.390625
+        },
+        "clientWidth": 183,
+        "scrollWidth": 183,
+        "whiteSpace": "nowrap",
+        "fontSize": "32px",
+        "rangeRects": [
+          {
+            "left": 178.34375,
+            "right": 306.34375,
+            "top": 187.390625,
+            "bottom": 225.390625,
+            "width": 128,
+            "height": 38
+          }
+        ],
+        "rangeBounds": {
+          "left": 178.34375,
+          "right": 306.34375,
+          "top": 187.390625,
+          "bottom": 225.390625
+        }
+      },
+      "adjacency": {
+        "textOverlapPx": 0,
+        "salesInsideOwnColumn": true,
+        "growthInsideOwnColumn": true
+      },
+      "messages": {
+        "sales": "合成业务拒绝保留。；刷新页面重试。",
+        "trend": "合成业务拒绝保留。"
+      },
+      "trendFallback": "销售趋势暂不可用。",
+      "recovery": true,
+      "checks": {
+        "noRootOverflow": true,
+        "salesSingleLine": true,
+        "growthSingleLine": true,
+        "salesNoTextOverflow": true,
+        "growthNoTextOverflow": true,
+        "salesWithinColumn": true,
+        "growthWithinColumn": true,
+        "noAdjacentOverlap": true,
+        "routeHitsBoth": true,
+        "recovered": true
+      },
+      "pass": true
+    }
+  ],
+  "overall": "pass",
+  "failedScenarios": [],
+  "evidenceFiles": [
+    "business409-desktop-1280.png",
+    "business409-mobile-390.png",
+    "network-desktop-1280.png",
+    "network-mobile-390.png",
+    "nonJson503-desktop-1280.png",
+    "nonJson503-mobile-390.png"
+  ],
+  "summary": {
+    "combinations": 6,
+    "passed": 6,
+    "failed": 0,
+    "errorLayout": "all sales/growth text fits its own column; no adjacent text overlap; no root overflow; all three cases recovered after removing injection"
+  }
+}

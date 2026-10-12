@@ -1,0 +1,1092 @@
+{
+  "baseline": {
+    "Customer": 6,
+    "SalesOrder": 7,
+    "SalesOrderLine": 4,
+    "PaymentRecord": 3,
+    "CommissionReview": 1,
+    "InventoryBalance": 2,
+    "BusinessOperation": 0
+  },
+  "visual": {
+    "desktop": {
+      "title": "工作台 · 阿罗拉潮玩空间",
+      "viewport": {
+        "innerWidth": 1280,
+        "innerHeight": 720
+      },
+      "root": {
+        "clientWidth": 1280,
+        "scrollWidth": 1280,
+        "bodyScrollWidth": 1280
+      },
+      "cards": [
+        {
+          "i": 0,
+          "x": 206,
+          "y": 84,
+          "width": 253,
+          "height": 184
+        },
+        {
+          "i": 1,
+          "x": 471,
+          "y": 84,
+          "width": 253,
+          "height": 184
+        },
+        {
+          "i": 2,
+          "x": 736,
+          "y": 84,
+          "width": 253,
+          "height": 184
+        },
+        {
+          "i": 3,
+          "x": 1001,
+          "y": 84,
+          "width": 253,
+          "height": 184
+        },
+        {
+          "i": 4,
+          "x": 206,
+          "y": 284,
+          "width": 253,
+          "height": 184
+        },
+        {
+          "i": 5,
+          "x": 471,
+          "y": 284,
+          "width": 253,
+          "height": 184
+        },
+        {
+          "i": 6,
+          "x": 736,
+          "y": 284,
+          "width": 253,
+          "height": 184
+        },
+        {
+          "i": 7,
+          "x": 1001,
+          "y": 284,
+          "width": 253,
+          "height": 184
+        }
+      ],
+      "growth": {
+        "text": "+1729.90%",
+        "x": 359.4,
+        "y": 147.4,
+        "width": 82.6,
+        "height": 97.2,
+        "clientWidth": 83,
+        "scrollWidth": 83,
+        "fontSize": "27px",
+        "lineHeight": "32.4px",
+        "whiteSpace": "normal",
+        "title": "服务端增速：1729.90%",
+        "aria": "增速 1729.90%"
+      },
+      "ranking": {
+        "text": "QA合成客户长名称·阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-",
+        "x": 594.5,
+        "y": 147.4,
+        "width": 64.2,
+        "height": 14.8,
+        "scrollWidth": 1001,
+        "title": "",
+        "aria": null
+      },
+      "chart": {
+        "box": {
+          "x": 225,
+          "y": 553.9,
+          "width": 1010,
+          "height": 260
+        },
+        "viewBox": "0 0 1010 260",
+        "points": [
+          {
+            "r": "4",
+            "x": 287,
+            "y": 775.9,
+            "width": 8,
+            "height": 8,
+            "aria": "2026-10-06：¥0.000"
+          },
+          {
+            "r": "4",
+            "x": 442.3,
+            "y": 775.9,
+            "width": 8,
+            "height": 8,
+            "aria": "2026-10-07：¥0.000"
+          },
+          {
+            "r": "4",
+            "x": 597.7,
+            "y": 774.2,
+            "width": 8,
+            "height": 8,
+            "aria": "2026-10-08：¥1234.500"
+          },
+          {
+            "r": "4",
+            "x": 753,
+            "y": 775.9,
+            "width": 8,
+            "height": 8,
+            "aria": "2026-10-09：¥0.000"
+          },
+          {
+            "r": "4",
+            "x": 908.3,
+            "y": 775.9,
+            "width": 8,
+            "height": 8,
+            "aria": "2026-10-10：¥0.000"
+          },
+          {
+            "r": "4",
+            "x": 1063.7,
+            "y": 766.4,
+            "width": 8,
+            "height": 8,
+            "aria": "2026-10-11：¥6789.125"
+          },
+          {
+            "r": "4",
+            "x": 1219,
+            "y": 602,
+            "width": 8,
+            "height": 8,
+            "aria": "2026-10-12：¥124233.912"
+          }
+        ],
+        "ticks": [
+          "¥0",
+          "¥50,000",
+          "¥100,000",
+          "¥150,000"
+        ],
+        "semanticRows": 7
+      },
+      "cardTexts": [
+        "今日销售额\n销售额\n¥12.4万\n增速\n+1729.90%",
+        "客户\n全部\n5\n位\n今日新增 4\n本月购买 Top3\n1.\nQA合成客户长名称·阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-\n¥12.3万\n2.\nQA合成客户-第二位\n¥7,566.248\n3.\nQA合成客户-第三位\n¥1,234.5",
+        "在售商品组合\n全部\n2\n类\nQA合成IP甲 · QA合成英语\nQA合成IP乙 · 未标语言",
+        "低库存提醒\n全部\n1\n条\nQA合成在售商品甲 · QAA-0001 · 3 盒",
+        "待收款订单\n查看全部\n2\n单\n订单 7 · QA合成客户-历史 · ¥5600.000\n订单 5 · QA合成客户-今日新增 · ¥8100.000",
+        "待出库订单\n查看全部\n1\n单\n订单 6 · QA合成客户-第三位 · ¥9200.000",
+        "待确认收款\n查看全部\n1\n单\n订单 7 · QA合成客户-历史 · QA合成测试收款账户 · ¥5600.000",
+        "待确认收货\n查看全部\n1\n单\n订单 2 · QA合成客户-第二位 · ¥777.123"
+      ]
+    },
+    "keyboard": [
+      "2026-10-06：¥0.000",
+      "2026-10-07：¥0.000",
+      "2026-10-08：¥1234.500",
+      "2026-10-09：¥0.000",
+      "2026-10-10：¥0.000",
+      "2026-10-11：¥6789.125",
+      "2026-10-12：¥124233.912"
+    ],
+    "mobile": {
+      "viewport": {
+        "innerWidth": 390,
+        "innerHeight": 844
+      },
+      "root": {
+        "clientWidth": 390,
+        "scrollWidth": 390
+      },
+      "growth": {
+        "text": "+1729.90%",
+        "width": 127.8125,
+        "height": 64.78125,
+        "y": 187.390625,
+        "scrollWidth": 128,
+        "whiteSpace": "normal"
+      },
+      "cards": [
+        184,
+        184,
+        184,
+        184,
+        184,
+        184,
+        184,
+        184
+      ],
+      "chart": {
+        "width": 338,
+        "height": 240,
+        "viewBox": "0 0 338 240"
+      }
+    },
+    "positiveMetrics": {
+      "today": {
+        "text": "¥12.4万",
+        "title": "完整金额：¥124233.912",
+        "aria": "完整金额：¥124233.912"
+      },
+      "ranking": {
+        "count": 3,
+        "html": "<li class=\"customer-ranking-row\"><a href=\"/customers/?q=QA%E5%90%88%E6%88%90%E5%AE%A2%E6%88%B7%E9%95%BF%E5%90%8D%E7%A7%B0%C2%B7%E9%98%BF%E7%BD%97%E6%8B%89%E5%B1%95%E7%A4%BA%E9%95%BF%E5%90%8D-%E9%98%BF%E7%BD%97%E6%8B%89%E5%B1%95%E7%A4%BA%E9%95%BF%E5%90%8D-%E9%98%BF%E7%BD%97%E6%8B%89%E5%B1%95%E7%A4%BA%E9%95%BF%E5%90%8D-%E9%98%BF%E7%BD%97%E6%8B%89%E5%B1%95%E7%A4%BA%E9%95%BF%E5%90%8D-%E9%98%BF%E7%BD%97%E6%8B%89%E5%B1%95%E7%A4%BA%E9%95%BF%E5%90%8D-%E9%98%BF%E7%BD%97%E6%8B%89%E5%B1%95%E7%A4%BA%E9%95%BF%E5%90%8D-%E9%98%BF%E7%BD%97%E6%8B%89%E5%B1%95%E7%A4%BA%E9%95%BF%E5%90%8D-%E9%98%BF%E7%BD%97%E6%8B%89%E5%B1%95%E7%A4%BA%E9%95%BF%E5%90%8D-%E9%98%BF%E7%BD%97%E6%8B%89%E5%B1%95%E7%A4%BA%E9%95%BF%E5%90%8D-%E9%98%BF%E7%BD%97%E6%8B%89%E5%B1%95%E7%A4%BA%E9%95%BF%E5%90%8D-%E9%98%BF%E7%BD%97%E6%8B%89%E5%B1%95%E7%A4%BA%E9%95%BF%E5%90%8D-\" title=\"QA合成客户长名称·阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗",
+        "names": [
+          {
+            "text": "QA合成客户长名称·阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-",
+            "title": "QA合成客户长名称·阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-",
+            "aria": "第1名，QA合成客户长名称·阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-，查看客户资料",
+            "nameWidth": 64.234375,
+            "nameScroll": 1001
+          },
+          {
+            "text": "QA合成客户-第二位",
+            "title": "QA合成客户-第二位",
+            "aria": "第2名，QA合成客户-第二位，查看客户资料",
+            "nameWidth": 42.296875,
+            "nameScroll": 98
+          },
+          {
+            "text": "QA合成客户-第三位",
+            "title": "QA合成客户-第三位",
+            "aria": "第3名，QA合成客户-第三位，查看客户资料",
+            "nameWidth": 56.234375,
+            "nameScroll": 98
+          }
+        ]
+      },
+      "chart": {
+        "count": 7,
+        "rows": 7
+      },
+      "trendStatus": ""
+    },
+    "consoleMessages": [
+      {
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+      }
+    ],
+    "consoleInterpretation": [
+      {
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+      }
+    ]
+  },
+  "scenarios": {
+    "singleDayMutation": {
+      "shipment": 4,
+      "onsite": 0,
+      "date": "2026-10-12"
+    },
+    "singleDay": {
+      "title": "工作台 · 阿罗拉潮玩空间",
+      "viewport": {
+        "innerWidth": 1280,
+        "innerHeight": 720
+      },
+      "root": {
+        "clientWidth": 1280,
+        "scrollWidth": 1280,
+        "bodyScrollWidth": 1280
+      },
+      "cards": [
+        {
+          "i": 0,
+          "x": 206,
+          "y": 84,
+          "width": 253,
+          "height": 184
+        },
+        {
+          "i": 1,
+          "x": 471,
+          "y": 84,
+          "width": 253,
+          "height": 184
+        },
+        {
+          "i": 2,
+          "x": 736,
+          "y": 84,
+          "width": 253,
+          "height": 184
+        },
+        {
+          "i": 3,
+          "x": 1001,
+          "y": 84,
+          "width": 253,
+          "height": 184
+        },
+        {
+          "i": 4,
+          "x": 206,
+          "y": 284,
+          "width": 253,
+          "height": 184
+        },
+        {
+          "i": 5,
+          "x": 471,
+          "y": 284,
+          "width": 253,
+          "height": 184
+        },
+        {
+          "i": 6,
+          "x": 736,
+          "y": 284,
+          "width": 253,
+          "height": 184
+        },
+        {
+          "i": 7,
+          "x": 1001,
+          "y": 284,
+          "width": 253,
+          "height": 184
+        }
+      ],
+      "growth": {
+        "text": "—",
+        "x": 359.4,
+        "y": 147.4,
+        "width": 82.6,
+        "height": 32.4,
+        "clientWidth": 83,
+        "scrollWidth": 83,
+        "fontSize": "27px",
+        "lineHeight": "32.4px",
+        "whiteSpace": "normal",
+        "title": "",
+        "aria": null
+      },
+      "ranking": {
+        "text": "QA合成客户长名称·阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-",
+        "x": 594.5,
+        "y": 147.4,
+        "width": 64.2,
+        "height": 14.8,
+        "scrollWidth": 1001,
+        "title": "",
+        "aria": null
+      },
+      "chart": {
+        "box": {
+          "x": 225,
+          "y": 553.9,
+          "width": 1010,
+          "height": 260
+        },
+        "viewBox": "0 0 1010 260",
+        "points": [
+          {
+            "r": "4",
+            "x": 287,
+            "y": 775.9,
+            "width": 8,
+            "height": 8,
+            "aria": "2026-10-06：¥0.000"
+          },
+          {
+            "r": "4",
+            "x": 442.3,
+            "y": 775.9,
+            "width": 8,
+            "height": 8,
+            "aria": "2026-10-07：¥0.000"
+          },
+          {
+            "r": "4",
+            "x": 597.7,
+            "y": 775.9,
+            "width": 8,
+            "height": 8,
+            "aria": "2026-10-08：¥0.000"
+          },
+          {
+            "r": "4",
+            "x": 753,
+            "y": 775.9,
+            "width": 8,
+            "height": 8,
+            "aria": "2026-10-09：¥0.000"
+          },
+          {
+            "r": "4",
+            "x": 908.3,
+            "y": 775.9,
+            "width": 8,
+            "height": 8,
+            "aria": "2026-10-10：¥0.000"
+          },
+          {
+            "r": "4",
+            "x": 1063.7,
+            "y": 775.9,
+            "width": 8,
+            "height": 8,
+            "aria": "2026-10-11：¥0.000"
+          },
+          {
+            "r": "4",
+            "x": 1219,
+            "y": 590.8,
+            "width": 8,
+            "height": 8,
+            "aria": "2026-10-12：¥132257.537"
+          }
+        ],
+        "ticks": [
+          "¥0",
+          "¥50,000",
+          "¥100,000",
+          "¥150,000"
+        ],
+        "semanticRows": 7
+      },
+      "cardTexts": [
+        "今日销售额\n销售额\n¥13.2万\n增速\n—",
+        "客户\n全部\n5\n位\n今日新增 4\n本月购买 Top3\n1.\nQA合成客户长名称·阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-\n¥12.3万\n2.\nQA合成客户-第二位\n¥7,566.248\n3.\nQA合成客户-第三位\n¥1,234.5",
+        "在售商品组合\n全部\n2\n类\nQA合成IP甲 · QA合成英语\nQA合成IP乙 · 未标语言",
+        "低库存提醒\n全部\n1\n条\nQA合成在售商品甲 · QAA-0001 · 3 盒",
+        "待收款订单\n查看全部\n2\n单\n订单 7 · QA合成客户-历史 · ¥5600.000\n订单 5 · QA合成客户-今日新增 · ¥8100.000",
+        "待出库订单\n查看全部\n1\n单\n订单 6 · QA合成客户-第三位 · ¥9200.000",
+        "待确认收款\n查看全部\n1\n单\n订单 7 · QA合成客户-历史 · QA合成测试收款账户 · ¥5600.000",
+        "待确认收货\n查看全部\n1\n单\n订单 2 · QA合成客户-第二位 · ¥777.123"
+      ]
+    },
+    "zeroMutation": {
+      "count": 4
+    },
+    "allZero": {
+      "title": "工作台 · 阿罗拉潮玩空间",
+      "viewport": {
+        "innerWidth": 1280,
+        "innerHeight": 720
+      },
+      "root": {
+        "clientWidth": 1280,
+        "scrollWidth": 1280,
+        "bodyScrollWidth": 1280
+      },
+      "cards": [
+        {
+          "i": 0,
+          "x": 206,
+          "y": 84,
+          "width": 253,
+          "height": 184
+        },
+        {
+          "i": 1,
+          "x": 471,
+          "y": 84,
+          "width": 253,
+          "height": 184
+        },
+        {
+          "i": 2,
+          "x": 736,
+          "y": 84,
+          "width": 253,
+          "height": 184
+        },
+        {
+          "i": 3,
+          "x": 1001,
+          "y": 84,
+          "width": 253,
+          "height": 184
+        },
+        {
+          "i": 4,
+          "x": 206,
+          "y": 284,
+          "width": 253,
+          "height": 184
+        },
+        {
+          "i": 5,
+          "x": 471,
+          "y": 284,
+          "width": 253,
+          "height": 184
+        },
+        {
+          "i": 6,
+          "x": 736,
+          "y": 284,
+          "width": 253,
+          "height": 184
+        },
+        {
+          "i": 7,
+          "x": 1001,
+          "y": 284,
+          "width": 253,
+          "height": 184
+        }
+      ],
+      "growth": {
+        "text": "—",
+        "x": 359.4,
+        "y": 147.4,
+        "width": 82.6,
+        "height": 32.4,
+        "clientWidth": 83,
+        "scrollWidth": 83,
+        "fontSize": "27px",
+        "lineHeight": "32.4px",
+        "whiteSpace": "normal",
+        "title": "",
+        "aria": null
+      },
+      "ranking": null,
+      "chart": {
+        "box": {
+          "x": 225,
+          "y": 553.9,
+          "width": 1010,
+          "height": 260
+        },
+        "viewBox": "0 0 1010 260",
+        "points": [
+          {
+            "r": "4",
+            "x": 273,
+            "y": 775.9,
+            "width": 8,
+            "height": 8,
+            "aria": "2026-10-06：¥0.000"
+          },
+          {
+            "r": "4",
+            "x": 430.7,
+            "y": 775.9,
+            "width": 8,
+            "height": 8,
+            "aria": "2026-10-07：¥0.000"
+          },
+          {
+            "r": "4",
+            "x": 588.3,
+            "y": 775.9,
+            "width": 8,
+            "height": 8,
+            "aria": "2026-10-08：¥0.000"
+          },
+          {
+            "r": "4",
+            "x": 746,
+            "y": 775.9,
+            "width": 8,
+            "height": 8,
+            "aria": "2026-10-09：¥0.000"
+          },
+          {
+            "r": "4",
+            "x": 903.7,
+            "y": 775.9,
+            "width": 8,
+            "height": 8,
+            "aria": "2026-10-10：¥0.000"
+          },
+          {
+            "r": "4",
+            "x": 1061.3,
+            "y": 775.9,
+            "width": 8,
+            "height": 8,
+            "aria": "2026-10-11：¥0.000"
+          },
+          {
+            "r": "4",
+            "x": 1219,
+            "y": 775.9,
+            "width": 8,
+            "height": 8,
+            "aria": "2026-10-12：¥0.000"
+          }
+        ],
+        "ticks": [
+          "¥0",
+          "¥1,000",
+          "¥2,000",
+          "¥3,000"
+        ],
+        "semanticRows": 7
+      },
+      "cardTexts": [
+        "今日销售额\n销售额\n¥0\n增速\n—",
+        "客户\n全部\n5\n位\n今日新增 4\n本月购买 Top3\n暂无客户消费排行。",
+        "在售商品组合\n全部\n2\n类\nQA合成IP甲 · QA合成英语\nQA合成IP乙 · 未标语言",
+        "低库存提醒\n全部\n1\n条\nQA合成在售商品甲 · QAA-0001 · 3 盒",
+        "待收款订单\n查看全部\n2\n单\n订单 7 · QA合成客户-历史 · ¥5600.000\n订单 5 · QA合成客户-今日新增 · ¥8100.000",
+        "待出库订单\n查看全部\n1\n单\n订单 6 · QA合成客户-第三位 · ¥9200.000",
+        "待确认收款\n查看全部\n1\n单\n订单 7 · QA合成客户-历史 · QA合成测试收款账户 · ¥5600.000",
+        "待确认收货\n查看全部\n1\n单\n订单 2 · QA合成客户-第二位 · ¥777.123"
+      ]
+    },
+    "emptySeries": {
+      "intercepted": 1,
+      "failed": [],
+      "info": {
+        "text": "跳到主要内容\n工作台\n销售订单\n库存查询\n商品档案\n客户\n收款核对\n提成\n报表\nQ\nqa_home_sales_view\n退出登录\n今天的门店业务\n今日销售额\n销售额\n¥12.4万\n增速\n+1729.90%\n客户\n全部\n5\n位\n今日新增 4\n本月购买 Top3\n1.\nQA合成客户长名称·阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-\n¥12.3万\n2.\nQA合成客户-第二位\n¥7,566.248\n3.\nQA合成客户-第三位\n¥1,234.5\n在售商品组合\n全部\n2\n类\nQA合成IP甲 · QA合成英语\nQA合成IP乙 · 未标语言\n低库存提醒\n全部\n1\n条\nQA合成在售商品甲 · QAA-0001 · 3 盒\n待收款订单\n查看全部\n2\n单\n订单 7 · QA合成客户-历史 · ¥5600.000\n订单 5 · QA合成客户-今日新增 · ¥8100.000\n待出库订单\n查看全部\n1\n单\n订单 6 · QA合成客户-第三位 · ¥9200.000\n待确认收款\n查看全部\n1\n单\n订单 7 · QA合成客户-历史 · QA合成测试收款账户 · ¥5600.000\n待确认收货\n查看全部\n1\n单\n订单 2 · QA合成客户-第二位 · ¥777.123\n近 7 天已交付销售\n暂无已交付销售数据。\n\n近7天每日已交付销售额\n日期\t金额",
+        "cards": [
+          "今日销售额\n销售额\n¥12.4万\n增速\n+1729.90%",
+          "客户\n全部\n5\n位\n今日新增 4\n本月购买 Top3\n1.\nQA合成客户长名称·阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-\n¥12.3万\n2.\nQA合成客户-第二位\n¥7,566.248\n3.\nQA合成客户-第三位\n¥1,234.5",
+          "在售商品组合\n全部\n2\n类\nQA合成IP甲 · QA合成英语\nQA合成IP乙 · 未标语言",
+          "低库存提醒\n全部\n1\n条\nQA合成在售商品甲 · QAA-0001 · 3 盒",
+          "待收款订单\n查看全部\n2\n单\n订单 7 · QA合成客户-历史 · ¥5600.000\n订单 5 · QA合成客户-今日新增 · ¥8100.000",
+          "待出库订单\n查看全部\n1\n单\n订单 6 · QA合成客户-第三位 · ¥9200.000",
+          "待确认收款\n查看全部\n1\n单\n订单 7 · QA合成客户-历史 · QA合成测试收款账户 · ¥5600.000",
+          "待确认收货\n查看全部\n1\n单\n订单 2 · QA合成客户-第二位 · ¥777.123"
+        ],
+        "points": 0,
+        "tableRows": 0
+      }
+    },
+    "missingRevenue": {
+      "intercepted": 1,
+      "failed": [],
+      "info": {
+        "text": "跳到主要内容\n工作台\n销售订单\n库存查询\n商品档案\n客户\n收款核对\n提成\n报表\nQ\nqa_home_sales_view\n退出登录\n今天的门店业务\n今日销售额\n销售额\n¥12.4万\n增速\n+1729.90%\n客户\n全部\n5\n位\n今日新增 4\n本月购买 Top3\n1.\nQA合成客户长名称·阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-\n¥12.3万\n2.\nQA合成客户-第二位\n¥7,566.248\n3.\nQA合成客户-第三位\n¥1,234.5\n在售商品组合\n全部\n2\n类\nQA合成IP甲 · QA合成英语\nQA合成IP乙 · 未标语言\n低库存提醒\n全部\n1\n条\nQA合成在售商品甲 · QAA-0001 · 3 盒\n待收款订单\n查看全部\n2\n单\n订单 7 · QA合成客户-历史 · ¥5600.000\n订单 5 · QA合成客户-今日新增 · ¥8100.000\n待出库订单\n查看全部\n1\n单\n订单 6 · QA合成客户-第三位 · ¥9200.000\n待确认收款\n查看全部\n1\n单\n订单 7 · QA合成客户-历史 · QA合成测试收款账户 · ¥5600.000\n待确认收货\n查看全部\n1\n单\n订单 2 · QA合成客户-第二位 · ¥777.123\n近 7 天已交付销售\n销售趋势暂不可用。\n\n趋势数据格式无效。\n\n近7天每日已交付销售额\n日期\t金额",
+        "cards": [
+          "今日销售额\n销售额\n¥12.4万\n增速\n+1729.90%",
+          "客户\n全部\n5\n位\n今日新增 4\n本月购买 Top3\n1.\nQA合成客户长名称·阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-\n¥12.3万\n2.\nQA合成客户-第二位\n¥7,566.248\n3.\nQA合成客户-第三位\n¥1,234.5",
+          "在售商品组合\n全部\n2\n类\nQA合成IP甲 · QA合成英语\nQA合成IP乙 · 未标语言",
+          "低库存提醒\n全部\n1\n条\nQA合成在售商品甲 · QAA-0001 · 3 盒",
+          "待收款订单\n查看全部\n2\n单\n订单 7 · QA合成客户-历史 · ¥5600.000\n订单 5 · QA合成客户-今日新增 · ¥8100.000",
+          "待出库订单\n查看全部\n1\n单\n订单 6 · QA合成客户-第三位 · ¥9200.000",
+          "待确认收款\n查看全部\n1\n单\n订单 7 · QA合成客户-历史 · QA合成测试收款账户 · ¥5600.000",
+          "待确认收货\n查看全部\n1\n单\n订单 2 · QA合成客户-第二位 · ¥777.123"
+        ],
+        "points": 0,
+        "tableRows": 0
+      }
+    },
+    "networkError": {
+      "intercepted": 1,
+      "failed": [
+        {
+          "path": "/api/v1/reports/sales",
+          "error": "net::ERR_FAILED"
+        }
+      ],
+      "info": {
+        "text": "跳到主要内容\n工作台\n销售订单\n库存查询\n商品档案\n客户\n收款核对\n提成\n报表\nQ\nqa_home_sales_view\n退出登录\n今天的门店业务\n今日销售额\n销售额\n¥12.4万\n增速\n+1729.90%\n客户\n全部\n5\n位\n今日新增 4\n本月购买 Top3\n1.\nQA合成客户长名称·阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-\n¥12.3万\n2.\nQA合成客户-第二位\n¥7,566.248\n3.\nQA合成客户-第三位\n¥1,234.5\n在售商品组合\n全部\n2\n类\nQA合成IP甲 · QA合成英语\nQA合成IP乙 · 未标语言\n低库存提醒\n全部\n1\n条\nQA合成在售商品甲 · QAA-0001 · 3 盒\n待收款订单\n查看全部\n2\n单\n订单 7 · QA合成客户-历史 · ¥5600.000\n订单 5 · QA合成客户-今日新增 · ¥8100.000\n待出库订单\n查看全部\n1\n单\n订单 6 · QA合成客户-第三位 · ¥9200.000\n待确认收款\n查看全部\n1\n单\n订单 7 · QA合成客户-历史 · QA合成测试收款账户 · ¥5600.000\n待确认收货\n查看全部\n1\n单\n订单 2 · QA合成客户-第二位 · ¥777.123\n近 7 天已交付销售\n销售趋势暂不可用。\n\nFailed to fetch\n\n近7天每日已交付销售额\n日期\t金额",
+        "cards": [
+          "今日销售额\n销售额\n¥12.4万\n增速\n+1729.90%",
+          "客户\n全部\n5\n位\n今日新增 4\n本月购买 Top3\n1.\nQA合成客户长名称·阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-\n¥12.3万\n2.\nQA合成客户-第二位\n¥7,566.248\n3.\nQA合成客户-第三位\n¥1,234.5",
+          "在售商品组合\n全部\n2\n类\nQA合成IP甲 · QA合成英语\nQA合成IP乙 · 未标语言",
+          "低库存提醒\n全部\n1\n条\nQA合成在售商品甲 · QAA-0001 · 3 盒",
+          "待收款订单\n查看全部\n2\n单\n订单 7 · QA合成客户-历史 · ¥5600.000\n订单 5 · QA合成客户-今日新增 · ¥8100.000",
+          "待出库订单\n查看全部\n1\n单\n订单 6 · QA合成客户-第三位 · ¥9200.000",
+          "待确认收款\n查看全部\n1\n单\n订单 7 · QA合成客户-历史 · QA合成测试收款账户 · ¥5600.000",
+          "待确认收货\n查看全部\n1\n单\n订单 2 · QA合成客户-第二位 · ¥777.123"
+        ],
+        "points": 0,
+        "tableRows": 0
+      }
+    },
+    "missingCustomerCount": {
+      "intercepted": 1,
+      "failed": [],
+      "info": {
+        "text": "跳到主要内容\n工作台\n销售订单\n库存查询\n商品档案\n客户\n收款核对\n提成\n报表\nQ\nqa_home_sales_view\n退出登录\n今天的门店业务\n今日销售额\n销售额\n¥12.4万\n增速\n+1729.90%\n客户\n全部\n暂不可用\n位\n今日新增 暂不可用\n本月购买 Top3\n1.\nQA合成客户长名称·阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-\n¥12.3万\n2.\nQA合成客户-第二位\n¥7,566.248\n3.\nQA合成客户-第三位\n¥1,234.5\n\n客户数据格式无效。；刷新页面重试。\n\n在售商品组合\n全部\n2\n类\nQA合成IP甲 · QA合成英语\nQA合成IP乙 · 未标语言\n低库存提醒\n全部\n1\n条\nQA合成在售商品甲 · QAA-0001 · 3 盒\n待收款订单\n查看全部\n2\n单\n订单 7 · QA合成客户-历史 · ¥5600.000\n订单 5 · QA合成客户-今日新增 · ¥8100.000\n待出库订单\n查看全部\n1\n单\n订单 6 · QA合成客户-第三位 · ¥9200.000\n待确认收款\n查看全部\n1\n单\n订单 7 · QA合成客户-历史 · QA合成测试收款账户 · ¥5600.000\n待确认收货\n查看全部\n1\n单\n订单 2 · QA合成客户-第二位 · ¥777.123\n近 7 天已交付销售\n10/06—10/12\n¥0\n¥50,000\n¥100,000\n¥150,000\n10/6\n10/7\n10/8\n10/9\n10/10\n10/11\n10/12\n\n近7天每日已交付销售额\n日期\t金额\n2026-10-06\t¥0.000\n2026-10-07\t¥0.000\n2026-10-08\t¥1234.500\n2026-10-09\t¥0.000\n2026-10-10\t¥0.000\n2026-10-11\t¥6789.125\n2026-10-12\t¥124233.912",
+        "cards": [
+          "今日销售额\n销售额\n¥12.4万\n增速\n+1729.90%",
+          "客户\n全部\n暂不可用\n位\n今日新增 暂不可用\n本月购买 Top3\n1.\nQA合成客户长名称·阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-\n¥12.3万\n2.\nQA合成客户-第二位\n¥7,566.248\n3.\nQA合成客户-第三位\n¥1,234.5\n\n客户数据格式无效。；刷新页面重试。",
+          "在售商品组合\n全部\n2\n类\nQA合成IP甲 · QA合成英语\nQA合成IP乙 · 未标语言",
+          "低库存提醒\n全部\n1\n条\nQA合成在售商品甲 · QAA-0001 · 3 盒",
+          "待收款订单\n查看全部\n2\n单\n订单 7 · QA合成客户-历史 · ¥5600.000\n订单 5 · QA合成客户-今日新增 · ¥8100.000",
+          "待出库订单\n查看全部\n1\n单\n订单 6 · QA合成客户-第三位 · ¥9200.000",
+          "待确认收款\n查看全部\n1\n单\n订单 7 · QA合成客户-历史 · QA合成测试收款账户 · ¥5600.000",
+          "待确认收货\n查看全部\n1\n单\n订单 2 · QA合成客户-第二位 · ¥777.123"
+        ],
+        "points": 7,
+        "tableRows": 7
+      }
+    },
+    "owner": {
+      "title": "工作台 · 阿罗拉潮玩空间",
+      "cards": [
+        "今日销售额\n销售额\n¥12.4万\n增速\n+1729.90%",
+        "客户\n全部\n6\n位\n今日新增 4\n本月购买 Top3\n1.\nQA合成客户长名称·阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-\n¥12.3万\n2.\nQA合成客户-第二位\n¥7,566.248\n3.\nQA合成客户-第三位\n¥1,234.5",
+        "在售商品组合\n全部\n2\n类\nQA合成IP甲 · QA合成英语\nQA合成IP乙 · 未标语言",
+        "低库存提醒\n全部\n1\n条\nQA合成在售商品甲 · QAA-0001 · 3 盒",
+        "待收款订单\n查看全部\n2\n单\n订单 7 · QA合成客户-历史 · ¥5600.000\n订单 5 · QA合成客户-今日新增 · ¥8100.000",
+        "待出库订单\n查看全部\n1\n单\n订单 6 · QA合成客户-第三位 · ¥9200.000",
+        "待确认收款\n查看全部\n1\n单\n订单 7 · QA合成客户-历史 · QA合成测试收款账户 · ¥5600.000",
+        "待确认复核订单\n查看全部\n2\n单\n订单 1 · QA合成客户长名称·阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名- · 待复核\n订单 3 · QA合成客户-第二位 · 待复核"
+      ],
+      "commissionLinks": [
+        {
+          "text": "提成",
+          "href": "/reports/commissions/"
+        }
+      ],
+      "geometry": {
+        "cards": [
+          {
+            "i": 0,
+            "x": 206,
+            "y": 84,
+            "width": 253,
+            "height": 184,
+            "text": "今日销售额\n销售额\n¥12.4万\n增速\n+1729.90%"
+          },
+          {
+            "i": 1,
+            "x": 471,
+            "y": 84,
+            "width": 253,
+            "height": 184,
+            "text": "客户\n全部\n6\n位\n今日新增 4\n本月购买 Top3\n1.\nQA合成客户长名称·阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展"
+          },
+          {
+            "i": 2,
+            "x": 736,
+            "y": 84,
+            "width": 253,
+            "height": 184,
+            "text": "在售商品组合\n全部\n2\n类\nQA合成IP甲 · QA合成英语\nQA合成IP乙 · 未标语言"
+          },
+          {
+            "i": 3,
+            "x": 1001,
+            "y": 84,
+            "width": 253,
+            "height": 184,
+            "text": "低库存提醒\n全部\n1\n条\nQA合成在售商品甲 · QAA-0001 · 3 盒"
+          },
+          {
+            "i": 4,
+            "x": 206,
+            "y": 284,
+            "width": 253,
+            "height": 241,
+            "text": "待收款订单\n查看全部\n2\n单\n订单 7 · QA合成客户-历史 · ¥5600.000\n订单 5 · QA合成客户-今日新增 · ¥8100.000"
+          },
+          {
+            "i": 5,
+            "x": 471,
+            "y": 284,
+            "width": 253,
+            "height": 241,
+            "text": "待出库订单\n查看全部\n1\n单\n订单 6 · QA合成客户-第三位 · ¥9200.000"
+          },
+          {
+            "i": 6,
+            "x": 736,
+            "y": 284,
+            "width": 253,
+            "height": 241,
+            "text": "待确认收款\n查看全部\n1\n单\n订单 7 · QA合成客户-历史 · QA合成测试收款账户 · ¥5600.000"
+          },
+          {
+            "i": 7,
+            "x": 1001,
+            "y": 284,
+            "width": 253,
+            "height": 241,
+            "text": "待确认复核订单\n查看全部\n2\n单\n订单 1 · QA合成客户长名称·阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗"
+          }
+        ],
+        "reviewCount": "2",
+        "reviewLink": "/reports/commissions/?period=all&commission_status=pending_review"
+      }
+    },
+    "noPermissions": {
+      "title": "工作台 · 阿罗拉潮玩空间",
+      "text": "跳到主要内容\n工作台\nQ\nqa_home_no_permissions\n退出登录\n今天的门店业务\n今日销售额\n销售额\n—\n增速\n—\n客户\n—\n位\n当前账号无权查看此数据\n在售商品组合\n—\n类\n当前账号无权查看此数据\n低库存提醒\n—\n条\n当前账号无权查看此数据\n待收款订单\n—\n单\n当前账号无权查看此数据\n待出库订单\n—\n单\n当前账号无权查看此数据\n待确认收款\n—\n单\n当前账号无权查看此数据\n待确认收货\n—\n单\n当前账号无权查看此数据",
+      "cards": 8
+    }
+  },
+  "api": [
+    {
+      "user": "qa_home_sales_view",
+      "status": 200,
+      "path": "/api/v1/orders",
+      "query": "?status=shipped&page_size=2"
+    },
+    {
+      "user": "qa_home_sales_view",
+      "status": 200,
+      "path": "/api/v1/orders",
+      "query": "?status=ready_to_ship&page_size=2"
+    },
+    {
+      "user": "qa_home_sales_view",
+      "status": 200,
+      "path": "/api/v1/orders",
+      "query": "?status=awaiting_payment&page_size=2"
+    },
+    {
+      "user": "qa_home_sales_view",
+      "status": 200,
+      "path": "/api/v1/reports/sales",
+      "query": "?workbench=day_over_day&scope=delivered&period=custom&start_date=2026-10-11&end_date=2026-10-12&series=day&page_size=1"
+    },
+    {
+      "user": "qa_home_sales_view",
+      "status": 200,
+      "path": "/api/v1/reports/sales",
+      "query": "?scope=delivered&period=custom&start_date=2026-10-06&end_date=2026-10-12&series=day&page_size=1"
+    },
+    {
+      "user": "qa_home_sales_view",
+      "status": 200,
+      "path": "/api/v1/reports/sales",
+      "query": "?workbench=customer_ranking&scope=delivered&period=custom&start_date=2026-10-01&end_date=2026-10-12&page_size=1"
+    },
+    {
+      "user": "qa_home_sales_view",
+      "status": 200,
+      "path": "/api/v1/customers",
+      "query": "?page_size=1&include_created_today=true"
+    },
+    {
+      "user": "qa_home_sales_view",
+      "status": 200,
+      "path": "/api/v1/reports/inventory",
+      "query": "?low_stock=true&page_size=2"
+    },
+    {
+      "user": "qa_home_sales_view",
+      "status": 200,
+      "path": "/api/v1/reports/payments",
+      "query": "?period=all&status=pending&page_size=2"
+    },
+    {
+      "user": "qa_home_sales_view",
+      "status": 200,
+      "path": "/api/v1/reports/inventory",
+      "query": "?workbench=ip_language_stock_count&page_size=1"
+    },
+    {
+      "user": "qa_home_sales_view",
+      "status": 200,
+      "path": "/api/v1/orders",
+      "query": "?status=ready_to_ship&page_size=2"
+    },
+    {
+      "user": "qa_home_sales_view",
+      "status": 200,
+      "path": "/api/v1/orders",
+      "query": "?status=shipped&page_size=2"
+    },
+    {
+      "user": "qa_home_sales_view",
+      "status": 200,
+      "path": "/api/v1/orders",
+      "query": "?status=awaiting_payment&page_size=2"
+    },
+    {
+      "user": "qa_home_sales_view",
+      "status": 200,
+      "path": "/api/v1/reports/sales",
+      "query": "?scope=delivered&period=custom&start_date=2026-10-06&end_date=2026-10-12&series=day&page_size=1"
+    },
+    {
+      "user": "qa_home_sales_view",
+      "status": 200,
+      "path": "/api/v1/customers",
+      "query": "?page_size=1&include_created_today=true"
+    },
+    {
+      "user": "qa_home_sales_view",
+      "status": 200,
+      "path": "/api/v1/reports/sales",
+      "query": "?workbench=customer_ranking&scope=delivered&period=custom&start_date=2026-10-01&end_date=2026-10-12&page_size=1"
+    },
+    {
+      "user": "qa_home_sales_view",
+      "status": 200,
+      "path": "/api/v1/reports/sales",
+      "query": "?workbench=day_over_day&scope=delivered&period=custom&start_date=2026-10-11&end_date=2026-10-12&series=day&page_size=1"
+    },
+    {
+      "user": "qa_home_sales_view",
+      "status": 200,
+      "path": "/api/v1/reports/inventory",
+      "query": "?low_stock=true&page_size=2"
+    },
+    {
+      "user": "qa_home_sales_view",
+      "status": 200,
+      "path": "/api/v1/reports/payments",
+      "query": "?period=all&status=pending&page_size=2"
+    },
+    {
+      "user": "qa_home_sales_view",
+      "status": 200,
+      "path": "/api/v1/reports/inventory",
+      "query": "?workbench=ip_language_stock_count&page_size=1"
+    },
+    {
+      "user": "qa_home_sales_view",
+      "status": 200,
+      "path": "/api/v1/orders",
+      "query": "?status=ready_to_ship&page_size=2"
+    },
+    {
+      "user": "qa_home_sales_view",
+      "status": 200,
+      "path": "/api/v1/orders",
+      "query": "?status=shipped&page_size=2"
+    },
+    {
+      "user": "qa_home_sales_view",
+      "status": 200,
+      "path": "/api/v1/orders",
+      "query": "?status=awaiting_payment&page_size=2"
+    },
+    {
+      "user": "qa_home_sales_view",
+      "status": 200,
+      "path": "/api/v1/reports/sales",
+      "query": "?scope=delivered&period=custom&start_date=2026-10-06&end_date=2026-10-12&series=day&page_size=1"
+    },
+    {
+      "user": "qa_home_sales_view",
+      "status": 200,
+      "path": "/api/v1/reports/sales",
+      "query": "?workbench=day_over_day&scope=delivered&period=custom&start_date=2026-10-11&end_date=2026-10-12&series=day&page_size=1"
+    },
+    {
+      "user": "qa_home_sales_view",
+      "status": 200,
+      "path": "/api/v1/customers",
+      "query": "?page_size=1&include_created_today=true"
+    },
+    {
+      "user": "qa_home_sales_view",
+      "status": 200,
+      "path": "/api/v1/reports/sales",
+      "query": "?workbench=customer_ranking&scope=delivered&period=custom&start_date=2026-10-01&end_date=2026-10-12&page_size=1"
+    },
+    {
+      "user": "qa_home_sales_view",
+      "status": 200,
+      "path": "/api/v1/reports/inventory",
+      "query": "?low_stock=true&page_size=2"
+    },
+    {
+      "user": "qa_home_sales_view",
+      "status": 200,
+      "path": "/api/v1/reports/payments",
+      "query": "?period=all&status=pending&page_size=2"
+    },
+    {
+      "user": "qa_home_sales_view",
+      "status": 200,
+      "path": "/api/v1/reports/inventory",
+      "query": "?workbench=ip_language_stock_count&page_size=1"
+    },
+    {
+      "user": "qa_home_owner_capture",
+      "status": 200,
+      "path": "/api/v1/orders",
+      "query": "?status=ready_to_ship&page_size=2"
+    },
+    {
+      "user": "qa_home_owner_capture",
+      "status": 200,
+      "path": "/api/v1/orders",
+      "query": "?status=awaiting_payment&page_size=2"
+    },
+    {
+      "user": "qa_home_owner_capture",
+      "status": 200,
+      "path": "/api/v1/reports/sales",
+      "query": "?workbench=day_over_day&scope=delivered&period=custom&start_date=2026-10-11&end_date=2026-10-12&series=day&page_size=1"
+    },
+    {
+      "user": "qa_home_owner_capture",
+      "status": 200,
+      "path": "/api/v1/reports/sales",
+      "query": "?workbench=customer_ranking&scope=delivered&period=custom&start_date=2026-10-01&end_date=2026-10-12&page_size=1"
+    },
+    {
+      "user": "qa_home_owner_capture",
+      "status": 200,
+      "path": "/api/v1/reports/sales",
+      "query": "?scope=delivered&period=custom&start_date=2026-10-06&end_date=2026-10-12&series=day&page_size=1"
+    },
+    {
+      "user": "qa_home_owner_capture",
+      "status": 200,
+      "path": "/api/v1/customers",
+      "query": "?page_size=1&include_created_today=true"
+    },
+    {
+      "user": "qa_home_owner_capture",
+      "status": 200,
+      "path": "/api/v1/reports/commissions",
+      "query": "?period=all&commission_status=pending_review&page_size=2"
+    },
+    {
+      "user": "qa_home_owner_capture",
+      "status": 200,
+      "path": "/api/v1/reports/inventory",
+      "query": "?low_stock=true&page_size=2"
+    },
+    {
+      "user": "qa_home_owner_capture",
+      "status": 200,
+      "path": "/api/v1/reports/payments",
+      "query": "?period=all&status=pending&page_size=2"
+    },
+    {
+      "user": "qa_home_owner_capture",
+      "status": 200,
+      "path": "/api/v1/reports/inventory",
+      "query": "?workbench=ip_language_stock_count&page_size=1"
+    }
+  ],
+  "after": {
+    "Customer": 6,
+    "SalesOrder": 7,
+    "SalesOrderLine": 4,
+    "PaymentRecord": 3,
+    "CommissionReview": 1,
+    "InventoryBalance": 2,
+    "BusinessOperation": 0
+  },
+  "fixtureRowsUnchanged": true,
+  "postRestore": {
+    "trend": {
+      "status": 200,
+      "expectedPeriod": [
+        "2026-10-06",
+        "2026-10-12"
+      ],
+      "series": [
+        "0.000",
+        "0.000",
+        "1234.500",
+        "0.000",
+        "0.000",
+        "6789.125",
+        "124233.912"
+      ],
+      "counts": [
+        "totals",
+        "quantity_by_unit",
+        "scope"
+      ]
+    },
+    "httpErrors": []
+  }
+}

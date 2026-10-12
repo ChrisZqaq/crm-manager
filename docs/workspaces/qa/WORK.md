@@ -469,3 +469,85 @@ QA六张实服截图、`geometry.json`与 `SHA256SUMS` 在 [`QA review-0f835cb`]
 - **API只读权限：**三个会话的 `GET /api/v1/products?page_size=1`、`GET /api/v1/products?include_inventory=true&page_size=1`、`GET /api/v1/orders?page_size=1`、`GET /api/v1/inventory?page_size=1`、`GET /api/v1/reports/inventory?page=1&page_size=1` 均返回200和application/json。所有分页参数限制为1；没有展开或记录业务明细。云端订单列表为0项，其他合成列表可返回摘要。
 - **权限查询与静态资源：**本机老板账号GET `/admin/` 和 `/admin/auth/user/` 均200，员工列表提供“普通角色”列；本机销售及云端销售GET这些后台入口后被引导至 `/admin/login/`。三处服务的 `app.css`、`app.js` GET均200。云端18888入口从当前测试网络可达，未遇到安全组来源阻断；未调整安全组。
 - **写入与限制：**表单POST仅用于登录，页面、API、权限页、静态资源检查均为GET。未提交订单或其他业务数据，未改账号/权限，未迁移数据库、重启服务或清理运行时。未跑全套自动测试、完整业务流程或跨来源网络可达性检查；云端使用销售角色进行GET-only验证，不代表独立只读角色的存在。
+
+### UI-HOME-REFINE｜定向验收准备（2026-10-12）
+
+依据负责人计划基线 `0d5eed835dc6dc1a5dc8efef0b067cabab6d6180`。当前 `crm/`、`config/`、`manage.py` 相对已发布应用 `0f835cb2086852ae20f2f82aed8a40070281a0b4` 无差异；本轮只读，没有执行API/浏览器请求、创建数据库或运行测试。
+
+**代码路径及契约理解：**目标是现有 `GET /api/v1/customers` 的可选 `include_created_today=true|false`；仅true时新增顶层整数 `created_today_total`，省略/false保持现有响应结构。`customers_api` 先做 `view_customer` 权限检查，再基于 `customer_queryset_for(request.user)` 应用默认排除归档、`owner_id`、`q`过滤，最后用通用 `paginate` 计算 `total` 与items。计数必须使用与total完全相同的最终过滤QuerySet、分页前执行；不能改共享 `customer_queryset_for`，它还被客户详情、订单预览/编辑路径调用。`Customer.created_at` 已存在且为 `auto_now_add`，不需模型或迁移。工作台当前客户总数只请求 `/api/v1/customers?page_size=1`，待后端固定后会改为同一请求加入 `include_created_today=true`。
+
+**API定向验收矩阵（待固定后执行）：**
+
+- 时间：按 `Asia/Shanghai` 当天零点至单次捕获的当前时刻；合成记录覆盖前一日末、当天零点、当前时刻之前及未来时刻，检查只有当天且不晚于截点的记录计入。当前时刻精确相等边界不单独断言。
+- 范围：`created_today_total` 跟随同一total QuerySet的当前用户可见owner范围、默认未归档及 `q`/`owner_id`；`include_archived=true` 时归档记录对total与新增计数同时可见。分页第1/2页只改变items，两个计数保持一致。
+- 兼容/校验：参数省略与false都不返回新字段，原total/items形状不变；true返回整数；非法布尔值为400 `invalid_filter`。不把 `created_at` 加进items。
+- 权限/只读：匿名401、已登录无 `view_customer` 为403且不泄漏计数；销售单owner与有全量权限的owner/管理员按各自范围校验。GET前后对比客户、`BusinessOperation`数量，确认没有写入。
+
+已有 `CustomerPhase3Tests` 覆盖匿名401、无客户权限403、单owner隔离、全量owner、`owner_id`、`q`及分页基础；目前测试源码未覆盖 `include_archived` 查询参数。新计数需要为归档过滤和时间边界补定向用例，不扩大成客户/订单全套回归。
+
+**固定后工作台/UI检查范围：**与UI已预先协调共享同一IAB、同一服务分时使用：QA在获批测试窗口准备合成正值、单日、全零、长客户名/长金额数据及只读用户；UI先只读首页1280/390视觉、键盘节点并落截图，恢复1280首页后交还；QA随后核对真实客户API值、旧统计一致性、老板待确认复核卡映射、失败/无客户权限反馈及页面请求权限门控。布局只验获批的八卡与七日图：桌面两行四列、窄屏根宽无溢出且卡内左右内容可读；图表日期序列和金额坐标比例准确，零值保留，圆点不变形，日期/金额可键盘读取；长数名/金额不裁切。单日/全零场景只使用隔离合成数据，不写原演示业务数据。
+
+不打开旧版 `0f835cb` 测试窗口，不重跑旧验收；等待后端实现固定并由负责人正式交测后再建测试资源或启动共享浏览器。全套测试及其他页面不在本轮范围。
+
+### UI-HOME-REFINE-CUSTOMER-COUNT｜实服定向API验收（2026-10-12）
+
+负责人正式交测版本为应用提交 `ac2f248dce068e88c203e9f0ffdd50030a68a786`。验收时HEAD为 `50bb37ce10147fdf20f2fcbd42ade7e8b044ff25`，相对固定版 `crm/`、`config/`、`manage.py` 无差异。本轮只改写QA工作记录，没有应用代码改动。
+
+使用新建隔离库 `qa_cust_count_ac2f248_20261012_1354` 和本机临时Django服务 `127.0.0.1:18782`；账号经登录表单GET CSRF、POST建立真实session，随后直接对 `/api/v1/customers` 执行HTTP GET。只使用合成销售员、老板、无客户权限账号及7条合成客户。合成时间覆盖北京时间当天零点、当前时间、未来时间及前一日；销售员活跃客户5条中，符合当天且不晚于当前截点的3条。
+
+**14项断言全部通过：**
+
+- 匿名请求401；已登录但无 `view_customer` 权限请求403，均不返回计数。非法布尔值 `maybe` 返回400 `invalid_filter`，不返回计数。
+- 参数省略与 `false` 的响应一致（排除本身每次变化的 `queried_at` 后），均无 `created_today_total`；`true` 返回整数计数，响应项目未增加 `created_at`。
+- 销售员活跃范围为 `total=5 / created_today_total=3`；第1、2页计数相同而项目不同。`q=Needle` 为1/1；筛选另一销售员owner后为0/0；含归档为6/4。
+- 第二销售员为1/1；老板活跃范围为6/4；老板筛选第二销售员并包含归档为1/1。
+- GET前后客户行数均为7、`BusinessOperation`均为0。临时服务已停止、端口18782无监听；只删除本轮隔离库并确认库名已不存在。共享PostgreSQL未停止，其他数据库未触碰。
+
+**范围与限制：**未开完整浏览器UI、未跑Django测试套件或全套回归；真实session/CSRF HTTP路径和定向数据矩阵已覆盖，本轮结果不能替代并发/性能或生产环境验证。建议负责人据此交前端工作台单窗口验收。
+
+### UI-HOME-REFINE｜前端固定版定向浏览器验收（2026-10-12）
+
+负责人正式交测应用SHA为 `8a48c765e14af17b190a0e320f5b5e6e6330b90e`；验收时HEAD为 `4cb6cdef6c04f315acb9dd47fa4ea9765db04e0e`，`crm/`、`config/`、`manage.py` 相对固定SHA无差异。负责人会话ID按用户校正为 `01a0fa77-95ca-7eb1-8564-d5c216e1f3dd`。本轮没有修改应用代码。
+
+使用隔离合成库 `qa_home_8a48c76_20261012_w8t1` 与本机 `127.0.0.1:18783`，通过独立 headless Chrome/Playwright Core 建立真实登录会话；该能力与用户GUI、浏览器会话及远程调试隔离。测试浏览器单实例使用 `--no-proxy-server` 直连回环地址；普通代理路径曾返回502，`curl --noproxy '*'` 直连登录页为302，故未重启正常服务或调整全局代理。仅使用 `qa_home_*` 合成账号与数据。单日测试暂时改写4笔合成已交付订单日期，全零测试暂时停用4条合成销售明细，之后均恢复；测试后七日接口值回到原始 `0.000, 0.000, 1234.500, 0.000, 0.000, 6789.125, 124233.912`。测试前后Customer 6、SalesOrder 7、SalesOrderLine 4、PaymentRecord 3、CommissionReview 1、InventoryBalance 2、BusinessOperation 0均一致。
+
+**浏览器及数据结果：**
+
+- 桌面 `1280×720`：8张工作台卡片均为 `253×184`，根宽1280/1280，无横向溢出。移动 `390×844`：实际 `innerWidth=390`，8张卡片均高184、宽366，根宽390/390；不依赖解锁用户Mac。长客户名区域宽64.2px、内容宽1001px，视觉截断但完整文本保留在title与aria-label；销售额显示约数，title/aria-label保留 `¥124233.912`。
+- 今日增速 `+1729.90%` 在桌面宽82.6px、高97.2px、27px字号下分三行；手机宽127.8px、高64.8px下分两行。这是本轮复现的视觉缺陷，已向负责人报告，待其排定修复。
+- 老板视图第一排卡高184px，含长客户名的待复核列表使第二排卡高241px；该行四卡彼此等高，但与第一排不等高。老板捕获账号通过直接 `review_commission` 权限打开卡片；只读检查确认固定“老板”组也包含 `review_commission`，本轮未把捕获账号加入该含写权限的组。
+- 七日图桌面SVG `1010×260`；7个键盘节点顺序正确，每个圆点半径4、外接框8×8；纵轴 `¥0/¥50,000/¥100,000/¥150,000` 覆盖最大值124233.912；语义表7行。单日合成数据只在10/12有正值132257.537，其余日期为0；全零情形显示7个0点，纵轴刻度为0/1000/2000/3000。未见ResizeObserver循环提示。
+- 受控故障注入：空series显示“暂无已交付销售数据。”且图表/表格无点行，没有伪造零值；缺失revenue_amount显示“销售趋势暂不可用 / 趋势数据格式无效”；趋势请求中断显示“销售趋势暂不可用 / Failed to fetch”；缺少created_today_total时客户卡片显示“暂不可用”和格式错误。无权限账号首页用“—”与无权限提示，不显示业务数字。老板审核账号显示2笔待复核订单，工作台“提成”入口 `/reports/commissions/` 可GET；未执行任何审核或业务POST。
+- 本轮记录的40个已收到API响应均为200；恢复后趋势接口200并与起始序列一致。控制台出现一条 `/favicon.ico` 404（服务日志确认缺少该资源），未捕获JavaScript异常；后续页面HTTP响应采样无4xx/5xx。
+
+截图与结构化记录在 [`review-8a48c76/`](review-8a48c76/)；含1280/390、单日、全零、空series、格式错误、网络中断、客户字段错误、老板及无权限页面，并附 `manifest.json` 与 `SHA256SUMS`。UI独立查看全部10张截图。首轮副本比较时QA manifest仍在更新，随后UI重复制当前manifest/清单并核对12项文件SHA256全部一致，10张PNG未漂移。UI评图指出增速换行、老板待复核长客户名撑高卡片、网络错误显示英文 `Failed to fetch` 三项需最小修复。UI没有亲测IAB、键盘或API；这些结论只引用本轮QA证据。UI观察到客户数据不可用状态下计数单位/今日新增标签仍保留，列为低优先级文案问题。本轮未运行旧业务全回归或Django全套测试。已停止本轮18783服务，确认零连接后删除隔离库 `qa_home_8a48c76_20261012_w8t1`，确认端口无监听与数据库不存在；共享PostgreSQL可连接且保持运行。QA截图/记录留存供负责人后续安排三项修复复验。
+
+
+### UI-HOME-REFINE｜固定版三项独立复测（2026-10-12）
+
+依据固定应用SHA `5a3e97d2073532032db5312b5630d166b22b7f06`；复测时HEAD为 `16f0f31462a8de857abc1b76edc30c29fe1a254e`，`crm/`、`config/`、`manage.py` 相对固定SHA无差异。本轮未改应用。仅复测负责人安排的三项：常规/极值增速层级与单行、老板待审长名及待处理金额/八卡等高、网络中断/503/409错误提示与恢复；旧图轴、单日/全零、权限和其他页面不重跑。
+
+使用隔离合成库 `qa_home_5a3e97d_20261012_qr1`、本机 `127.0.0.1:18783` 和独立Playwright Core浏览器。常规和极值API实际GET均为200：`100.000→1829.900` 返回增速 `1729.90`；`100.000→123556.780` 返回 `123456.78`。极值仅用于合成数据；订单/明细已恢复至 `1829.900`。
+
+- **增速：**固定版1280×720及390×844截图中 `+1729.90%`、`+123456.78%` 均保持单行，数值与销售额的层级可辨；页面根宽分别1280/1280、390/390，无横向溢出。正常销售额完整值保留在title/aria。
+- **老板预览：**1280与390下8张卡均高184px；长待审客户链接视觉省略，完整名称保留在title和aria-label。待收款/出库等预览金额由独立span呈现，并保留金额aria-label；超长金额在390下单行可读，桌面因空间有限分两行但不裁切。
+- **错误提示：**网络中断显示“网络连接失败，请稍后重试。”；503非JSON显示带HTTP状态的中文可恢复提示；409 JSON保留“合成业务拒绝保留。”。移除故障注入后当天指标与趋势均恢复200。手机390下“暂不可用”均单行且不重叠。**桌面存在未通过项：**三种故障下销售“暂不可用”文本宽112px，容器宽95.2px；文字范围从x=223延伸到335，而增速文字从x=323.2开始，重叠约11.8px。截图 `error-network-desktop-1280.png`、`error-503-desktop-1280.png`、`error-409-desktop-1280.png` 可见。旧manifest的 `metricOverlap` 只比较父容器，曾漏报；现已改为实际文本范围/scrollWidth并更新SHA清单。
+
+全部12张独立浏览器截图、几何/错误矩阵、普通及极值API payload、UA补充记录和 `SHA256SUMS` 在 [`review-5a3e97d/`](review-5a3e97d/)。UI独立评图已完成：12张截图全部查看，源SHA清单13项通过；证据副本在 [`../ui/review-5a3e97d/`](../ui/review-5a3e97d/)，共14文件，QA逐项复核副本与源SHA一致。UI独立结论与QA相同：增速/老板预览两项通过，中文错误语义和恢复通过，唯一未通过为桌面错误占位文本重叠。UI只评图，未独立运行站点或API。
+
+**可见浏览器补充检查限制：**解锁后把Codex IAB设为390×844，`innerWidth=390` 生效，但页面处于旧 `qa_home_sales_view` 会话且数据与本轮隔离库不符；调整前观察到的375px内容区及增速换行不计入固定版结论。为检查初载，390下刷新后该旧会话转到登录页，无法完成同会话认证截图。固定版的390证据来自独立浏览器按390×844 CSS viewport保存的PNG及DOM几何；未使用真实手机硬件。
+
+QA浏览器内API响应85个200、2个模拟409、2个模拟503；隔离库业务数量复核为Customer 2、SalesOrder 6、SalesOrderLine 6、PaymentRecord 4、CommissionReview 2、BusinessOperation 0。未跑Django测试套件或旧回归矩阵。收尾：本轮18783服务已停止并确认无监听；精确检查隔离库所有者为`crm_dev`、活动连接0后删除，复查库不存在且共享PostgreSQL查询正常。未触碰共享PostgreSQL服务或8765；截图与记录保留。
+
+
+### UI-HOME-REFINE-ERROR-FIT｜固定版错误占位定向复查（2026-10-12）
+
+按负责人恢复授权后仅复查固定应用SHA `c29ca9ac83f0cafcca2085179f06c7113e15de4b` 的错误占位修复；应用路径相对固定SHA无漂移。与前版相比，修复仅在失败catch后调用既有 `fitMetrics()`。没有重跑常规/极值成功值、老板预览、图表、已通过业务或平板场景。
+
+使用新建隔离库 `qa_home_c29ca9_20261012_nf1` 和本机 `127.0.0.1:18783`；只建一个合成账号 `qa_c29_error`，仅有 `view_salesorder`、`view_customer`，没有创建客户或订单。独立headless Chrome/Playwright在正式首页分别注入network abort、HTTP 503 HTML非JSON、HTTP 409 JSON业务消息，并在1280×720和390×844捕获六张截图。每种情况均命中day_over_day和趋势端点各1次；关闭注入并刷新后销售卡/趋势错误状态都清除并恢复。只有登录POST及页面/API GET，`BusinessOperation=0`。
+
+**六组合全部通过：**错误值销售额及增速各为单行Range、各自位于所属列、`scrollWidth≤clientWidth`、文本不相交、页面根无横向溢出。桌面销售文字x=223—314、增速文字x=323.203—431.203，间隔9.203px；390视口销售x=29—157、增速x=178.344—306.344，间隔21.344px；根宽1280/1280与390/390。网络中断显示“网络连接失败，请稍后重试。”；503非JSON显示带HTTP 503状态的中文可恢复提示；409 JSON完整保留“合成业务拒绝保留。”及刷新提示。
+
+六张截图、Range/盒尺寸/状态与恢复数据、`manifest.json` 及 `SHA256SUMS` 在 [`review-error-fit-c29ca9a/`](review-error-fit-c29ca9a/)。manifest SHA256为 `fcd6cee7bdc2bc2422d7681cea90688d49056e6dc23b5682b5c50159a63835c9`；清单7项通过。UI独立查看六图并确认相同无交叠结果；副本在 [`../ui/review-error-fit-c29ca9a/`](../ui/review-error-fit-c29ca9a/) 共8个文件，QA逐项核对源/副本SHA一致。UI只评图，没有独立运行站点/API。
+
+清理：停止本轮服务并确认18783无监听；确认库owner为`crm_dev`、活动连接0后删除，复查库不存在且共享PostgreSQL查询正常。8765及其他数据库未触碰。未跑Django套件、完整回归或平板/真实手机。

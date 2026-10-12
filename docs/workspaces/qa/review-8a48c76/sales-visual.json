@@ -1,0 +1,262 @@
+{
+  "desktop": {
+    "title": "工作台 · 阿罗拉潮玩空间",
+    "viewport": {
+      "innerWidth": 1280,
+      "innerHeight": 720
+    },
+    "root": {
+      "clientWidth": 1280,
+      "scrollWidth": 1280,
+      "bodyScrollWidth": 1280
+    },
+    "cards": [
+      {
+        "i": 0,
+        "x": 206,
+        "y": 84,
+        "width": 253,
+        "height": 184
+      },
+      {
+        "i": 1,
+        "x": 471,
+        "y": 84,
+        "width": 253,
+        "height": 184
+      },
+      {
+        "i": 2,
+        "x": 736,
+        "y": 84,
+        "width": 253,
+        "height": 184
+      },
+      {
+        "i": 3,
+        "x": 1001,
+        "y": 84,
+        "width": 253,
+        "height": 184
+      },
+      {
+        "i": 4,
+        "x": 206,
+        "y": 284,
+        "width": 253,
+        "height": 184
+      },
+      {
+        "i": 5,
+        "x": 471,
+        "y": 284,
+        "width": 253,
+        "height": 184
+      },
+      {
+        "i": 6,
+        "x": 736,
+        "y": 284,
+        "width": 253,
+        "height": 184
+      },
+      {
+        "i": 7,
+        "x": 1001,
+        "y": 284,
+        "width": 253,
+        "height": 184
+      }
+    ],
+    "growth": {
+      "text": "+1729.90%",
+      "x": 359.4,
+      "y": 147.4,
+      "width": 82.6,
+      "height": 97.2,
+      "clientWidth": 83,
+      "scrollWidth": 83,
+      "fontSize": "27px",
+      "lineHeight": "32.4px",
+      "whiteSpace": "normal",
+      "title": "服务端增速：1729.90%",
+      "aria": "增速 1729.90%"
+    },
+    "ranking": {
+      "text": "QA合成客户长名称·阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-",
+      "x": 594.5,
+      "y": 147.4,
+      "width": 64.2,
+      "height": 14.8,
+      "scrollWidth": 1001,
+      "title": "",
+      "aria": null
+    },
+    "chart": null,
+    "tables": [
+      {
+        "headers": [
+          "日期",
+          "金额"
+        ],
+        "rows": 7
+      }
+    ],
+    "bodyText": "跳到主要内容\n工作台\n销售订单\n库存查询\n商品档案\n客户\n收款核对\n提成\n报表\nQ\nqa_home_sales_view\n退出登录\n今天的门店业务\n今日销售额\n销售额\n¥12.4万\n增速\n+1729.90%\n客户\n全部\n5\n位\n今日新增 4\n本月购买 Top3\n1.\nQA合成客户长名称·阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-\n¥12.3万\n2.\nQA合成客户-第二位\n¥7,566.248\n3.\nQA合成客户-第三位\n¥1,234.5\n在售商品组合\n全部\n2\n类\nQA合成IP甲 · QA合成英语\nQA合成IP乙 · 未标语言\n低库存提醒\n全部\n1\n条\nQA合成在售商品甲 · QAA-0001 · 3 盒\n待收款订单\n查看全部\n2\n单\n订单 7 · QA合成"
+  },
+  "mobile": {
+    "title": "工作台 · 阿罗拉潮玩空间",
+    "viewport": {
+      "innerWidth": 390,
+      "innerHeight": 844
+    },
+    "root": {
+      "clientWidth": 390,
+      "scrollWidth": 390,
+      "bodyScrollWidth": 390
+    },
+    "cards": [
+      {
+        "i": 0,
+        "x": 12,
+        "y": 124,
+        "width": 366,
+        "height": 184
+      },
+      {
+        "i": 1,
+        "x": 12,
+        "y": 320,
+        "width": 366,
+        "height": 184
+      },
+      {
+        "i": 2,
+        "x": 12,
+        "y": 516,
+        "width": 366,
+        "height": 184
+      },
+      {
+        "i": 3,
+        "x": 12,
+        "y": 712,
+        "width": 366,
+        "height": 184
+      },
+      {
+        "i": 4,
+        "x": 12,
+        "y": 912,
+        "width": 366,
+        "height": 184
+      },
+      {
+        "i": 5,
+        "x": 12,
+        "y": 1108,
+        "width": 366,
+        "height": 184
+      },
+      {
+        "i": 6,
+        "x": 12,
+        "y": 1304,
+        "width": 366,
+        "height": 184
+      },
+      {
+        "i": 7,
+        "x": 12,
+        "y": 1500,
+        "width": 366,
+        "height": 184
+      }
+    ],
+    "growth": {
+      "text": "+1729.90%",
+      "x": 233.2,
+      "y": 187.4,
+      "width": 127.8,
+      "height": 64.8,
+      "clientWidth": 128,
+      "scrollWidth": 128,
+      "fontSize": "27px",
+      "lineHeight": "32.4px",
+      "whiteSpace": "normal",
+      "title": "服务端增速：1729.90%",
+      "aria": "增速 1729.90%"
+    },
+    "ranking": {
+      "text": "QA合成客户长名称·阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-",
+      "x": 141.9,
+      "y": 383.4,
+      "width": 170.8,
+      "height": 14.8,
+      "scrollWidth": 1001,
+      "title": "",
+      "aria": null
+    },
+    "chart": null,
+    "tables": [
+      {
+        "headers": [
+          "日期",
+          "金额"
+        ],
+        "rows": 7
+      }
+    ],
+    "bodyText": "跳到主要内容\n工作台\n销售订单\n库存查询\n商品档案\n客户\n收款核对\n提成\n报表\nQ\nqa_home_sales_view\n退出登录\n今天的门店业务\n今日销售额\n销售额\n¥12.4万\n增速\n+1729.90%\n客户\n全部\n5\n位\n今日新增 4\n本月购买 Top3\n1.\nQA合成客户长名称·阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-\n¥12.3万\n2.\nQA合成客户-第二位\n¥7,566.248\n3.\nQA合成客户-第三位\n¥1,234.5\n在售商品组合\n全部\n2\n类\nQA合成IP甲 · QA合成英语\nQA合成IP乙 · 未标语言\n低库存提醒\n全部\n1\n条\nQA合成在售商品甲 · QAA-0001 · 3 盒\n待收款订单\n查看全部\n2\n单\n订单 7 · QA合成"
+  },
+  "keyboard": [],
+  "api": [
+    {
+      "status": 200,
+      "path": "/api/v1/products?q=&brand_id=&type=&sku_status=active&series=&page=1&page_size=50&include_inventory=true"
+    },
+    {
+      "status": 200,
+      "path": "/api/v1/orders?status=ready_to_ship&page_size=2"
+    },
+    {
+      "status": 200,
+      "path": "/api/v1/orders?status=awaiting_payment&page_size=2"
+    },
+    {
+      "status": 200,
+      "path": "/api/v1/reports/sales?workbench=day_over_day&scope=delivered&period=custom&start_date=2026-10-11&end_date=2026-10-12&series=day&page_size=1"
+    },
+    {
+      "status": 200,
+      "path": "/api/v1/orders?status=shipped&page_size=2"
+    },
+    {
+      "status": 200,
+      "path": "/api/v1/reports/sales?workbench=customer_ranking&scope=delivered&period=custom&start_date=2026-10-01&end_date=2026-10-12&page_size=1"
+    },
+    {
+      "status": 200,
+      "path": "/api/v1/reports/sales?scope=delivered&period=custom&start_date=2026-10-06&end_date=2026-10-12&series=day&page_size=1"
+    },
+    {
+      "status": 200,
+      "path": "/api/v1/customers?page_size=1&include_created_today=true"
+    },
+    {
+      "status": 200,
+      "path": "/api/v1/reports/inventory?workbench=ip_language_stock_count&page_size=1"
+    },
+    {
+      "status": 200,
+      "path": "/api/v1/reports/inventory?low_stock=true&page_size=2"
+    },
+    {
+      "status": 200,
+      "path": "/api/v1/reports/payments?period=all&status=pending&page_size=2"
+    }
+  ],
+  "errors": [
+    "console: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ]
+}

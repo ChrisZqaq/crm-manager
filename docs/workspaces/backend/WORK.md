@@ -345,3 +345,43 @@ UV_PROJECT_ENVIRONMENT=/Users/chrisz/.cache/aluola-crm-uiquery1-venv CRM_DB_NAME
 
 - 应用固定提交：`a1ae3043d83110dead4a575be0b27d1f5c77f550`。提交后已停止应用写入；本次补记只改本角色WORK。
 - 发送负责人和QA后，QA待负责人确认新固定基线再做定向独立验证。此为后端自测，不代表QA/UI验收。
+
+## UI-HOME-REFINE｜客户卡今日新增数据依赖（只读，2026-10-10）
+
+依据：负责人委托的获批局部候选数据依赖核对。稳定应用为 `0f835cb`；当前HEAD `b484a2c` 相对该版的 `crm` 无差异。仅检查接口/模型/消费者和相关业务约定，不改源码、公共合同或数据库，未运行测试。
+
+### 现状
+
+- `GET /api/v1/customers` 需 `view_customer`。`customer_queryset_for` 对superuser/`view_all_customers`用户返回全部客户，其他用户只返回 `owner_id=当前用户`。`include_archived` 默认为false并过滤 `is_active=True`；可选 `owner_id`、`q` 在分页前继续收窄同一查询集。
+- `paginate` 对过滤后的查询集计算完整 `total` 后再按 `page/page_size` 切items，因此当前工作台 `/api/v1/customers?page_size=1` 可直接取得可见客户总数，不会只数当前页。
+- `Customer.created_at` 是 `auto_now_add` 时间戳，但 `_customer_data` 不返回它，customers列表响应也没有今日新增字段或日期筛选。当前工作台只读 `data.total`，新增数不能从现有响应或当前页可靠取得。
+- 配置为 `TIME_ZONE="Asia/Shanghai"`、`USE_TZ=True`；customers响应的 `queried_at` 已使用 `timezone.localtime()`。当前没有单独的客户创建人字段，客户归属字段是可转交的 `owner`。
+
+### 最小服务端方案
+
+在现有GET增加 opt-in 参数 `include_created_today=true|false`，只在true时追加顶层整数 `created_today_total`；原有 `total/items/pagination` 不变，默认请求不增加字段或count查询。工作台在同一请求发送 `?page_size=1&include_created_today=true`，消费既有 `total` 和新字段，不读更多页、不读取或计数客户资料列表。
+
+计算复用完成权限校验、归档默认状态、`owner_id`与`q`筛选后的同一 `items` QuerySet，并在 `paginate` 前执行：以一次捕获的 `now=timezone.localtime()` 计算北京时间当天零点，过滤 `created_at >= 当天零点 AND created_at <= now` 后在数据库 `count()`。这样日期上界是当前时刻，分页不影响新增数；不必把 `created_at` 加到每个客户item。
+
+### 范围与业务语义
+
+- 按要求沿用客户总数的权限、当前归属范围、查询筛选与归档状态：默认只数可见的有效客户；显式 `include_archived=true` 时，今日新增也包含同一查询集中的归档客户。`owner_id`/`q` 也同时约束新增数。
+- 转交会按新owner改变普通用户当前可见客户与今日新增数，行为与现有total一致；没有 `created_by`，因此该数字表示“当前授权范围内今天创建且符合状态筛选的客户”，不是“由当前用户亲手创建”。用户要求与客户总数共用范围后，归档/转交没有额外待定口径；只有若将来要求按创建人统计，才需要另行业务规则/数据字段评估。
+- 不新增端点、表、权限或增长率，不在前端聚合/拉全库；当前工作台已有 `view_customer` 条件渲染，沿用同一API权限即可。业务支持“归档不删历史客户”“转交影响后续客户查看范围”，与复用当前列表查询集一致。
+
+下一步等负责人批准接口方案及排定写入者；当前仍只读支持，应用保持冻结。
+
+## UI-HOME-REFINE-CUSTOMER-COUNT｜后端固定交付（2026-10-12）
+
+依据：负责人正式开放的唯一后端写入窗口及 `docs/specs/API_CONTRACT.md`“UI-HOME-REFINE今日新增客户”。起始应用基线 `0f835cb`；起始HEAD `0d5eed8` 后仅开发计划与部署WORK文档更新，`crm`无差异；本轮只写入 `crm/views.py` 与 `crm/test_phase3.py`。
+
+### 实现与自测
+
+- `GET /api/v1/customers` 严格接受 `include_created_today=true|false`；仅true时，在同一最终 `items` 查询集（权限、默认归档状态、`owner_id`、`q`）上，以一次捕获的北京时间计算当天零点至当前时刻并在分页前计数，追加顶层整数 `created_today_total`。默认及false响应不增加字段；未新增端点、模型、迁移、权限或日志。
+- 固定应用提交：`ac2f248dce068e88c203e9f0ffdd50030a68a786`。此提交后已停止应用文件写入。
+- 在新建且此前不存在的独立测试库 `test_aluola_crm_today_customer_20261012` 上，定向运行3项客户API测试，通过；覆盖当天零点、当前时刻、昨天及未来时间、普通销售owner范围、显式owner与q、归档计数、`page_size=1`、默认/false兼容、非法布尔400和无权限403。Django测试系统检查通过。
+- Django测试运行器在结束时删除了该测试库；之后查询确认测试库与配套基库均不存在。未连接或改动demo库、旧开发库、云端数据库；未使用`keepdb`，未启动或停止服务。`git diff --check`通过；无模型或迁移变更。
+
+### 交接
+
+已固定后端应用版本并停止应用写入。下一步将固定SHA与自测证据同步负责人及测试；测试等待负责人确认该固定版后再独立开测。前端不与本轮并行写应用。

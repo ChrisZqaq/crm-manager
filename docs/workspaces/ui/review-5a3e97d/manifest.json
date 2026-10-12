@@ -1,0 +1,2961 @@
+{
+  "fixedSha": "5a3e97d2073532032db5312b5630d166b22b7f06",
+  "testedAt": "2026-10-12T07:50:41.201Z",
+  "database": "qa_home_5a3e97d_20261012_qr1",
+  "service": "http://127.0.0.1:18783",
+  "browser": "Google Chrome headless via existing playwright-core",
+  "syntheticOnly": true,
+  "scope": [
+    "normal growth +1729.90%",
+    "extreme growth +123456.78%",
+    "owner long review/order previews",
+    "network/503 non-JSON/409 JSON error states and recovery",
+    "simulated network abort, HTTP 503 non-JSON, HTTP 409 JSON business message and recovery"
+  ],
+  "measurements": {},
+  "scenarios": {
+    "normal": {
+      "expected": {
+        "displaySales": "¥1,829.9",
+        "fullSales": "¥1829.900",
+        "growth": "+1729.90%"
+      },
+      "desktop": {
+        "viewport": {
+          "innerWidth": 1280,
+          "innerHeight": 720
+        },
+        "root": {
+          "clientWidth": 1280,
+          "scrollWidth": 1280,
+          "bodyScrollWidth": 1280
+        },
+        "sales": {
+          "text": "¥1,829.9",
+          "title": "完整金额：¥1829.900",
+          "aria": "完整金额：¥1829.900",
+          "box": {
+            "x": 223,
+            "y": 147.39,
+            "width": 95.2,
+            "height": 24.41,
+            "right": 318.2
+          },
+          "clientWidth": 95,
+          "scrollWidth": 95,
+          "fontSize": "20.3459px",
+          "lineHeight": "24.415px",
+          "whiteSpace": "nowrap",
+          "rangeRects": [
+            {
+              "x": 223,
+              "y": 147.39,
+              "width": 90.64,
+              "height": 24
+            }
+          ]
+        },
+        "growth": {
+          "text": "+1729.90%",
+          "title": "服务端增速：+1729.90%",
+          "aria": "增速 +1729.90%",
+          "box": {
+            "x": 323.2,
+            "y": 147.66,
+            "width": 118.8,
+            "height": 23.88,
+            "right": 442
+          },
+          "clientWidth": 119,
+          "scrollWidth": 119,
+          "fontSize": "19.9058px",
+          "lineHeight": "23.887px",
+          "whiteSpace": "nowrap",
+          "rangeRects": [
+            {
+              "x": 323.2,
+              "y": 147.66,
+              "width": 115.16,
+              "height": 23
+            }
+          ]
+        },
+        "metricParents": {
+          "sales": {
+            "x": 223,
+            "y": 125.89,
+            "width": 95.2,
+            "height": 45.91,
+            "right": 318.2
+          },
+          "growth": {
+            "x": 318.2,
+            "y": 125.89,
+            "width": 123.8,
+            "height": 45.91,
+            "right": 442
+          }
+        },
+        "metricGap": 5,
+        "metricOverlap": false,
+        "cards": [
+          {
+            "i": 0,
+            "x": 206,
+            "y": 84,
+            "width": 253,
+            "height": 184,
+            "right": 459
+          },
+          {
+            "i": 1,
+            "x": 471,
+            "y": 84,
+            "width": 253,
+            "height": 184,
+            "right": 724
+          },
+          {
+            "i": 2,
+            "x": 736,
+            "y": 84,
+            "width": 253,
+            "height": 184,
+            "right": 989
+          },
+          {
+            "i": 3,
+            "x": 1001,
+            "y": 84,
+            "width": 253,
+            "height": 184,
+            "right": 1254
+          },
+          {
+            "i": 4,
+            "x": 206,
+            "y": 284,
+            "width": 253,
+            "height": 184,
+            "right": 459
+          },
+          {
+            "i": 5,
+            "x": 471,
+            "y": 284,
+            "width": 253,
+            "height": 184,
+            "right": 724
+          },
+          {
+            "i": 6,
+            "x": 736,
+            "y": 284,
+            "width": 253,
+            "height": 184,
+            "right": 989
+          },
+          {
+            "i": 7,
+            "x": 1001,
+            "y": 284,
+            "width": 253,
+            "height": 184,
+            "right": 1254
+          }
+        ],
+        "cardHeights": [
+          184
+        ],
+        "todayError": "",
+        "trendError": "",
+        "trendText": "¥0¥1,000¥2,000¥3,0002026-10-06：¥0.00010/62026-10-07：¥0.00010/72026-10-08：¥0.00010/82026-10-09：¥0.00010/92026-10-10：¥0.00010/102026-10-11：¥100.00010/112026-10-12：¥1829.90010/12"
+      },
+      "mobile": {
+        "viewport": {
+          "innerWidth": 390,
+          "innerHeight": 844
+        },
+        "root": {
+          "clientWidth": 390,
+          "scrollWidth": 390,
+          "bodyScrollWidth": 390
+        },
+        "sales": {
+          "text": "¥1,829.9",
+          "title": "完整金额：¥1829.900",
+          "aria": "完整金额：¥1829.900",
+          "box": {
+            "x": 29,
+            "y": 187.39,
+            "width": 144.34,
+            "height": 37.63,
+            "right": 173.34
+          },
+          "clientWidth": 144,
+          "scrollWidth": 144,
+          "fontSize": "31.3561px",
+          "lineHeight": "37.6273px",
+          "whiteSpace": "nowrap",
+          "rangeRects": [
+            {
+              "x": 29,
+              "y": 187.39,
+              "width": 140.02,
+              "height": 37
+            }
+          ]
+        },
+        "growth": {
+          "text": "+1729.90%",
+          "title": "服务端增速：+1729.90%",
+          "aria": "增速 +1729.90%",
+          "box": {
+            "x": 178.34,
+            "y": 187.61,
+            "width": 182.64,
+            "height": 37.19,
+            "right": 360.98
+          },
+          "clientWidth": 183,
+          "scrollWidth": 183,
+          "fontSize": "31.0014px",
+          "lineHeight": "37.2017px",
+          "whiteSpace": "nowrap",
+          "rangeRects": [
+            {
+              "x": 178.34,
+              "y": 187.61,
+              "width": 179.06,
+              "height": 37
+            }
+          ]
+        },
+        "metricParents": {
+          "sales": {
+            "x": 29,
+            "y": 165.89,
+            "width": 144.34,
+            "height": 59.13,
+            "right": 173.34
+          },
+          "growth": {
+            "x": 173.34,
+            "y": 165.89,
+            "width": 187.64,
+            "height": 59.13,
+            "right": 360.98
+          }
+        },
+        "metricGap": 5,
+        "metricOverlap": false,
+        "cards": [
+          {
+            "i": 0,
+            "x": 12,
+            "y": 124,
+            "width": 366,
+            "height": 184,
+            "right": 378
+          },
+          {
+            "i": 1,
+            "x": 12,
+            "y": 320,
+            "width": 366,
+            "height": 184,
+            "right": 378
+          },
+          {
+            "i": 2,
+            "x": 12,
+            "y": 516,
+            "width": 366,
+            "height": 184,
+            "right": 378
+          },
+          {
+            "i": 3,
+            "x": 12,
+            "y": 712,
+            "width": 366,
+            "height": 184,
+            "right": 378
+          },
+          {
+            "i": 4,
+            "x": 12,
+            "y": 912,
+            "width": 366,
+            "height": 184,
+            "right": 378
+          },
+          {
+            "i": 5,
+            "x": 12,
+            "y": 1108,
+            "width": 366,
+            "height": 184,
+            "right": 378
+          },
+          {
+            "i": 6,
+            "x": 12,
+            "y": 1304,
+            "width": 366,
+            "height": 184,
+            "right": 378
+          },
+          {
+            "i": 7,
+            "x": 12,
+            "y": 1500,
+            "width": 366,
+            "height": 184,
+            "right": 378
+          }
+        ],
+        "cardHeights": [
+          184
+        ],
+        "todayError": "",
+        "trendError": "",
+        "trendText": "¥0¥1,000¥2,000¥3,0002026-10-06：¥0.00010/62026-10-07：¥0.00010/72026-10-08：¥0.00010/82026-10-09：¥0.00010/92026-10-10：¥0.00010/102026-10-11：¥100.00010/112026-10-12：¥1829.90010/12"
+      }
+    },
+    "extreme": {
+      "expected": {
+        "displaySales": "¥12.4万",
+        "fullSales": "¥123556.780",
+        "growth": "+123456.78%"
+      },
+      "desktop": {
+        "viewport": {
+          "innerWidth": 1280,
+          "innerHeight": 720
+        },
+        "root": {
+          "clientWidth": 1280,
+          "scrollWidth": 1280,
+          "bodyScrollWidth": 1280
+        },
+        "sales": {
+          "text": "¥12.4万",
+          "title": "完整金额：¥123556.780",
+          "aria": "完整金额：¥123556.780",
+          "box": {
+            "x": 223,
+            "y": 147.39,
+            "width": 95.2,
+            "height": 28,
+            "right": 318.2
+          },
+          "clientWidth": 95,
+          "scrollWidth": 95,
+          "fontSize": "23.3494px",
+          "lineHeight": "28.0192px",
+          "whiteSpace": "nowrap",
+          "rangeRects": [
+            {
+              "x": 223,
+              "y": 147.39,
+              "width": 90.48,
+              "height": 28
+            }
+          ]
+        },
+        "growth": {
+          "text": "+123456.78%",
+          "title": "服务端增速：+123456.78%",
+          "aria": "增速 +123456.78%",
+          "box": {
+            "x": 323.2,
+            "y": 151.8,
+            "width": 118.8,
+            "height": 19.17,
+            "right": 442
+          },
+          "clientWidth": 119,
+          "scrollWidth": 119,
+          "fontSize": "15.9838px",
+          "lineHeight": "19.1806px",
+          "whiteSpace": "nowrap",
+          "rangeRects": [
+            {
+              "x": 323.2,
+              "y": 151.8,
+              "width": 115.25,
+              "height": 18
+            }
+          ]
+        },
+        "metricParents": {
+          "sales": {
+            "x": 223,
+            "y": 125.89,
+            "width": 95.2,
+            "height": 49.5,
+            "right": 318.2
+          },
+          "growth": {
+            "x": 318.2,
+            "y": 125.89,
+            "width": 123.8,
+            "height": 49.5,
+            "right": 442
+          }
+        },
+        "metricGap": 5,
+        "metricOverlap": false,
+        "cards": [
+          {
+            "i": 0,
+            "x": 206,
+            "y": 84,
+            "width": 253,
+            "height": 184,
+            "right": 459
+          },
+          {
+            "i": 1,
+            "x": 471,
+            "y": 84,
+            "width": 253,
+            "height": 184,
+            "right": 724
+          },
+          {
+            "i": 2,
+            "x": 736,
+            "y": 84,
+            "width": 253,
+            "height": 184,
+            "right": 989
+          },
+          {
+            "i": 3,
+            "x": 1001,
+            "y": 84,
+            "width": 253,
+            "height": 184,
+            "right": 1254
+          },
+          {
+            "i": 4,
+            "x": 206,
+            "y": 284,
+            "width": 253,
+            "height": 184,
+            "right": 459
+          },
+          {
+            "i": 5,
+            "x": 471,
+            "y": 284,
+            "width": 253,
+            "height": 184,
+            "right": 724
+          },
+          {
+            "i": 6,
+            "x": 736,
+            "y": 284,
+            "width": 253,
+            "height": 184,
+            "right": 989
+          },
+          {
+            "i": 7,
+            "x": 1001,
+            "y": 284,
+            "width": 253,
+            "height": 184,
+            "right": 1254
+          }
+        ],
+        "cardHeights": [
+          184
+        ],
+        "todayError": "",
+        "trendError": "",
+        "trendText": "¥0¥50,000¥100,000¥150,0002026-10-06：¥0.00010/62026-10-07：¥0.00010/72026-10-08：¥0.00010/82026-10-09：¥0.00010/92026-10-10：¥0.00010/102026-10-11：¥100.00010/112026-10-12：¥123556.78010/12"
+      },
+      "mobile": {
+        "viewport": {
+          "innerWidth": 390,
+          "innerHeight": 844
+        },
+        "root": {
+          "clientWidth": 390,
+          "scrollWidth": 390,
+          "bodyScrollWidth": 390
+        },
+        "sales": {
+          "text": "¥12.4万",
+          "title": "完整金额：¥123556.780",
+          "aria": "完整金额：¥123556.780",
+          "box": {
+            "x": 29,
+            "y": 187.39,
+            "width": 144.34,
+            "height": 38.39,
+            "right": 173.34
+          },
+          "clientWidth": 144,
+          "scrollWidth": 144,
+          "fontSize": "32px",
+          "lineHeight": "38.4px",
+          "whiteSpace": "nowrap",
+          "rangeRects": [
+            {
+              "x": 29,
+              "y": 187.39,
+              "width": 124.55,
+              "height": 38
+            }
+          ]
+        },
+        "growth": {
+          "text": "+123456.78%",
+          "title": "服务端增速：+123456.78%",
+          "aria": "增速 +123456.78%",
+          "box": {
+            "x": 178.34,
+            "y": 191.44,
+            "width": 182.64,
+            "height": 30.28,
+            "right": 360.98
+          },
+          "clientWidth": 183,
+          "scrollWidth": 183,
+          "fontSize": "25.2352px",
+          "lineHeight": "30.2823px",
+          "whiteSpace": "nowrap",
+          "rangeRects": [
+            {
+              "x": 178.34,
+              "y": 191.44,
+              "width": 178.64,
+              "height": 29
+            }
+          ]
+        },
+        "metricParents": {
+          "sales": {
+            "x": 29,
+            "y": 165.89,
+            "width": 144.34,
+            "height": 59.89,
+            "right": 173.34
+          },
+          "growth": {
+            "x": 173.34,
+            "y": 165.89,
+            "width": 187.64,
+            "height": 59.89,
+            "right": 360.98
+          }
+        },
+        "metricGap": 5,
+        "metricOverlap": false,
+        "cards": [
+          {
+            "i": 0,
+            "x": 12,
+            "y": 124,
+            "width": 366,
+            "height": 184,
+            "right": 378
+          },
+          {
+            "i": 1,
+            "x": 12,
+            "y": 320,
+            "width": 366,
+            "height": 184,
+            "right": 378
+          },
+          {
+            "i": 2,
+            "x": 12,
+            "y": 516,
+            "width": 366,
+            "height": 184,
+            "right": 378
+          },
+          {
+            "i": 3,
+            "x": 12,
+            "y": 712,
+            "width": 366,
+            "height": 184,
+            "right": 378
+          },
+          {
+            "i": 4,
+            "x": 12,
+            "y": 912,
+            "width": 366,
+            "height": 184,
+            "right": 378
+          },
+          {
+            "i": 5,
+            "x": 12,
+            "y": 1108,
+            "width": 366,
+            "height": 184,
+            "right": 378
+          },
+          {
+            "i": 6,
+            "x": 12,
+            "y": 1304,
+            "width": 366,
+            "height": 184,
+            "right": 378
+          },
+          {
+            "i": 7,
+            "x": 12,
+            "y": 1500,
+            "width": 366,
+            "height": 184,
+            "right": 378
+          }
+        ],
+        "cardHeights": [
+          184
+        ],
+        "todayError": "",
+        "trendError": "",
+        "trendText": "¥0¥50,000¥100,000¥150,0002026-10-06：¥0.00010/62026-10-07：¥0.00010/72026-10-08：¥0.00010/82026-10-09：¥0.00010/92026-10-10：¥0.00010/102026-10-11：¥100.00010/112026-10-12：¥123556.78010/12"
+      }
+    },
+    "owner": {
+      "desktop": {
+        "viewport": {
+          "innerWidth": 1280,
+          "innerHeight": 720
+        },
+        "root": {
+          "clientWidth": 1280,
+          "scrollWidth": 1280
+        },
+        "cards": [
+          {
+            "i": 0,
+            "x": 206,
+            "y": 84,
+            "width": 253,
+            "height": 184,
+            "right": 459
+          },
+          {
+            "i": 1,
+            "x": 471,
+            "y": 84,
+            "width": 253,
+            "height": 184,
+            "right": 724
+          },
+          {
+            "i": 2,
+            "x": 736,
+            "y": 84,
+            "width": 253,
+            "height": 184,
+            "right": 989
+          },
+          {
+            "i": 3,
+            "x": 1001,
+            "y": 84,
+            "width": 253,
+            "height": 184,
+            "right": 1254
+          },
+          {
+            "i": 4,
+            "x": 206,
+            "y": 284,
+            "width": 253,
+            "height": 184,
+            "right": 459
+          },
+          {
+            "i": 5,
+            "x": 471,
+            "y": 284,
+            "width": 253,
+            "height": 184,
+            "right": 724
+          },
+          {
+            "i": 6,
+            "x": 736,
+            "y": 284,
+            "width": 253,
+            "height": 184,
+            "right": 989
+          },
+          {
+            "i": 7,
+            "x": 1001,
+            "y": 284,
+            "width": 253,
+            "height": 184,
+            "right": 1254
+          }
+        ],
+        "cardHeights": [
+          184
+        ],
+        "reviewCount": "2",
+        "review": [
+          {
+            "text": "订单 3 · QA合成复核客户·阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名- · 待复核",
+            "title": "订单 3 · QA合成复核客户·阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名- · 待复核",
+            "aria": "订单 3 · QA合成复核客户·阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名- · 待复核",
+            "link": {
+              "x": 1112.22,
+              "y": 371.59,
+              "width": 124.78,
+              "height": 14.84,
+              "right": 1237
+            },
+            "linkScrollWidth": 992,
+            "linkClientWidth": 125,
+            "whiteSpace": "nowrap",
+            "overflow": "hidden",
+            "textOverflow": "ellipsis",
+            "lineRects": [
+              {
+                "height": 13,
+                "width": 991.94
+              },
+              {
+                "height": 13,
+                "width": 112.42
+              }
+            ],
+            "amount": null
+          },
+          {
+            "text": "订单 4 · QA合成复核客户·阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名- · 待复核",
+            "title": "订单 4 · QA合成复核客户·阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名- · 待复核",
+            "aria": "订单 4 · QA合成复核客户·阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名- · 待复核",
+            "link": {
+              "x": 1112.22,
+              "y": 392.44,
+              "width": 124.78,
+              "height": 14.84,
+              "right": 1237
+            },
+            "linkScrollWidth": 992,
+            "linkClientWidth": 125,
+            "whiteSpace": "nowrap",
+            "overflow": "hidden",
+            "textOverflow": "ellipsis",
+            "lineRects": [
+              {
+                "height": 13,
+                "width": 992.11
+              },
+              {
+                "height": 13,
+                "width": 112.61
+              }
+            ],
+            "amount": null
+          }
+        ],
+        "awaiting": [
+          {
+            "text": "订单 5 · QA合成复核客户·阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-",
+            "title": "订单 5 · QA合成复核客户·阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-",
+            "aria": "订单 5 · QA合成复核客户·阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-",
+            "link": {
+              "x": 317.22,
+              "y": 366.17,
+              "width": 124.78,
+              "height": 14.84,
+              "right": 442
+            },
+            "linkScrollWidth": 949,
+            "linkClientWidth": 125,
+            "whiteSpace": "nowrap",
+            "overflow": "hidden",
+            "textOverflow": "ellipsis",
+            "lineRects": [
+              {
+                "height": 13,
+                "width": 949.19
+              },
+              {
+                "height": 13,
+                "width": 112.33
+              }
+            ],
+            "amount": {
+              "text": "¥12345678901234567.890",
+              "aria": "金额 ¥12345678901234567.890",
+              "box": {
+                "x": 317.22,
+                "y": 383.02,
+                "width": 124.78,
+                "height": 29.69,
+                "right": 442
+              },
+              "parentTag": "LI"
+            }
+          }
+        ],
+        "ready": [
+          {
+            "text": "订单 6 · QA合成复核客户·阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-",
+            "title": "订单 6 · QA合成复核客户·阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-",
+            "aria": "订单 6 · QA合成复核客户·阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-",
+            "link": {
+              "x": 582.22,
+              "y": 373.59,
+              "width": 124.78,
+              "height": 14.84,
+              "right": 707
+            },
+            "linkScrollWidth": 949,
+            "linkClientWidth": 125,
+            "whiteSpace": "nowrap",
+            "overflow": "hidden",
+            "textOverflow": "ellipsis",
+            "lineRects": [
+              {
+                "height": 13,
+                "width": 949.39
+              },
+              {
+                "height": 13,
+                "width": 112.53
+              }
+            ],
+            "amount": {
+              "text": "¥500.000",
+              "aria": "金额 ¥500.000",
+              "box": {
+                "x": 654.7,
+                "y": 390.44,
+                "width": 52.3,
+                "height": 14.84,
+                "right": 707
+              },
+              "parentTag": "LI"
+            }
+          }
+        ],
+        "pending": [
+          {
+            "text": "订单 5 · QA合成复核客户·阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名- · QA 5a3e 合成账户",
+            "title": "订单 5 · QA合成复核客户·阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名- · QA 5a3e 合成账户",
+            "aria": "订单 5 · QA合成复核客户·阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名- · QA 5a3e 合成账户",
+            "link": {
+              "x": 847.22,
+              "y": 373.59,
+              "width": 124.78,
+              "height": 14.84,
+              "right": 972
+            },
+            "linkScrollWidth": 1051,
+            "linkClientWidth": 125,
+            "whiteSpace": "nowrap",
+            "overflow": "hidden",
+            "textOverflow": "ellipsis",
+            "lineRects": [
+              {
+                "height": 13,
+                "width": 1051.11
+              },
+              {
+                "height": 13,
+                "width": 112.33
+              }
+            ],
+            "amount": {
+              "text": "¥0.000",
+              "aria": "金额 ¥0.000",
+              "box": {
+                "x": 933.7,
+                "y": 390.44,
+                "width": 38.3,
+                "height": 14.84,
+                "right": 972
+              },
+              "parentTag": "LI"
+            }
+          }
+        ]
+      },
+      "mobile": {
+        "viewport": {
+          "innerWidth": 390,
+          "innerHeight": 844
+        },
+        "root": {
+          "clientWidth": 390,
+          "scrollWidth": 390
+        },
+        "cards": [
+          {
+            "i": 0,
+            "x": 12,
+            "y": 170.5,
+            "width": 366,
+            "height": 184,
+            "right": 378
+          },
+          {
+            "i": 1,
+            "x": 12,
+            "y": 366.5,
+            "width": 366,
+            "height": 184,
+            "right": 378
+          },
+          {
+            "i": 2,
+            "x": 12,
+            "y": 562.5,
+            "width": 366,
+            "height": 184,
+            "right": 378
+          },
+          {
+            "i": 3,
+            "x": 12,
+            "y": 758.5,
+            "width": 366,
+            "height": 184,
+            "right": 378
+          },
+          {
+            "i": 4,
+            "x": 12,
+            "y": 958.5,
+            "width": 366,
+            "height": 184,
+            "right": 378
+          },
+          {
+            "i": 5,
+            "x": 12,
+            "y": 1154.5,
+            "width": 366,
+            "height": 184,
+            "right": 378
+          },
+          {
+            "i": 6,
+            "x": 12,
+            "y": 1350.5,
+            "width": 366,
+            "height": 184,
+            "right": 378
+          },
+          {
+            "i": 7,
+            "x": 12,
+            "y": 1546.5,
+            "width": 366,
+            "height": 184,
+            "right": 378
+          }
+        ],
+        "cardHeights": [
+          184
+        ],
+        "reviewCount": "2",
+        "review": [
+          {
+            "text": "订单 3 · QA合成复核客户·阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名- · 待复核",
+            "title": "订单 3 · QA合成复核客户·阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名- · 待复核",
+            "aria": "订单 3 · QA合成复核客户·阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名- · 待复核",
+            "link": {
+              "x": 129.63,
+              "y": 1634.09,
+              "width": 231.38,
+              "height": 14.84,
+              "right": 361
+            },
+            "linkScrollWidth": 992,
+            "linkClientWidth": 231,
+            "whiteSpace": "nowrap",
+            "overflow": "hidden",
+            "textOverflow": "ellipsis",
+            "lineRects": [
+              {
+                "height": 13,
+                "width": 991.94
+              },
+              {
+                "height": 13,
+                "width": 220
+              }
+            ],
+            "amount": null
+          },
+          {
+            "text": "订单 4 · QA合成复核客户·阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名- · 待复核",
+            "title": "订单 4 · QA合成复核客户·阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名- · 待复核",
+            "aria": "订单 4 · QA合成复核客户·阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名- · 待复核",
+            "link": {
+              "x": 129.63,
+              "y": 1654.94,
+              "width": 231.38,
+              "height": 14.84,
+              "right": 361
+            },
+            "linkScrollWidth": 992,
+            "linkClientWidth": 231,
+            "whiteSpace": "nowrap",
+            "overflow": "hidden",
+            "textOverflow": "ellipsis",
+            "lineRects": [
+              {
+                "height": 13,
+                "width": 992.11
+              },
+              {
+                "height": 13,
+                "width": 220.19
+              }
+            ],
+            "amount": null
+          }
+        ],
+        "awaiting": [
+          {
+            "text": "订单 5 · QA合成复核客户·阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-",
+            "title": "订单 5 · QA合成复核客户·阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-",
+            "aria": "订单 5 · QA合成复核客户·阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-",
+            "link": {
+              "x": 129.63,
+              "y": 1048.09,
+              "width": 231.38,
+              "height": 14.84,
+              "right": 361
+            },
+            "linkScrollWidth": 949,
+            "linkClientWidth": 231,
+            "whiteSpace": "nowrap",
+            "overflow": "hidden",
+            "textOverflow": "ellipsis",
+            "lineRects": [
+              {
+                "height": 13,
+                "width": 949.19
+              },
+              {
+                "height": 13,
+                "width": 219.91
+              }
+            ],
+            "amount": {
+              "text": "¥12345678901234567.890",
+              "aria": "金额 ¥12345678901234567.890",
+              "box": {
+                "x": 210.81,
+                "y": 1064.94,
+                "width": 150.19,
+                "height": 14.84,
+                "right": 361
+              },
+              "parentTag": "LI"
+            }
+          }
+        ],
+        "ready": [
+          {
+            "text": "订单 6 · QA合成复核客户·阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-",
+            "title": "订单 6 · QA合成复核客户·阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-",
+            "aria": "订单 6 · QA合成复核客户·阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-",
+            "link": {
+              "x": 129.63,
+              "y": 1244.09,
+              "width": 231.38,
+              "height": 14.84,
+              "right": 361
+            },
+            "linkScrollWidth": 949,
+            "linkClientWidth": 231,
+            "whiteSpace": "nowrap",
+            "overflow": "hidden",
+            "textOverflow": "ellipsis",
+            "lineRects": [
+              {
+                "height": 13,
+                "width": 949.39
+              },
+              {
+                "height": 13,
+                "width": 220.11
+              }
+            ],
+            "amount": {
+              "text": "¥500.000",
+              "aria": "金额 ¥500.000",
+              "box": {
+                "x": 308.7,
+                "y": 1260.94,
+                "width": 52.3,
+                "height": 14.84,
+                "right": 361
+              },
+              "parentTag": "LI"
+            }
+          }
+        ],
+        "pending": [
+          {
+            "text": "订单 5 · QA合成复核客户·阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名- · QA 5a3e 合成账户",
+            "title": "订单 5 · QA合成复核客户·阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名- · QA 5a3e 合成账户",
+            "aria": "订单 5 · QA合成复核客户·阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名- · QA 5a3e 合成账户",
+            "link": {
+              "x": 129.63,
+              "y": 1440.09,
+              "width": 231.38,
+              "height": 14.84,
+              "right": 361
+            },
+            "linkScrollWidth": 1051,
+            "linkClientWidth": 231,
+            "whiteSpace": "nowrap",
+            "overflow": "hidden",
+            "textOverflow": "ellipsis",
+            "lineRects": [
+              {
+                "height": 13,
+                "width": 1051.11
+              },
+              {
+                "height": 13,
+                "width": 219.91
+              }
+            ],
+            "amount": {
+              "text": "¥0.000",
+              "aria": "金额 ¥0.000",
+              "box": {
+                "x": 322.7,
+                "y": 1456.94,
+                "width": 38.3,
+                "height": 14.84,
+                "right": 361
+              },
+              "parentTag": "LI"
+            }
+          }
+        ]
+      }
+    },
+    "errors": {
+      "network": {
+        "routeHits": [
+          {
+            "mode": "network",
+            "endpoint": "trend"
+          },
+          {
+            "mode": "network",
+            "endpoint": "day_over_day"
+          }
+        ],
+        "desktop": {
+          "viewport": {
+            "innerWidth": 1280,
+            "innerHeight": 720
+          },
+          "root": {
+            "clientWidth": 1280,
+            "scrollWidth": 1280,
+            "bodyScrollWidth": 1280
+          },
+          "sales": {
+            "text": "暂不可用",
+            "title": "",
+            "aria": null,
+            "box": {
+              "x": 223,
+              "y": 147.39,
+              "width": 95.2,
+              "height": 33.59,
+              "right": 318.2
+            },
+            "clientWidth": 95,
+            "scrollWidth": 112,
+            "fontSize": "28px",
+            "lineHeight": "33.6px",
+            "whiteSpace": "nowrap",
+            "rangeRects": [
+              {
+                "x": 223,
+                "y": 147.39,
+                "width": 112,
+                "height": 33
+              }
+            ]
+          },
+          "growth": {
+            "text": "暂不可用",
+            "title": "",
+            "aria": null,
+            "box": {
+              "x": 323.2,
+              "y": 147.98,
+              "width": 118.8,
+              "height": 32.39,
+              "right": 442
+            },
+            "clientWidth": 119,
+            "scrollWidth": 119,
+            "fontSize": "27px",
+            "lineHeight": "32.4px",
+            "whiteSpace": "nowrap",
+            "rangeRects": [
+              {
+                "x": 323.2,
+                "y": 147.98,
+                "width": 108,
+                "height": 32
+              }
+            ]
+          },
+          "metricParents": {
+            "sales": {
+              "x": 223,
+              "y": 125.89,
+              "width": 95.2,
+              "height": 55.09,
+              "right": 318.2
+            },
+            "growth": {
+              "x": 318.2,
+              "y": 125.89,
+              "width": 123.8,
+              "height": 55.09,
+              "right": 442
+            }
+          },
+          "metricGap": 5,
+          "metricOverlap": true,
+          "cards": [
+            {
+              "i": 0,
+              "x": 206,
+              "y": 84,
+              "width": 253,
+              "height": 184,
+              "right": 459
+            },
+            {
+              "i": 1,
+              "x": 471,
+              "y": 84,
+              "width": 253,
+              "height": 184,
+              "right": 724
+            },
+            {
+              "i": 2,
+              "x": 736,
+              "y": 84,
+              "width": 253,
+              "height": 184,
+              "right": 989
+            },
+            {
+              "i": 3,
+              "x": 1001,
+              "y": 84,
+              "width": 253,
+              "height": 184,
+              "right": 1254
+            },
+            {
+              "i": 4,
+              "x": 206,
+              "y": 284,
+              "width": 253,
+              "height": 184,
+              "right": 459
+            },
+            {
+              "i": 5,
+              "x": 471,
+              "y": 284,
+              "width": 253,
+              "height": 184,
+              "right": 724
+            },
+            {
+              "i": 6,
+              "x": 736,
+              "y": 284,
+              "width": 253,
+              "height": 184,
+              "right": 989
+            },
+            {
+              "i": 7,
+              "x": 1001,
+              "y": 284,
+              "width": 253,
+              "height": 184,
+              "right": 1254
+            }
+          ],
+          "cardHeights": [
+            184
+          ],
+          "todayError": "网络连接失败，请稍后重试。；刷新页面重试。",
+          "trendError": "网络连接失败，请稍后重试。",
+          "trendText": "销售趋势暂不可用。",
+          "metricParentOverlap": false,
+          "valueTextOverlap": true,
+          "valueTextLayout": {
+            "sales": {
+              "rangeX": 223,
+              "rangeWidth": 112,
+              "clientWidth": 95,
+              "scrollWidth": 112,
+              "whiteSpace": "nowrap"
+            },
+            "growth": {
+              "rangeX": 323.2,
+              "rangeWidth": 108,
+              "clientWidth": 119,
+              "scrollWidth": 119,
+              "whiteSpace": "nowrap"
+            },
+            "overlapPx": 11.8,
+            "textOverflow": true
+          }
+        },
+        "mobile": {
+          "viewport": {
+            "innerWidth": 390,
+            "innerHeight": 844
+          },
+          "root": {
+            "clientWidth": 390,
+            "scrollWidth": 390,
+            "bodyScrollWidth": 390
+          },
+          "sales": {
+            "text": "暂不可用",
+            "title": "",
+            "aria": null,
+            "box": {
+              "x": 29,
+              "y": 187.39,
+              "width": 144.34,
+              "height": 38.39,
+              "right": 173.34
+            },
+            "clientWidth": 144,
+            "scrollWidth": 144,
+            "fontSize": "32px",
+            "lineHeight": "38.4px",
+            "whiteSpace": "nowrap",
+            "rangeRects": [
+              {
+                "x": 29,
+                "y": 187.39,
+                "width": 128,
+                "height": 38
+              }
+            ]
+          },
+          "growth": {
+            "text": "暂不可用",
+            "title": "",
+            "aria": null,
+            "box": {
+              "x": 178.34,
+              "y": 187.39,
+              "width": 182.64,
+              "height": 38.39,
+              "right": 360.98
+            },
+            "clientWidth": 183,
+            "scrollWidth": 183,
+            "fontSize": "32px",
+            "lineHeight": "38.4px",
+            "whiteSpace": "nowrap",
+            "rangeRects": [
+              {
+                "x": 178.34,
+                "y": 187.39,
+                "width": 128,
+                "height": 38
+              }
+            ]
+          },
+          "metricParents": {
+            "sales": {
+              "x": 29,
+              "y": 165.89,
+              "width": 144.34,
+              "height": 59.89,
+              "right": 173.34
+            },
+            "growth": {
+              "x": 173.34,
+              "y": 165.89,
+              "width": 187.64,
+              "height": 59.89,
+              "right": 360.98
+            }
+          },
+          "metricGap": 5,
+          "metricOverlap": false,
+          "cards": [
+            {
+              "i": 0,
+              "x": 12,
+              "y": 124,
+              "width": 366,
+              "height": 184,
+              "right": 378
+            },
+            {
+              "i": 1,
+              "x": 12,
+              "y": 320,
+              "width": 366,
+              "height": 184,
+              "right": 378
+            },
+            {
+              "i": 2,
+              "x": 12,
+              "y": 516,
+              "width": 366,
+              "height": 184,
+              "right": 378
+            },
+            {
+              "i": 3,
+              "x": 12,
+              "y": 712,
+              "width": 366,
+              "height": 184,
+              "right": 378
+            },
+            {
+              "i": 4,
+              "x": 12,
+              "y": 912,
+              "width": 366,
+              "height": 184,
+              "right": 378
+            },
+            {
+              "i": 5,
+              "x": 12,
+              "y": 1108,
+              "width": 366,
+              "height": 184,
+              "right": 378
+            },
+            {
+              "i": 6,
+              "x": 12,
+              "y": 1304,
+              "width": 366,
+              "height": 184,
+              "right": 378
+            },
+            {
+              "i": 7,
+              "x": 12,
+              "y": 1500,
+              "width": 366,
+              "height": 184,
+              "right": 378
+            }
+          ],
+          "cardHeights": [
+            184
+          ],
+          "todayError": "网络连接失败，请稍后重试。；刷新页面重试。",
+          "trendError": "网络连接失败，请稍后重试。",
+          "trendText": "销售趋势暂不可用。",
+          "metricParentOverlap": false,
+          "valueTextOverlap": false,
+          "valueTextLayout": {
+            "sales": {
+              "rangeX": 29,
+              "rangeWidth": 128,
+              "clientWidth": 144,
+              "scrollWidth": 144,
+              "whiteSpace": "nowrap"
+            },
+            "growth": {
+              "rangeX": 178.34,
+              "rangeWidth": 128,
+              "clientWidth": 183,
+              "scrollWidth": 183,
+              "whiteSpace": "nowrap"
+            },
+            "overlapPx": 0,
+            "textOverflow": false
+          }
+        },
+        "recovered": true
+      },
+      "nonJson503": {
+        "routeHits": [
+          {
+            "mode": "nonJson503",
+            "endpoint": "trend"
+          },
+          {
+            "mode": "nonJson503",
+            "endpoint": "day_over_day"
+          }
+        ],
+        "desktop": {
+          "viewport": {
+            "innerWidth": 1280,
+            "innerHeight": 720
+          },
+          "root": {
+            "clientWidth": 1280,
+            "scrollWidth": 1280,
+            "bodyScrollWidth": 1280
+          },
+          "sales": {
+            "text": "暂不可用",
+            "title": "",
+            "aria": null,
+            "box": {
+              "x": 223,
+              "y": 147.39,
+              "width": 95.2,
+              "height": 33.59,
+              "right": 318.2
+            },
+            "clientWidth": 95,
+            "scrollWidth": 112,
+            "fontSize": "28px",
+            "lineHeight": "33.6px",
+            "whiteSpace": "nowrap",
+            "rangeRects": [
+              {
+                "x": 223,
+                "y": 147.39,
+                "width": 112,
+                "height": 33
+              }
+            ]
+          },
+          "growth": {
+            "text": "暂不可用",
+            "title": "",
+            "aria": null,
+            "box": {
+              "x": 323.2,
+              "y": 147.98,
+              "width": 118.8,
+              "height": 32.39,
+              "right": 442
+            },
+            "clientWidth": 119,
+            "scrollWidth": 119,
+            "fontSize": "27px",
+            "lineHeight": "32.4px",
+            "whiteSpace": "nowrap",
+            "rangeRects": [
+              {
+                "x": 323.2,
+                "y": 147.98,
+                "width": 108,
+                "height": 32
+              }
+            ]
+          },
+          "metricParents": {
+            "sales": {
+              "x": 223,
+              "y": 125.89,
+              "width": 95.2,
+              "height": 55.09,
+              "right": 318.2
+            },
+            "growth": {
+              "x": 318.2,
+              "y": 125.89,
+              "width": 123.8,
+              "height": 55.09,
+              "right": 442
+            }
+          },
+          "metricGap": 5,
+          "metricOverlap": true,
+          "cards": [
+            {
+              "i": 0,
+              "x": 206,
+              "y": 84,
+              "width": 253,
+              "height": 184,
+              "right": 459
+            },
+            {
+              "i": 1,
+              "x": 471,
+              "y": 84,
+              "width": 253,
+              "height": 184,
+              "right": 724
+            },
+            {
+              "i": 2,
+              "x": 736,
+              "y": 84,
+              "width": 253,
+              "height": 184,
+              "right": 989
+            },
+            {
+              "i": 3,
+              "x": 1001,
+              "y": 84,
+              "width": 253,
+              "height": 184,
+              "right": 1254
+            },
+            {
+              "i": 4,
+              "x": 206,
+              "y": 284,
+              "width": 253,
+              "height": 184,
+              "right": 459
+            },
+            {
+              "i": 5,
+              "x": 471,
+              "y": 284,
+              "width": 253,
+              "height": 184,
+              "right": 724
+            },
+            {
+              "i": 6,
+              "x": 736,
+              "y": 284,
+              "width": 253,
+              "height": 184,
+              "right": 989
+            },
+            {
+              "i": 7,
+              "x": 1001,
+              "y": 284,
+              "width": 253,
+              "height": 184,
+              "right": 1254
+            }
+          ],
+          "cardHeights": [
+            184
+          ],
+          "todayError": "服务器错误响应无法读取（HTTP 503），请稍后重试。；刷新页面重试。",
+          "trendError": "服务器错误响应无法读取（HTTP 503），请稍后重试。",
+          "trendText": "销售趋势暂不可用。",
+          "metricParentOverlap": false,
+          "valueTextOverlap": true,
+          "valueTextLayout": {
+            "sales": {
+              "rangeX": 223,
+              "rangeWidth": 112,
+              "clientWidth": 95,
+              "scrollWidth": 112,
+              "whiteSpace": "nowrap"
+            },
+            "growth": {
+              "rangeX": 323.2,
+              "rangeWidth": 108,
+              "clientWidth": 119,
+              "scrollWidth": 119,
+              "whiteSpace": "nowrap"
+            },
+            "overlapPx": 11.8,
+            "textOverflow": true
+          }
+        },
+        "mobile": {
+          "viewport": {
+            "innerWidth": 390,
+            "innerHeight": 844
+          },
+          "root": {
+            "clientWidth": 390,
+            "scrollWidth": 390,
+            "bodyScrollWidth": 390
+          },
+          "sales": {
+            "text": "暂不可用",
+            "title": "",
+            "aria": null,
+            "box": {
+              "x": 29,
+              "y": 187.39,
+              "width": 144.34,
+              "height": 38.39,
+              "right": 173.34
+            },
+            "clientWidth": 144,
+            "scrollWidth": 144,
+            "fontSize": "32px",
+            "lineHeight": "38.4px",
+            "whiteSpace": "nowrap",
+            "rangeRects": [
+              {
+                "x": 29,
+                "y": 187.39,
+                "width": 128,
+                "height": 38
+              }
+            ]
+          },
+          "growth": {
+            "text": "暂不可用",
+            "title": "",
+            "aria": null,
+            "box": {
+              "x": 178.34,
+              "y": 187.39,
+              "width": 182.64,
+              "height": 38.39,
+              "right": 360.98
+            },
+            "clientWidth": 183,
+            "scrollWidth": 183,
+            "fontSize": "32px",
+            "lineHeight": "38.4px",
+            "whiteSpace": "nowrap",
+            "rangeRects": [
+              {
+                "x": 178.34,
+                "y": 187.39,
+                "width": 128,
+                "height": 38
+              }
+            ]
+          },
+          "metricParents": {
+            "sales": {
+              "x": 29,
+              "y": 165.89,
+              "width": 144.34,
+              "height": 59.89,
+              "right": 173.34
+            },
+            "growth": {
+              "x": 173.34,
+              "y": 165.89,
+              "width": 187.64,
+              "height": 59.89,
+              "right": 360.98
+            }
+          },
+          "metricGap": 5,
+          "metricOverlap": false,
+          "cards": [
+            {
+              "i": 0,
+              "x": 12,
+              "y": 124,
+              "width": 366,
+              "height": 184,
+              "right": 378
+            },
+            {
+              "i": 1,
+              "x": 12,
+              "y": 320,
+              "width": 366,
+              "height": 184,
+              "right": 378
+            },
+            {
+              "i": 2,
+              "x": 12,
+              "y": 516,
+              "width": 366,
+              "height": 184,
+              "right": 378
+            },
+            {
+              "i": 3,
+              "x": 12,
+              "y": 712,
+              "width": 366,
+              "height": 184,
+              "right": 378
+            },
+            {
+              "i": 4,
+              "x": 12,
+              "y": 912,
+              "width": 366,
+              "height": 184,
+              "right": 378
+            },
+            {
+              "i": 5,
+              "x": 12,
+              "y": 1108,
+              "width": 366,
+              "height": 184,
+              "right": 378
+            },
+            {
+              "i": 6,
+              "x": 12,
+              "y": 1304,
+              "width": 366,
+              "height": 184,
+              "right": 378
+            },
+            {
+              "i": 7,
+              "x": 12,
+              "y": 1500,
+              "width": 366,
+              "height": 184,
+              "right": 378
+            }
+          ],
+          "cardHeights": [
+            184
+          ],
+          "todayError": "服务器错误响应无法读取（HTTP 503），请稍后重试。；刷新页面重试。",
+          "trendError": "服务器错误响应无法读取（HTTP 503），请稍后重试。",
+          "trendText": "销售趋势暂不可用。",
+          "metricParentOverlap": false,
+          "valueTextOverlap": false,
+          "valueTextLayout": {
+            "sales": {
+              "rangeX": 29,
+              "rangeWidth": 128,
+              "clientWidth": 144,
+              "scrollWidth": 144,
+              "whiteSpace": "nowrap"
+            },
+            "growth": {
+              "rangeX": 178.34,
+              "rangeWidth": 128,
+              "clientWidth": 183,
+              "scrollWidth": 183,
+              "whiteSpace": "nowrap"
+            },
+            "overlapPx": 0,
+            "textOverflow": false
+          }
+        },
+        "recovered": true
+      },
+      "business409": {
+        "routeHits": [
+          {
+            "mode": "business409",
+            "endpoint": "trend"
+          },
+          {
+            "mode": "business409",
+            "endpoint": "day_over_day"
+          }
+        ],
+        "desktop": {
+          "viewport": {
+            "innerWidth": 1280,
+            "innerHeight": 720
+          },
+          "root": {
+            "clientWidth": 1280,
+            "scrollWidth": 1280,
+            "bodyScrollWidth": 1280
+          },
+          "sales": {
+            "text": "暂不可用",
+            "title": "",
+            "aria": null,
+            "box": {
+              "x": 223,
+              "y": 147.39,
+              "width": 95.2,
+              "height": 33.59,
+              "right": 318.2
+            },
+            "clientWidth": 95,
+            "scrollWidth": 112,
+            "fontSize": "28px",
+            "lineHeight": "33.6px",
+            "whiteSpace": "nowrap",
+            "rangeRects": [
+              {
+                "x": 223,
+                "y": 147.39,
+                "width": 112,
+                "height": 33
+              }
+            ]
+          },
+          "growth": {
+            "text": "暂不可用",
+            "title": "",
+            "aria": null,
+            "box": {
+              "x": 323.2,
+              "y": 147.98,
+              "width": 118.8,
+              "height": 32.39,
+              "right": 442
+            },
+            "clientWidth": 119,
+            "scrollWidth": 119,
+            "fontSize": "27px",
+            "lineHeight": "32.4px",
+            "whiteSpace": "nowrap",
+            "rangeRects": [
+              {
+                "x": 323.2,
+                "y": 147.98,
+                "width": 108,
+                "height": 32
+              }
+            ]
+          },
+          "metricParents": {
+            "sales": {
+              "x": 223,
+              "y": 125.89,
+              "width": 95.2,
+              "height": 55.09,
+              "right": 318.2
+            },
+            "growth": {
+              "x": 318.2,
+              "y": 125.89,
+              "width": 123.8,
+              "height": 55.09,
+              "right": 442
+            }
+          },
+          "metricGap": 5,
+          "metricOverlap": true,
+          "cards": [
+            {
+              "i": 0,
+              "x": 206,
+              "y": 84,
+              "width": 253,
+              "height": 184,
+              "right": 459
+            },
+            {
+              "i": 1,
+              "x": 471,
+              "y": 84,
+              "width": 253,
+              "height": 184,
+              "right": 724
+            },
+            {
+              "i": 2,
+              "x": 736,
+              "y": 84,
+              "width": 253,
+              "height": 184,
+              "right": 989
+            },
+            {
+              "i": 3,
+              "x": 1001,
+              "y": 84,
+              "width": 253,
+              "height": 184,
+              "right": 1254
+            },
+            {
+              "i": 4,
+              "x": 206,
+              "y": 284,
+              "width": 253,
+              "height": 184,
+              "right": 459
+            },
+            {
+              "i": 5,
+              "x": 471,
+              "y": 284,
+              "width": 253,
+              "height": 184,
+              "right": 724
+            },
+            {
+              "i": 6,
+              "x": 736,
+              "y": 284,
+              "width": 253,
+              "height": 184,
+              "right": 989
+            },
+            {
+              "i": 7,
+              "x": 1001,
+              "y": 284,
+              "width": 253,
+              "height": 184,
+              "right": 1254
+            }
+          ],
+          "cardHeights": [
+            184
+          ],
+          "todayError": "合成业务拒绝保留。；刷新页面重试。",
+          "trendError": "合成业务拒绝保留。",
+          "trendText": "销售趋势暂不可用。",
+          "metricParentOverlap": false,
+          "valueTextOverlap": true,
+          "valueTextLayout": {
+            "sales": {
+              "rangeX": 223,
+              "rangeWidth": 112,
+              "clientWidth": 95,
+              "scrollWidth": 112,
+              "whiteSpace": "nowrap"
+            },
+            "growth": {
+              "rangeX": 323.2,
+              "rangeWidth": 108,
+              "clientWidth": 119,
+              "scrollWidth": 119,
+              "whiteSpace": "nowrap"
+            },
+            "overlapPx": 11.8,
+            "textOverflow": true
+          }
+        },
+        "mobile": {
+          "viewport": {
+            "innerWidth": 390,
+            "innerHeight": 844
+          },
+          "root": {
+            "clientWidth": 390,
+            "scrollWidth": 390,
+            "bodyScrollWidth": 390
+          },
+          "sales": {
+            "text": "暂不可用",
+            "title": "",
+            "aria": null,
+            "box": {
+              "x": 29,
+              "y": 187.39,
+              "width": 144.34,
+              "height": 38.39,
+              "right": 173.34
+            },
+            "clientWidth": 144,
+            "scrollWidth": 144,
+            "fontSize": "32px",
+            "lineHeight": "38.4px",
+            "whiteSpace": "nowrap",
+            "rangeRects": [
+              {
+                "x": 29,
+                "y": 187.39,
+                "width": 128,
+                "height": 38
+              }
+            ]
+          },
+          "growth": {
+            "text": "暂不可用",
+            "title": "",
+            "aria": null,
+            "box": {
+              "x": 178.34,
+              "y": 187.39,
+              "width": 182.64,
+              "height": 38.39,
+              "right": 360.98
+            },
+            "clientWidth": 183,
+            "scrollWidth": 183,
+            "fontSize": "32px",
+            "lineHeight": "38.4px",
+            "whiteSpace": "nowrap",
+            "rangeRects": [
+              {
+                "x": 178.34,
+                "y": 187.39,
+                "width": 128,
+                "height": 38
+              }
+            ]
+          },
+          "metricParents": {
+            "sales": {
+              "x": 29,
+              "y": 165.89,
+              "width": 144.34,
+              "height": 59.89,
+              "right": 173.34
+            },
+            "growth": {
+              "x": 173.34,
+              "y": 165.89,
+              "width": 187.64,
+              "height": 59.89,
+              "right": 360.98
+            }
+          },
+          "metricGap": 5,
+          "metricOverlap": false,
+          "cards": [
+            {
+              "i": 0,
+              "x": 12,
+              "y": 124,
+              "width": 366,
+              "height": 184,
+              "right": 378
+            },
+            {
+              "i": 1,
+              "x": 12,
+              "y": 320,
+              "width": 366,
+              "height": 184,
+              "right": 378
+            },
+            {
+              "i": 2,
+              "x": 12,
+              "y": 516,
+              "width": 366,
+              "height": 184,
+              "right": 378
+            },
+            {
+              "i": 3,
+              "x": 12,
+              "y": 712,
+              "width": 366,
+              "height": 184,
+              "right": 378
+            },
+            {
+              "i": 4,
+              "x": 12,
+              "y": 912,
+              "width": 366,
+              "height": 184,
+              "right": 378
+            },
+            {
+              "i": 5,
+              "x": 12,
+              "y": 1108,
+              "width": 366,
+              "height": 184,
+              "right": 378
+            },
+            {
+              "i": 6,
+              "x": 12,
+              "y": 1304,
+              "width": 366,
+              "height": 184,
+              "right": 378
+            },
+            {
+              "i": 7,
+              "x": 12,
+              "y": 1500,
+              "width": 366,
+              "height": 184,
+              "right": 378
+            }
+          ],
+          "cardHeights": [
+            184
+          ],
+          "todayError": "合成业务拒绝保留。；刷新页面重试。",
+          "trendError": "合成业务拒绝保留。",
+          "trendText": "销售趋势暂不可用。",
+          "metricParentOverlap": false,
+          "valueTextOverlap": false,
+          "valueTextLayout": {
+            "sales": {
+              "rangeX": 29,
+              "rangeWidth": 128,
+              "clientWidth": 144,
+              "scrollWidth": 144,
+              "whiteSpace": "nowrap"
+            },
+            "growth": {
+              "rangeX": 178.34,
+              "rangeWidth": 128,
+              "clientWidth": 183,
+              "scrollWidth": 183,
+              "whiteSpace": "nowrap"
+            },
+            "overlapPx": 0,
+            "textOverflow": false
+          }
+        },
+        "recovered": true
+      }
+    }
+  },
+  "apiResponses": [
+    {
+      "user": "qa_5a3e_sales",
+      "status": 200,
+      "path": "/api/v1/orders",
+      "query": "?status=shipped&page_size=2"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 200,
+      "path": "/api/v1/orders",
+      "query": "?status=awaiting_payment&page_size=2"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 200,
+      "path": "/api/v1/orders",
+      "query": "?status=ready_to_ship&page_size=2"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 200,
+      "path": "/api/v1/reports/sales",
+      "query": "?scope=delivered&period=custom&start_date=2026-10-06&end_date=2026-10-12&series=day&page_size=1"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 200,
+      "path": "/api/v1/reports/sales",
+      "query": "?workbench=customer_ranking&scope=delivered&period=custom&start_date=2026-10-01&end_date=2026-10-12&page_size=1"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 200,
+      "path": "/api/v1/reports/sales",
+      "query": "?workbench=day_over_day&scope=delivered&period=custom&start_date=2026-10-11&end_date=2026-10-12&series=day&page_size=1"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 200,
+      "path": "/api/v1/customers",
+      "query": "?page_size=1&include_created_today=true"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 200,
+      "path": "/api/v1/reports/inventory",
+      "query": "?low_stock=true&page_size=2"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 200,
+      "path": "/api/v1/reports/payments",
+      "query": "?period=all&status=pending&page_size=2"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 200,
+      "path": "/api/v1/reports/inventory",
+      "query": "?workbench=ip_language_stock_count&page_size=1"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 200,
+      "path": "/api/v1/orders",
+      "query": "?status=shipped&page_size=2"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 200,
+      "path": "/api/v1/orders",
+      "query": "?status=awaiting_payment&page_size=2"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 200,
+      "path": "/api/v1/orders",
+      "query": "?status=ready_to_ship&page_size=2"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 200,
+      "path": "/api/v1/reports/sales",
+      "query": "?workbench=day_over_day&scope=delivered&period=custom&start_date=2026-10-11&end_date=2026-10-12&series=day&page_size=1"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 200,
+      "path": "/api/v1/reports/sales",
+      "query": "?scope=delivered&period=custom&start_date=2026-10-06&end_date=2026-10-12&series=day&page_size=1"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 200,
+      "path": "/api/v1/reports/sales",
+      "query": "?workbench=customer_ranking&scope=delivered&period=custom&start_date=2026-10-01&end_date=2026-10-12&page_size=1"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 200,
+      "path": "/api/v1/customers",
+      "query": "?page_size=1&include_created_today=true"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 200,
+      "path": "/api/v1/reports/inventory",
+      "query": "?low_stock=true&page_size=2"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 200,
+      "path": "/api/v1/reports/payments",
+      "query": "?period=all&status=pending&page_size=2"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 200,
+      "path": "/api/v1/reports/inventory",
+      "query": "?workbench=ip_language_stock_count&page_size=1"
+    },
+    {
+      "user": "qa_5a3e_owner",
+      "status": 200,
+      "path": "/api/v1/products",
+      "query": "?q=&brand_id=&type=&sku_status=active&series=&page=1&page_size=50&include_inventory=true"
+    },
+    {
+      "user": "qa_5a3e_owner",
+      "status": 200,
+      "path": "/api/v1/orders",
+      "query": "?status=ready_to_ship&page_size=2"
+    },
+    {
+      "user": "qa_5a3e_owner",
+      "status": 200,
+      "path": "/api/v1/orders",
+      "query": "?status=awaiting_payment&page_size=2"
+    },
+    {
+      "user": "qa_5a3e_owner",
+      "status": 200,
+      "path": "/api/v1/reports/sales",
+      "query": "?scope=delivered&period=custom&start_date=2026-10-06&end_date=2026-10-12&series=day&page_size=1"
+    },
+    {
+      "user": "qa_5a3e_owner",
+      "status": 200,
+      "path": "/api/v1/reports/sales",
+      "query": "?workbench=day_over_day&scope=delivered&period=custom&start_date=2026-10-11&end_date=2026-10-12&series=day&page_size=1"
+    },
+    {
+      "user": "qa_5a3e_owner",
+      "status": 200,
+      "path": "/api/v1/reports/sales",
+      "query": "?workbench=customer_ranking&scope=delivered&period=custom&start_date=2026-10-01&end_date=2026-10-12&page_size=1"
+    },
+    {
+      "user": "qa_5a3e_owner",
+      "status": 200,
+      "path": "/api/v1/customers",
+      "query": "?page_size=1&include_created_today=true"
+    },
+    {
+      "user": "qa_5a3e_owner",
+      "status": 200,
+      "path": "/api/v1/reports/commissions",
+      "query": "?period=all&commission_status=pending_review&page_size=2"
+    },
+    {
+      "user": "qa_5a3e_owner",
+      "status": 200,
+      "path": "/api/v1/reports/inventory",
+      "query": "?workbench=ip_language_stock_count&page_size=1"
+    },
+    {
+      "user": "qa_5a3e_owner",
+      "status": 200,
+      "path": "/api/v1/reports/inventory",
+      "query": "?low_stock=true&page_size=2"
+    },
+    {
+      "user": "qa_5a3e_owner",
+      "status": 200,
+      "path": "/api/v1/reports/payments",
+      "query": "?period=all&status=pending&page_size=2"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 200,
+      "path": "/api/v1/customers",
+      "query": "?page_size=1&include_created_today=true"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 200,
+      "path": "/api/v1/orders",
+      "query": "?status=shipped&page_size=2"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 200,
+      "path": "/api/v1/reports/inventory",
+      "query": "?low_stock=true&page_size=2"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 200,
+      "path": "/api/v1/orders",
+      "query": "?status=ready_to_ship&page_size=2"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 200,
+      "path": "/api/v1/orders",
+      "query": "?status=awaiting_payment&page_size=2"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 200,
+      "path": "/api/v1/reports/payments",
+      "query": "?period=all&status=pending&page_size=2"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 200,
+      "path": "/api/v1/reports/inventory",
+      "query": "?workbench=ip_language_stock_count&page_size=1"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 200,
+      "path": "/api/v1/reports/sales",
+      "query": "?workbench=customer_ranking&scope=delivered&period=custom&start_date=2026-10-01&end_date=2026-10-12&page_size=1"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 200,
+      "path": "/api/v1/customers",
+      "query": "?page_size=1&include_created_today=true"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 200,
+      "path": "/api/v1/orders",
+      "query": "?status=shipped&page_size=2"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 200,
+      "path": "/api/v1/orders",
+      "query": "?status=awaiting_payment&page_size=2"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 200,
+      "path": "/api/v1/orders",
+      "query": "?status=ready_to_ship&page_size=2"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 200,
+      "path": "/api/v1/reports/payments",
+      "query": "?period=all&status=pending&page_size=2"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 200,
+      "path": "/api/v1/reports/inventory",
+      "query": "?low_stock=true&page_size=2"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 200,
+      "path": "/api/v1/reports/sales",
+      "query": "?scope=delivered&period=custom&start_date=2026-10-06&end_date=2026-10-12&series=day&page_size=1"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 200,
+      "path": "/api/v1/reports/inventory",
+      "query": "?workbench=ip_language_stock_count&page_size=1"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 200,
+      "path": "/api/v1/reports/sales",
+      "query": "?workbench=customer_ranking&scope=delivered&period=custom&start_date=2026-10-01&end_date=2026-10-12&page_size=1"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 200,
+      "path": "/api/v1/reports/sales",
+      "query": "?workbench=day_over_day&scope=delivered&period=custom&start_date=2026-10-11&end_date=2026-10-12&series=day&page_size=1"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 503,
+      "path": "/api/v1/reports/sales",
+      "query": "?scope=delivered&period=custom&start_date=2026-10-06&end_date=2026-10-12&series=day&page_size=1"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 503,
+      "path": "/api/v1/reports/sales",
+      "query": "?workbench=day_over_day&scope=delivered&period=custom&start_date=2026-10-11&end_date=2026-10-12&series=day&page_size=1"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 200,
+      "path": "/api/v1/orders",
+      "query": "?status=shipped&page_size=2"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 200,
+      "path": "/api/v1/customers",
+      "query": "?page_size=1&include_created_today=true"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 200,
+      "path": "/api/v1/reports/inventory",
+      "query": "?low_stock=true&page_size=2"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 200,
+      "path": "/api/v1/orders",
+      "query": "?status=ready_to_ship&page_size=2"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 200,
+      "path": "/api/v1/orders",
+      "query": "?status=awaiting_payment&page_size=2"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 200,
+      "path": "/api/v1/reports/payments",
+      "query": "?period=all&status=pending&page_size=2"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 200,
+      "path": "/api/v1/reports/inventory",
+      "query": "?workbench=ip_language_stock_count&page_size=1"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 200,
+      "path": "/api/v1/reports/sales",
+      "query": "?workbench=customer_ranking&scope=delivered&period=custom&start_date=2026-10-01&end_date=2026-10-12&page_size=1"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 200,
+      "path": "/api/v1/orders",
+      "query": "?status=shipped&page_size=2"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 200,
+      "path": "/api/v1/customers",
+      "query": "?page_size=1&include_created_today=true"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 200,
+      "path": "/api/v1/orders",
+      "query": "?status=ready_to_ship&page_size=2"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 200,
+      "path": "/api/v1/orders",
+      "query": "?status=awaiting_payment&page_size=2"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 200,
+      "path": "/api/v1/reports/inventory",
+      "query": "?workbench=ip_language_stock_count&page_size=1"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 200,
+      "path": "/api/v1/reports/inventory",
+      "query": "?low_stock=true&page_size=2"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 200,
+      "path": "/api/v1/reports/sales",
+      "query": "?scope=delivered&period=custom&start_date=2026-10-06&end_date=2026-10-12&series=day&page_size=1"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 200,
+      "path": "/api/v1/reports/payments",
+      "query": "?period=all&status=pending&page_size=2"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 200,
+      "path": "/api/v1/reports/sales",
+      "query": "?workbench=day_over_day&scope=delivered&period=custom&start_date=2026-10-11&end_date=2026-10-12&series=day&page_size=1"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 200,
+      "path": "/api/v1/reports/sales",
+      "query": "?workbench=customer_ranking&scope=delivered&period=custom&start_date=2026-10-01&end_date=2026-10-12&page_size=1"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 409,
+      "path": "/api/v1/reports/sales",
+      "query": "?scope=delivered&period=custom&start_date=2026-10-06&end_date=2026-10-12&series=day&page_size=1"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 409,
+      "path": "/api/v1/reports/sales",
+      "query": "?workbench=day_over_day&scope=delivered&period=custom&start_date=2026-10-11&end_date=2026-10-12&series=day&page_size=1"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 200,
+      "path": "/api/v1/orders",
+      "query": "?status=shipped&page_size=2"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 200,
+      "path": "/api/v1/customers",
+      "query": "?page_size=1&include_created_today=true"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 200,
+      "path": "/api/v1/reports/inventory",
+      "query": "?low_stock=true&page_size=2"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 200,
+      "path": "/api/v1/orders",
+      "query": "?status=awaiting_payment&page_size=2"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 200,
+      "path": "/api/v1/orders",
+      "query": "?status=ready_to_ship&page_size=2"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 200,
+      "path": "/api/v1/reports/payments",
+      "query": "?period=all&status=pending&page_size=2"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 200,
+      "path": "/api/v1/reports/inventory",
+      "query": "?workbench=ip_language_stock_count&page_size=1"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 200,
+      "path": "/api/v1/reports/sales",
+      "query": "?workbench=customer_ranking&scope=delivered&period=custom&start_date=2026-10-01&end_date=2026-10-12&page_size=1"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 200,
+      "path": "/api/v1/orders",
+      "query": "?status=shipped&page_size=2"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 200,
+      "path": "/api/v1/orders",
+      "query": "?status=awaiting_payment&page_size=2"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 200,
+      "path": "/api/v1/orders",
+      "query": "?status=ready_to_ship&page_size=2"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 200,
+      "path": "/api/v1/customers",
+      "query": "?page_size=1&include_created_today=true"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 200,
+      "path": "/api/v1/reports/sales",
+      "query": "?scope=delivered&period=custom&start_date=2026-10-06&end_date=2026-10-12&series=day&page_size=1"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 200,
+      "path": "/api/v1/reports/sales",
+      "query": "?workbench=day_over_day&scope=delivered&period=custom&start_date=2026-10-11&end_date=2026-10-12&series=day&page_size=1"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 200,
+      "path": "/api/v1/reports/payments",
+      "query": "?period=all&status=pending&page_size=2"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 200,
+      "path": "/api/v1/reports/inventory",
+      "query": "?low_stock=true&page_size=2"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 200,
+      "path": "/api/v1/reports/inventory",
+      "query": "?workbench=ip_language_stock_count&page_size=1"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 200,
+      "path": "/api/v1/reports/sales",
+      "query": "?workbench=customer_ranking&scope=delivered&period=custom&start_date=2026-10-01&end_date=2026-10-12&page_size=1"
+    }
+  ],
+  "dayOverDayPayloads": [
+    {
+      "scenario": "normal",
+      "status": 200,
+      "request": {
+        "path": "/api/v1/reports/sales",
+        "query": "?workbench=day_over_day&scope=delivered&period=custom&start_date=2026-10-11&end_date=2026-10-12&series=day&page_size=1"
+      },
+      "summary": {
+        "workbench": {
+          "day_over_day": {
+            "growth_percent": "1729.90",
+            "today_amount": "1829.900",
+            "yesterday_amount": "100.000"
+          }
+        }
+      }
+    },
+    {
+      "scenario": "extreme",
+      "status": 200,
+      "request": {
+        "path": "/api/v1/reports/sales",
+        "query": "?workbench=day_over_day&scope=delivered&period=custom&start_date=2026-10-11&end_date=2026-10-12&series=day&page_size=1"
+      },
+      "summary": {
+        "workbench": {
+          "day_over_day": {
+            "growth_percent": "123456.78",
+            "today_amount": "123556.780",
+            "yesterday_amount": "100.000"
+          }
+        }
+      }
+    }
+  ],
+  "httpErrors": [
+    {
+      "user": "qa_5a3e_sales",
+      "status": 503,
+      "path": "/api/v1/reports/sales"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 503,
+      "path": "/api/v1/reports/sales"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 409,
+      "path": "/api/v1/reports/sales"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "status": 409,
+      "path": "/api/v1/reports/sales"
+    }
+  ],
+  "consoleErrors": [
+    {
+      "user": "qa_5a3e_sales",
+      "type": "console",
+      "text": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "type": "console",
+      "text": "Failed to load resource: net::ERR_FAILED"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "type": "console",
+      "text": "Failed to load resource: net::ERR_FAILED"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "type": "console",
+      "text": "Failed to load resource: the server responded with a status of 503 (Service Unavailable)"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "type": "console",
+      "text": "Failed to load resource: the server responded with a status of 503 (Service Unavailable)"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "type": "console",
+      "text": "Failed to load resource: the server responded with a status of 409 (Conflict)"
+    },
+    {
+      "user": "qa_5a3e_sales",
+      "type": "console",
+      "text": "Failed to load resource: the server responded with a status of 409 (Conflict)"
+    }
+  ],
+  "databaseCountsAfter": {
+    "Customer": 2,
+    "SalesOrder": 6,
+    "SalesOrderLine": 6,
+    "PaymentRecord": 4,
+    "CommissionReview": 2,
+    "BusinessOperation": 0
+  },
+  "businessOperationCount": 0,
+  "apiStatuses": {
+    "200": 85,
+    "409": 2,
+    "503": 2
+  },
+  "httpErrorSummary": {
+    "409": 2,
+    "503": 2
+  },
+  "consoleErrorSummary": {
+    "Failed to load resource: the server responded with a status of 404 (Not Found)": 1,
+    "Failed to load resource: net::ERR_FAILED": 2,
+    "Failed to load resource: the server responded with a status of 503 (Service Unavailable)": 2,
+    "Failed to load resource: the server responded with a status of 409 (Conflict)": 2
+  },
+  "evidenceFiles": [
+    "error-409-desktop-1280.png",
+    "error-409-mobile-390.png",
+    "error-503-desktop-1280.png",
+    "error-503-mobile-390.png",
+    "error-network-desktop-1280.png",
+    "error-network-mobile-390.png",
+    "growth-extreme-desktop-1280.png",
+    "growth-extreme-mobile-390.png",
+    "growth-normal-desktop-1280.png",
+    "growth-normal-mobile-390.png",
+    "owner-review-desktop-1280.png",
+    "owner-review-mobile-390.png"
+  ],
+  "supplementalVisibleBrowserCheck": {
+    "status": "excluded_stale_session",
+    "browser": "Codex in-app browser",
+    "requestedViewport": {
+      "width": 390,
+      "height": 844
+    },
+    "observedViewport": {
+      "innerWidth": 390,
+      "documentClientWidth": 375,
+      "mainContentClientWidth": 375,
+      "mainContentScrollWidth": 375
+    },
+    "sessionIdentity": "qa_home_sales_view",
+    "preReloadObservation": {
+      "growthText": "+1729.90%",
+      "whiteSpace": "normal",
+      "renderedLines": 2
+    },
+    "reloadResult": "redirected to /accounts/login/?next=/",
+    "reason": "The visible tab showed stale data from the earlier fixed version, not qa_5a3e_sales. This observation is excluded from fixed-SHA acceptance; the saved isolated-browser 390 CSS viewport evidence remains authoritative.",
+    "screenshotArchived": false
+  },
+  "errorStateLayoutResult": {
+    "status": "fail_desktop_pass_mobile",
+    "cases": {
+      "network": {
+        "desktop": {
+          "textOverlap": true,
+          "overlapPx": 11.8,
+          "textOverflow": true
+        },
+        "mobile": {
+          "textOverlap": false,
+          "overlapPx": 0,
+          "textOverflow": false
+        }
+      },
+      "nonJson503": {
+        "desktop": {
+          "textOverlap": true,
+          "overlapPx": 11.8,
+          "textOverflow": true
+        },
+        "mobile": {
+          "textOverlap": false,
+          "overlapPx": 0,
+          "textOverflow": false
+        }
+      },
+      "business409": {
+        "desktop": {
+          "textOverlap": true,
+          "overlapPx": 11.8,
+          "textOverflow": true
+        },
+        "mobile": {
+          "textOverlap": false,
+          "overlapPx": 0,
+          "textOverflow": false
+        }
+      }
+    },
+    "finding": "At desktop 1280, “暂不可用” sales text is nowrap but 112px wide inside a 95px box. Its text reaches x=335 while the adjacent growth text begins at x=323.2, overlapping by 11.8px. Mobile boxes contain both values without overlap."
+  }
+}
