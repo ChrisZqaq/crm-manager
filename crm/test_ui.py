@@ -93,6 +93,9 @@ class ApprovedWorkbenchAndPaymentUITests(TestCase):
         self.assertContains(response, 'id="workbench-trend-data"')
         self.assertContains(response, "new ResizeObserver(render)")
         self.assertNotContains(response, "preserveAspectRatio")
+        self.assertContains(response, "网络连接失败，请稍后重试。")
+        self.assertContains(response, "link.title=preview.label")
+        self.assertContains(response, "status-preview-amount")
         self.assertContains(response, "loadOrders('awaiting_payment'")
         self.assertNotContains(response, "workbench=ip_language_stock_count")
 

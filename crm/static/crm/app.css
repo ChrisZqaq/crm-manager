@@ -209,6 +209,7 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
   .app-column { margin-left: 168px; }
   .main-content { padding-inline: 18px; }
   .split-layout { grid-template-columns: minmax(0, 1.2fr) minmax(285px, .8fr); }
+  .workbench-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (max-width: 760px) {
@@ -364,8 +365,10 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
 .workbench-card .card-head h2 { margin: 0; font-size: 14px; }
 .workbench-card .card-head a { flex: 0 0 auto; font-size: 12px; }
 .workbench-card-body { display: grid; min-width: 0; flex: 1; grid-template-columns: minmax(74px, 38%) minmax(0, 1fr); align-items: stretch; gap: 0; padding: 0; }
-.workbench-sales-card .workbench-card-body { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); }
+.workbench-sales-card .workbench-card-body { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .workbench-sales-card .workbench-side { padding-left: 4px; }
+.workbench-sales-card .workbench-measure > strong { font-size: clamp(16px, 1.4vw, 18px); }
+.workbench-sales-card #today-growth { font-size: clamp(14px, 1.05vw, 15px); white-space: nowrap; }
 .workbench-measure { display: grid; min-width: 0; align-content: center; justify-items: start; gap: 5px; }
 .workbench-measure-label { color: var(--muted); font-size: 11px; }
 .workbench-measure > strong, .workbench-measure-value strong, .workbench-side > strong { display: inline; min-width: 0; color: var(--brand); font-size: 27px; line-height: 1.2; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
@@ -373,8 +376,9 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
 .workbench-measure-value > span { color: var(--muted); font-size: 11px; }
 .workbench-side { display: grid; min-width: 0; align-content: center; gap: 5px; border-left: 1px solid var(--line); padding-left: 10px; }
 .workbench-side .status-preview { min-width: 0; gap: 6px; }
-.workbench-side .status-preview li { overflow-wrap: anywhere; font-size: 11px; line-height: 1.35; }
-.workbench-side .status-preview a { overflow-wrap: anywhere; }
+.status-grid .workbench-side .status-preview li { display: grid; min-width: 0; gap: 2px; overflow-wrap: anywhere; font-size: 11px; line-height: 1.35; }
+.status-grid .workbench-side .status-preview a { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.status-grid .workbench-side .status-preview-amount { justify-self: end; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; text-align: right; }
 .workbench-summary .workbench-side #customer-ranking { min-width: 0; border: 0; padding: 0; }
 .customer-summary-new { color: var(--danger); font-size: 11px; white-space: nowrap; }
 .customer-summary-new strong { display: inline; color: inherit; font-size: inherit; }
