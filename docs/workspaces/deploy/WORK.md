@@ -190,3 +190,9 @@ Nginx新增独立配置`/etc/nginx/sites-available/aluola-crm-iptest.conf`及启
 **本机演示**：确认0014待迁移仅该迁移；完成迁移、`migrate --check`、Django system check及133个静态文件收集。服务运行在127.0.0.1:8765；登录/静态/媒体/未批准Host分别为200/200/404/400。固定销售账号本机尚未建立/复验，未声称权限验收。
 
 **边界与未决**：没有执行回滚；如要还原数据库须负责人明确批准并恢复对应完整dump，不能依赖0014 reverse。默认本机`pg_restore`不支持此自定义归档压缩，云端远程列表验证为准。应用整体权限验收仍由QA负责。
+
+## 当前任务：LOCAL-DEMO-RUNTIME-PIN 固定本机演示运行副本（2026-10-12）
+
+负责人按UI-HOME-REFINE写入保护要求授权切换本人管理的本机8765服务。切换前确认8765无监听进程，未终止或影响其他进程；云端未触碰。以发布包`.local/release-ip-update-20261010/aluola-crm-app-0f835cb2086852ae20f2f82aed8a40070281a0b4.tar`为唯一输入，SHA256 `81c91222b881a9e18423bffdc43fb9c56ae4d7ed728f6bdee9f421a26ae804af`，解出81个文件并逐文件对比包内散列。固定应用目录为`.local/demo-runtime/app/aluola-crm`，不依赖工作树后续HEAD/应用写入。
+
+沿用绝对项目Python `.venv/bin/python` 和 `.local/demo-runtime/demo_settings.py`，同一`aluola_crm_local_demo`、媒体`.local/demo-runtime/media`和静态`.local/demo-runtime/static`。因副本的`BASE_DIR`改变后默认Unix socket路径超过macOS限制，仅在忽略的demo_settings内将HOST改为`RUNTIME_ROOT/pgsock`；该短别名是到原`.local/postgres-socket`的符号链接，没有改数据库/PG配置或数据。配置输出确认DB_NAME与`SELECT current_database()`均为`aluola_crm_local_demo`，最新CRM migration为`0014_user_revision_1009`；Django check无问题。当前服务PID 56309、工作目录固定副本、仅绑定127.0.0.1:8765；登录/静态/媒体/非法Host返回200/200/404/400。启动命令使用固定副本manage.py、绝对venv Python、`PYTHONPATH=<项目根>/.local/demo-runtime`及`DJANGO_SETTINGS_MODULE=demo_settings`。未运行业务写入或迁移。
