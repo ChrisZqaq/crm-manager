@@ -8,39 +8,39 @@
   {% if perms.crm.add_salesorder %}<div class="page-actions"><a class="button-primary" href="{% url 'order-new' %}">新建订单</a></div>{% endif %}
 </section>
 <section class="summary-grid workbench-summary" aria-label="业务摘要">
-  <article class="data-card summary-card"><span class="summary-label">今日销售额</span><div class="summary-horizontal"><strong id="today-sales">—</strong><span class="summary-side">增速<br><span id="today-growth" aria-live="polite">—</span></span></div><span class="summary-note" id="today-sales-status" role="status" aria-live="polite">已交付销售；北京时间</span></article>
-  <article class="data-card summary-card"><div class="card-head"><h2>客户</h2>{% if perms.crm.view_customer %}<a href="{% url 'customers' %}">全部</a>{% endif %}</div><div class="summary-horizontal customer-summary"><div class="customer-summary-metrics"><strong id="customer-total">—</strong><span class="customer-summary-new">新增 <strong>—</strong></span></div>{% if perms.crm.view_salesorder %}<ol id="customer-ranking" class="status-preview" aria-label="本月客户购买金额排行" aria-live="polite"><li class="muted">加载中…</li></ol>{% endif %}</div></article>
-  <article class="data-card summary-card"><div class="card-head"><h2>在售商品组合</h2>{% if perms.crm.view_brand and perms.crm.view_product and perms.crm.view_sku %}<a href="{% url 'catalog-search' %}">全部</a>{% endif %}</div><div class="summary-horizontal"><strong id="product-total">—</strong><span class="summary-side">IP × 语言</span></div>{% if perms.crm.view_inventorybalance %}<ul id="product-preview" class="status-preview" aria-label="有库存IP与语言组合"><li class="muted">加载中…</li></ul>{% endif %}<span class="summary-note" id="product-total-status" role="status" aria-live="polite"></span></article>
-  <article class="data-card summary-card"><div class="card-head"><h2>低库存提醒</h2>{% if perms.crm.view_inventorybalance %}<a href="{% url 'inventory' %}?low_stock=true">全部</a>{% endif %}</div><div class="summary-horizontal"><strong id="low-stock-total">—</strong><span class="summary-side">条</span></div>{% if perms.crm.view_inventorybalance %}<ul id="low-stock-preview" class="status-preview" aria-label="低库存记录"><li class="muted">加载中…</li></ul>{% endif %}</article>
+  <article class="data-card summary-card workbench-card workbench-sales-card"><div class="card-head"><h2>今日销售额</h2></div><div class="workbench-card-body"><div class="workbench-measure"><span class="workbench-measure-label">销售额</span><strong id="today-sales">—</strong></div><div class="workbench-side"><span class="workbench-measure-label">增速</span><strong id="today-growth" aria-live="polite">—</strong></div></div><p class="workbench-card-status" id="today-sales-status" role="status" aria-live="polite"></p></article>
+  <article class="data-card summary-card workbench-card"><div class="card-head"><h2>客户</h2>{% if perms.crm.view_customer %}<a href="{% url 'customers' %}">全部</a>{% endif %}</div><div class="workbench-card-body"><div class="workbench-measure"><div class="workbench-measure-value"><strong id="customer-total">—</strong><span>位</span></div>{% if perms.crm.view_customer %}<span class="customer-summary-new">今日新增 <strong id="customer-created-today">—</strong></span>{% endif %}</div><div class="workbench-side">{% if perms.crm.view_salesorder %}<span class="workbench-measure-label">本月购买 Top3</span><ol id="customer-ranking" class="status-preview" aria-label="本月客户购买金额排行" aria-live="polite"><li class="muted">加载中…</li></ol>{% else %}<span class="muted">当前账号无权查看此数据</span>{% endif %}</div></div><p class="workbench-card-status" id="customer-total-status" role="status" aria-live="polite"></p></article>
+  <article class="data-card summary-card workbench-card"><div class="card-head"><h2>在售商品组合</h2>{% if perms.crm.view_brand and perms.crm.view_product and perms.crm.view_sku %}<a href="{% url 'catalog-search' %}">全部</a>{% endif %}</div><div class="workbench-card-body"><div class="workbench-measure"><div class="workbench-measure-value"><strong id="product-total">—</strong><span>类</span></div></div><div class="workbench-side">{% if perms.crm.view_inventorybalance %}<ul id="product-preview" class="status-preview" aria-label="有库存IP与语言组合"><li class="muted">加载中…</li></ul>{% else %}<span class="muted">当前账号无权查看此数据</span>{% endif %}</div></div><p class="workbench-card-status" id="product-total-status" role="status" aria-live="polite"></p></article>
+  <article class="data-card summary-card workbench-card"><div class="card-head"><h2>低库存提醒</h2>{% if perms.crm.view_inventorybalance %}<a href="{% url 'inventory' %}?low_stock=true">全部</a>{% endif %}</div><div class="workbench-card-body"><div class="workbench-measure"><div class="workbench-measure-value"><strong id="low-stock-total">—</strong><span>条</span></div></div><div class="workbench-side">{% if perms.crm.view_inventorybalance %}<ul id="low-stock-preview" class="status-preview" aria-label="低库存记录"><li class="muted">加载中…</li></ul>{% else %}<span class="muted">当前账号无权查看此数据</span>{% endif %}</div></div><p class="workbench-card-status" id="low-stock-status" role="status" aria-live="polite"></p></article>
 </section>
 
 <section class="status-grid" aria-label="待处理订单">
-  <article class="data-card status-card">
+  <article class="data-card status-card workbench-card">
     <div class="card-head"><h2>待收款订单</h2>{% if perms.crm.view_salesorder %}<a href="{% url 'orders' %}?status=awaiting_payment">查看全部</a>{% endif %}</div>
-    <div class="status-card-body"><strong id="awaiting-count">—</strong><ul id="awaiting-orders" class="status-preview"><li class="muted">{% if perms.crm.view_salesorder %}加载中…{% else %}当前账号无权查看此数据{% endif %}</li></ul></div><p id="awaiting-status" class="inline-status" role="status"></p>
+    <div class="status-card-body workbench-card-body"><div class="workbench-measure"><div class="workbench-measure-value"><strong id="awaiting-count">—</strong><span>单</span></div></div><div class="workbench-side"><ul id="awaiting-orders" class="status-preview"><li class="muted">{% if perms.crm.view_salesorder %}加载中…{% else %}当前账号无权查看此数据{% endif %}</li></ul></div></div><p id="awaiting-status" class="workbench-card-status" role="status"></p>
   </article>
-  <article class="data-card status-card">
+  <article class="data-card status-card workbench-card">
     <div class="card-head"><h2>待出库订单</h2>{% if perms.crm.view_salesorder %}<a href="{% url 'orders' %}?status=ready_to_ship">查看全部</a>{% endif %}</div>
-    <div class="status-card-body"><strong id="ready-count">—</strong><ul id="ready-orders" class="status-preview"><li class="muted">{% if perms.crm.view_salesorder %}加载中…{% else %}当前账号无权查看此数据{% endif %}</li></ul></div><p id="ready-status" class="inline-status" role="status"></p>
+    <div class="status-card-body workbench-card-body"><div class="workbench-measure"><div class="workbench-measure-value"><strong id="ready-count">—</strong><span>单</span></div></div><div class="workbench-side"><ul id="ready-orders" class="status-preview"><li class="muted">{% if perms.crm.view_salesorder %}加载中…{% else %}当前账号无权查看此数据{% endif %}</li></ul></div></div><p id="ready-status" class="workbench-card-status" role="status"></p>
   </article>
-  <article class="data-card status-card">
+  <article class="data-card status-card workbench-card">
     <div class="card-head"><h2>待确认收款</h2>{% if perms.crm.view_salesorder %}<a href="{% url 'report-page' 'payments' %}?status=pending&amp;period=all">查看全部</a>{% endif %}</div>
-    <div class="status-card-body"><strong id="pending-count">—</strong><ul id="pending-orders" class="status-preview"><li class="muted">{% if perms.crm.view_salesorder %}加载中…{% else %}当前账号无权查看此数据{% endif %}</li></ul></div><p id="pending-status" class="inline-status" role="status"></p>
+    <div class="status-card-body workbench-card-body"><div class="workbench-measure"><div class="workbench-measure-value"><strong id="pending-count">—</strong><span>单</span></div></div><div class="workbench-side"><ul id="pending-orders" class="status-preview"><li class="muted">{% if perms.crm.view_salesorder %}加载中…{% else %}当前账号无权查看此数据{% endif %}</li></ul></div></div><p id="pending-status" class="workbench-card-status" role="status"></p>
   </article>
-  <article class="data-card status-card">
+  <article class="data-card status-card workbench-card">
     {% if perms.crm.view_salesorder and perms.crm.review_commission %}
       <div class="card-head"><h2>待确认复核订单</h2><a href="{% url 'report-page' 'commissions' %}?period=all&amp;commission_status=pending_review">查看全部</a></div>
-      <div class="status-card-body"><strong id="review-count">—</strong><ul id="review-orders" class="status-preview"><li class="muted">加载中…</li></ul></div><p id="review-status" class="inline-status" role="status"></p>
+      <div class="status-card-body workbench-card-body"><div class="workbench-measure"><div class="workbench-measure-value"><strong id="review-count">—</strong><span>单</span></div></div><div class="workbench-side"><ul id="review-orders" class="status-preview"><li class="muted">加载中…</li></ul></div></div><p id="review-status" class="workbench-card-status" role="status"></p>
     {% else %}
       <div class="card-head"><h2>待确认收货</h2>{% if perms.crm.view_salesorder %}<a href="{% url 'orders' %}?status=shipped">查看全部</a>{% endif %}</div>
-      <div class="status-card-body"><strong id="shipped-count">—</strong><ul id="shipped-orders" class="status-preview"><li class="muted">{% if perms.crm.view_salesorder %}加载中…{% else %}当前账号无权查看此数据{% endif %}</li></ul></div><p id="shipped-status" class="inline-status" role="status"></p>
+      <div class="status-card-body workbench-card-body"><div class="workbench-measure"><div class="workbench-measure-value"><strong id="shipped-count">—</strong><span>单</span></div></div><div class="workbench-side"><ul id="shipped-orders" class="status-preview"><li class="muted">{% if perms.crm.view_salesorder %}加载中…{% else %}当前账号无权查看此数据{% endif %}</li></ul></div></div><p id="shipped-status" class="workbench-card-status" role="status"></p>
     {% endif %}
   </article>
 </section>
 
 {% if perms.crm.view_salesorder %}<section class="data-card dashboard-trend" aria-labelledby="workbench-trend-title">
-  <div class="card-head"><div><h2 id="workbench-trend-title">近 7 天已交付销售</h2><p class="muted">北京时间发货／现场交付日</p></div></div>
-  <div class="card-body"><div id="workbench-trend" class="line-chart" role="img" aria-label="近7天每日已交付销售额"></div><p id="workbench-trend-status" class="inline-status" role="status" aria-live="polite"></p></div>
+  <div class="card-head"><h2 id="workbench-trend-title">近 7 天已交付销售</h2><span id="workbench-trend-period" class="muted"></span></div>
+  <div class="card-body"><div id="workbench-trend" class="workbench-trend" role="group" aria-label="近7天每日已交付销售额"></div><p id="workbench-trend-status" class="inline-status" role="status" aria-live="polite"></p><table id="workbench-trend-data" class="workbench-chart-data"><caption>近7天每日已交付销售额</caption><thead><tr><th scope="col">日期</th><th scope="col">金额</th></tr></thead><tbody></tbody></table></div>
 </section>{% endif %}
 
 <script>
@@ -52,6 +52,14 @@
     return data;
   };
   const set = (id, value) => { const element = document.getElementById(id); if (element) element.textContent = value; };
+  const setMoney = (element, amount) => {
+    const value = Number(amount);
+    if (typeof amount !== 'string' || !/^\d+(?:\.\d{1,3})?$/.test(amount) || !Number.isFinite(value)) throw new Error('金额数据格式无效。');
+    const full = `¥${amount}`;
+    element.textContent = value >= 10000 ? `¥${new Intl.NumberFormat('zh-CN', {maximumFractionDigits: 1}).format(value / 10000)}万` : `¥${new Intl.NumberFormat('zh-CN', {maximumFractionDigits: 3}).format(value)}`;
+    element.title = `完整金额：${full}`;
+    element.setAttribute('aria-label', `完整金额：${full}`);
+  };
   const noRows = (id, message) => { const list=document.getElementById(id);if(list)list.replaceChildren(Object.assign(document.createElement('li'),{className:'muted',textContent:message})); };
   const showOrderRows = (listId, rows, makeLabel) => {
     const list=document.getElementById(listId);if(!list)return;list.replaceChildren();
@@ -66,17 +74,38 @@
   (async()=>{
     try {
       const series=await get(`/api/v1/reports/sales?scope=delivered&period=custom&start_date=${startDate}&end_date=${localDate}&series=day&page_size=1`);
-      chart.replaceChildren();const points=series.series||[];
-      if(points.length){
-        chart.setAttribute('aria-label',`近7天每日已交付销售额：${points.map(item=>`${item.date} ¥${item.revenue_amount}`).join('；')}`);
-        const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('viewBox','0 0 700 190');svg.setAttribute('preserveAspectRatio','none');
-        const values=points.map(item=>Number(item.revenue_amount)),max=Math.max(...values,0),xAt=index=>28+(points.length<2?0:index*644/(points.length-1)),yAt=value=>148-(max?value/max*112:0);
-        const axis=document.createElementNS(svg.namespaceURI,'path');axis.setAttribute('d','M28 150H672');axis.setAttribute('class','chart-axis');svg.append(axis);
-        const line=document.createElementNS(svg.namespaceURI,'polyline');line.setAttribute('points',values.map((value,index)=>`${xAt(index)},${yAt(value)}`).join(' '));line.setAttribute('class','chart-line');svg.append(line);
-        points.forEach((item,index)=>{const group=document.createElementNS(svg.namespaceURI,'g'),dot=document.createElementNS(svg.namespaceURI,'circle'),title=document.createElementNS(svg.namespaceURI,'title');dot.setAttribute('cx',xAt(index));dot.setAttribute('cy',yAt(values[index]));dot.setAttribute('r','4');dot.setAttribute('class','chart-point');title.textContent=`${item.date}：¥${item.revenue_amount}`;group.append(dot,title);svg.append(group);const label=document.createElement('span');label.className='chart-date';label.textContent=item.date.slice(5);chart.append(label);});
-        chart.prepend(svg);
-      } else {chart.textContent='暂无已交付销售数据。';}
-    }catch(error){chart.textContent='销售趋势暂不可用。';set('workbench-trend-status',error.message);}
+      const points=series.series;
+      if(!Array.isArray(points)||points.some(item=>!/^\d{4}-\d{2}-\d{2}$/.test(item?.date)||typeof item.revenue_amount!=='string'||!/^\d+(?:\.\d{1,3})?$/.test(item.revenue_amount)||!Number.isFinite(Number(item.revenue_amount)))) throw new Error('趋势数据格式无效。');
+      const tableBody=document.querySelector('#workbench-trend-data tbody');tableBody.replaceChildren();
+      if(!points.length){chart.textContent='暂无已交付销售数据。';set('workbench-trend-period','');return;}
+      const dateLabel=date=>{const [,month,day]=date.split('-');return `${Number(month)}/${Number(day)}`;};
+      set('workbench-trend-period',`${points[0].date.slice(5).replace('-','/')}—${points[points.length-1].date.slice(5).replace('-','/')}`);
+      const values=points.map(item=>Number(item.revenue_amount)),max=Math.max(...values),roughStep=max/3,power=roughStep?10**Math.floor(Math.log10(roughStep)):1000,ratio=roughStep/power,step=max?(ratio<=1?1:ratio<=2?2:ratio<=5?5:10)*power:1000,yMax=step*3;
+      const ns='http://www.w3.org/2000/svg';
+      const render=()=>{
+        const width=chart.clientWidth;if(!width)return;const height=window.innerWidth<=480?240:260;
+        chart.replaceChildren();tableBody.replaceChildren();
+        const svg=document.createElementNS(ns,'svg');svg.setAttribute('viewBox',`0 0 ${width} ${height}`);svg.setAttribute('width',width);svg.setAttribute('height',height);svg.setAttribute('class','workbench-trend-svg');svg.setAttribute('role','group');svg.setAttribute('aria-label','近7天每日销售额；节点可用Tab查看日期和金额');
+        const maxTickLabel=`¥${new Intl.NumberFormat('zh-CN',{maximumFractionDigits:3}).format(yMax)}`,left=Math.max(48,maxTickLabel.length*7+10),right=12,top=16,bottom=34,plotWidth=width-left-right,plotHeight=height-top-bottom,xAt=index=>left+(points.length<2?plotWidth/2:index*plotWidth/(points.length-1)),yAt=value=>top+plotHeight-(yMax?value/yMax*plotHeight:0),append=(tag,attrs,text)=>{const node=document.createElementNS(ns,tag);for(const [key,value] of Object.entries(attrs))node.setAttribute(key,value);if(text!==undefined)node.textContent=text;svg.append(node);return node;};
+        for(let tick=0;tick<=3;tick++){
+          const value=step*tick,y=yAt(value);
+          append('path',{d:`M${left} ${y}H${width-right}`,class:'chart-axis'});
+          append('text',{x:left-8,y:y+4,class:'chart-tick', 'text-anchor':'end'},`¥${new Intl.NumberFormat('zh-CN',{maximumFractionDigits:3}).format(value)}`);
+        }
+        const line=append('polyline',{points:values.map((value,index)=>`${xAt(index)},${yAt(value)}`).join(' '),class:'chart-line'});
+        line.setAttribute('aria-hidden','true');
+        points.forEach((item,index)=>{
+          const date=dateLabel(item.date),full=`${item.date}：¥${item.revenue_amount}`;
+          const group=append('g',{class:'chart-point-group',tabindex:'0',role:'img','aria-label':full});
+          const dot=document.createElementNS(ns,'circle');dot.setAttribute('cx',xAt(index));dot.setAttribute('cy',yAt(values[index]));dot.setAttribute('r','4');dot.setAttribute('class','chart-point');
+          const title=document.createElementNS(ns,'title');title.textContent=full;group.append(dot,title);
+          const label=append('text',{x:xAt(index),y:height-8,class:'chart-date','text-anchor':'middle'},date);label.setAttribute('aria-hidden','true');
+          const row=document.createElement('tr');for(const value of [item.date,`¥${item.revenue_amount}`]){const cell=document.createElement('td');cell.textContent=value;row.append(cell);}tableBody.append(row);
+        });
+        chart.append(svg);
+      };
+      render();new ResizeObserver(render).observe(chart);
+    }catch(error){chart.textContent='销售趋势暂不可用。';set('workbench-trend-period','');set('workbench-trend-status',error.message);}
   })();
   (async()=>{
     const growth=document.getElementById('today-growth'), status=document.getElementById('today-sales-status');
@@ -84,11 +113,13 @@
       const data=await get(`/api/v1/reports/sales?workbench=day_over_day&scope=delivered&period=custom&start_date=${yesterday}&end_date=${localDate}&series=day&page_size=1`);
       const summary=data.summary?.workbench?.day_over_day;
       if(!summary||typeof summary.today_amount!=='string'||(summary.growth_percent!==null&&(typeof summary.growth_percent!=='string'||!summary.growth_percent.trim()||!Number.isFinite(Number(summary.growth_percent))))) throw new Error('增速数据格式无效。');
-      set('today-sales',`¥${summary.today_amount}`);
+      setMoney(document.getElementById('today-sales'),summary.today_amount);
       const rate=summary.growth_percent;
-      growth.textContent=rate===null?'—':`${rate}%`;
+      growth.textContent=rate===null?'—':`${Number(rate)>0?'+':''}${rate.replace(/\.0+$/,'')}%`;
+      growth.title=rate===null?'':`服务端增速：${rate}%`;
+      if(rate!==null) growth.setAttribute('aria-label',`增速 ${rate}%`);
       growth.style.color=rate===null?'':Number(rate)>0?'var(--danger)':Number(rate)<0?'var(--success)':'';
-      status.textContent='已交付销售；北京时间';
+      status.textContent='';
     } catch(error) {
       set('today-sales','暂不可用');growth.textContent='暂不可用';growth.style.color='';status.textContent=`${error.message}；刷新页面重试。`;
     }
@@ -101,7 +132,7 @@
       if(!Array.isArray(rows)||rows.some(row=>!row||typeof row.customer_name!=='string'||typeof row.amount!=='string')) throw new Error('客户排行数据格式无效。');
       list.replaceChildren();
       if(!rows.length){noRows('customer-ranking','暂无客户消费排行。');return;}
-      rows.forEach((row,index)=>{const item=document.createElement('li'),link=document.createElement('a'),rank=document.createElement('span'),name=document.createElement('span'),amount=document.createElement('span');item.className='customer-ranking-row';link.href=`/customers/?q=${encodeURIComponent(row.customer_name)}`;link.title=row.customer_name;link.setAttribute('aria-label',`第${index+1}名，${row.customer_name}，查看客户资料`);rank.className='customer-ranking-number';rank.textContent=`${index+1}.`;name.className='customer-ranking-name';name.textContent=row.customer_name;link.append(rank,name);amount.className='customer-ranking-amount';amount.textContent=`¥${row.amount}`;item.append(link,amount);list.append(item);});
+      rows.forEach((row,index)=>{const item=document.createElement('li'),link=document.createElement('a'),rank=document.createElement('span'),name=document.createElement('span'),amount=document.createElement('span');item.className='customer-ranking-row';link.href=`/customers/?q=${encodeURIComponent(row.customer_name)}`;link.title=row.customer_name;link.setAttribute('aria-label',`第${index+1}名，${row.customer_name}，查看客户资料`);rank.className='customer-ranking-number';rank.textContent=`${index+1}.`;name.className='customer-ranking-name';name.textContent=row.customer_name;link.append(rank,name);amount.className='customer-ranking-amount';setMoney(amount,row.amount);item.append(link,amount);list.append(item);});
     } catch(error) { noRows('customer-ranking',`${error.message}；刷新页面重试。`); }
   })();
   const loadOrders = async (status, countId, listId, statusId) => {
@@ -118,10 +149,10 @@
   (async()=>{try{const data=await get('/api/v1/reports/payments?period=all&status=pending&page_size=2');set('pending-count',data.total);showOrderRows('pending-orders',data.items||[],item=>`订单 ${item.order_id} · ${item.customer} · ${item.account} · ¥${item.registered_amount}`);}catch(error){set('pending-count','暂不可用');noRows('pending-orders','列表暂不可用。');set('pending-status',error.message);}})();
   {% endif %}
   {% if perms.crm.view_customer %}
-  (async()=>{try{const data=await get('/api/v1/customers?page_size=1');set('customer-total',data.total);}catch{set('customer-total','暂不可用');}})();
+  (async()=>{try{const data=await get('/api/v1/customers?page_size=1&include_created_today=true');if(!Number.isInteger(data.total)||data.total<0||!Number.isInteger(data.created_today_total)||data.created_today_total<0)throw new Error('客户数据格式无效。');set('customer-total',data.total);set('customer-created-today',data.created_today_total);}catch(error){set('customer-total','暂不可用');set('customer-created-today','暂不可用');set('customer-total-status',`${error.message}；刷新页面重试。`);}})();
   {% endif %}
   {% if perms.crm.view_inventorybalance %}
-    (async()=>{try{const data=await get('/api/v1/reports/inventory?low_stock=true&page_size=2');set('low-stock-total',data.total);const list=document.getElementById('low-stock-preview');if(list){list.replaceChildren();if(!data.items?.length){noRows('low-stock-preview','当前没有低库存记录。');return;}for(const row of data.items){const li=document.createElement('li'),link=document.createElement('a');link.href='/inventory/?low_stock=true';link.textContent=`${row.product_name||row.product||'商品'} · ${row.code||row.sku_code||''} · ${row.available} ${row.unit||''}`;li.append(link);list.append(li);}}}catch(error){set('low-stock-total','暂不可用');noRows('low-stock-preview',`列表暂不可用：${error.message}`);}})();
+    (async()=>{try{const data=await get('/api/v1/reports/inventory?low_stock=true&page_size=2');set('low-stock-total',data.total);const list=document.getElementById('low-stock-preview');if(list){list.replaceChildren();if(!data.items?.length){noRows('low-stock-preview','当前没有低库存记录。');return;}for(const row of data.items){const li=document.createElement('li'),link=document.createElement('a');link.href='/inventory/?low_stock=true';link.textContent=`${row.product_name||row.product||'商品'} · ${row.code||row.sku_code||''} · ${row.available} ${row.unit||''}`;li.append(link);list.append(li);}}}catch(error){set('low-stock-total','暂不可用');noRows('low-stock-preview',`列表暂不可用：${error.message}`);set('low-stock-status',error.message);}})();
     (async()=>{try{const data=await get('/api/v1/reports/inventory?workbench=ip_language_stock_count&page_size=1');const summary=data.summary?.workbench,count=summary?.in_stock_ip_language_combination_count,preview=summary?.in_stock_ip_language_combinations_preview;if(!Number.isInteger(count)||count<0||!Array.isArray(preview))throw new Error('组合数据格式无效。');set('product-total',count);const list=document.getElementById('product-preview');if(list){list.replaceChildren();for(const row of preview){const li=document.createElement('li'),link=document.createElement('a');link.href=`/catalog/?brand_id=${encodeURIComponent(row.brand_id)}`;link.textContent=`${row.brand_name} · ${row.language_name||'未标语言'}`;li.append(link);list.append(li);}if(!preview.length)noRows('product-preview','暂无有库存组合。');}}catch(error){set('product-total','暂不可用');set('product-total-status',`${error.message}；刷新页面重试。`);noRows('product-preview','组合列表暂不可用。');}})();
   {% endif %}
 })();
