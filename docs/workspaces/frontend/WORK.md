@@ -4,7 +4,7 @@
 
 - 依据负责人新开的唯一失败态写入窗口，基线为应用 `5a3e97d2073532032db5312b5630d166b22b7f06`。最终应用提交 `c29ca9ac83f0cafcca2085179f06c7113e15de4b`，只在 `crm/templates/crm/workbench.html` 的失败分支增加一行 `fitMetrics()`：错误占位文本写入后复用既有测量适配，使“暂不可用”不会覆盖邻列。未改成功数值、CSS、其它错误语义或旧模块。
 - 无界面 Chromium＋隔离合成站，在1280×900及390×844各触发网络拒绝、HTTP 503 非JSON、HTTP 409 JSON业务错误。六种组合均保留中文原因与刷新提示；销售额与增速的 Range 实测单行、各自位于本列边界内且互不相交，文档宽度与视口一致。1280下销售额 Range 223–314、列223–318.2；增速 Range 323.2–431.2、列318.2–442，两值间隔9.2px。390下销售额Range 29–157、列29–173.34；增速Range178.34–306.34、列173.34–360.98，两值间隔21.34px。六张真实合成页面截图及测量见[本轮证据目录](home-refine-error-fit-20261012/)。
-- `git diff 5a3e97d.. -- crm/templates/crm/workbench.html crm/static/crm/app.css crm/test_ui.py` 仅含上述一行；`git diff --check`通过。按负责人限定，本轮只做针对性浏览器复查，未重跑Django全套测试。只创建了确认不存在的隔离库 `alh_home_errorfit_data_20261012_3a7f`，迁移及合成销售账号供无数据页面使用；服务停止、0连接后已删除，临时脚本清理；未创建测试库或触碰其他角色资源。
+- `git diff 5a3e97d.. -- crm/templates/crm/workbench.html crm/static/crm/app.css crm/test_ui.py` 仅含上述一行；`git diff --check`通过。按负责人限定，本轮只做针对性浏览器复查，未重跑Django全套测试。确认库名不存在后，本轮自建合成测试库 `alh_home_errorfit_data_20261012_3a7f`，迁移并加入合成销售账号供无数据页面使用；服务停止、0活动连接后已删除，临时脚本清理。未创建测试库；本机演示库 `aluola_crm_local_demo` 未连接、未触碰，也未触碰其他角色资源。
 - 本应用版本已固定并停写，未推送/部署；交负责人、QA和UI仅复查该错误占位位置。
 
 ## UI-HOME-REFINE-3FIX 固定交付（2026-10-12）
