@@ -1,0 +1,26 @@
+{
+  "synthetic": true,
+  "cases": {
+    "desktop-normal-growth": {
+      "viewport": 1280,
+      "text": "+1729.90%",
+      "font": "14px",
+      "textWidth": 83.81,
+      "textHeight": 17,
+      "client": 105,
+      "scroll": 105,
+      "documentWidth": 1280
+    },
+    "mobile-normal-growth": {
+      "viewport": 390,
+      "text": "+1729.90%",
+      "font": "14px",
+      "textWidth": 83.81,
+      "textHeight": 17,
+      "client": 161,
+      "scroll": 161,
+      "documentWidth": 390
+    }
+  },
+  "extremeCase": "+123456.78% is recorded in geometry.json"
+}
