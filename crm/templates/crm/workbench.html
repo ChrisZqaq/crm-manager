@@ -140,6 +140,7 @@
       status.textContent='';
     } catch(error) {
       set('today-sales','暂不可用');growth.textContent='暂不可用';growth.style.color='';status.textContent=`${error.message}；刷新页面重试。`;
+        fitMetrics();
     }
   })();
   (async()=>{
