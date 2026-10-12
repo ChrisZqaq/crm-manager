@@ -210,3 +210,15 @@ Nginx新增独立配置`/etc/nginx/sites-available/aluola-crm-iptest.conf`及启
 **真实登录只读冒烟**：本机和云端各用既有销售测试账号登录（POST 200），授权首页GET 200；`/api/v1/customers?page_size=1&include_created_today=true`返回200且含`created_today_total`；工作台`/api/v1/reports/sales?workbench=day_over_day&scope=delivered&period=custom...`返回200；CSS 200、`/media/` 404。没有创建/修改账号、重设密码、提交业务或导入数据。无效Host本机及云端内外探测复核均为400。真实登录会更新常规登录会话/last_login元数据；没有业务记录写入。
 
 **范围边界**：无生产/NAS/真实期初或库存导入；未启动Hermes、tracker/Docker或重启主机。未使用备份覆盖数据库；恢复会丢失备份后的登录/测试变化，须负责人明确授权后才可执行。应用错误时优先按同一0014 schema恢复0f835代码并重新collectstatic；不盲目恢复数据库。
+
+## RELEASE-HOME-UPDATE 模板清单纠正（2026-10-12）
+
+**纠正说明**：保留上节首次发布的81文件制品记录及其SHA256 `97cce6acb717b40fdc194be730d76ae489420a19257c54ce77a3ff5a0442acaf`。复核发现该归档漏含仓库根 `templates/` 下两个运行时模板；该81文件包不是完整应用制品。按负责人明确的最小纠正范围，以同一发行SHA `5218025891dce41959828d517d87fc48c437fa68`、应用树SHA `c29ca9ac83f0cafcca2085179f06c7113e15de4b` 重建并发布包含根 `templates/` 的83文件归档，不改应用源码、数据库或依赖。
+
+**纠正制品**：`.local/release-home-update-20261012/aluola-crm-app-c29ca9ac83f0cafcca2085179f06c7113e15de4b-full-templates.tar`，SHA256 `9d470833f4dfe2ff856cded4bea9e76b78ed9ebf0e9e8e96555746165ebccaff`。归档含83文件及24个Git跟踪运行时模板；不含docs、`.local`、环境文件或凭据。`templates/admin/base_site.html` 与 `templates/admin/pagination.html` 的源/归档SHA256分别为 `47a3f3c98bb658b43980578c4f51451833756e3f96636e53110b0049b46d703e`、`6941fc4966f2ee4fe451dbf4663d1deee15bf19ff9f3a58c48cf04b4a8c0337d`。云端暂存包哈希相同；overlay后远端应用与制品逐文件复核无差异，未使用删除选项。旧81文件制品和原有备份均保留。
+
+**本机与云端切换**：本机固定应用副本只补入上述两个根模板；loader解析到该副本中的正确路径。Django `check`及`migrate --check`通过，`collectstatic --dry-run --noinput`为0 copied/133 unchanged。本机runserver PID 61727，绑定127.0.0.1:8765。云端loader解析到`/opt/aluola-crm-dev/app/templates/admin/`下的两个正确路径；`check`、`migrate --check`通过，`collectstatic --dry-run --noinput`为0 copied/133 unchanged。`aluola-crm-dev.service` active，MainPID 1421033，NRestarts 0；内网经Nginx登录页HTTP 200、直连上游登录页HTTP 200。重启仅涉及CRM服务；未改Nginx、端口或来源规则。
+
+**只读登录及限制**：本机既有销售测试账号登录成功，首页、客户列表API及工作台销售报表API均HTTP 200，客户API包含`created_today_total`；销售账号访问`/admin/`和`/admin/crm/product/?p=1`均被重定向到后台登录，符合权限预期。云端CRM unit和本机上游在复核时健康；本轮从开发机访问云端公网入口连接超时，故没有新增云端真实销售登录证据，之前该发布轮记录的云端销售账号只读冒烟仍保留。本机已有staff账号但无可用的现存管理员凭据，云端数据库没有staff账号；没有重置/创建/更改账号，也没有使用`force_login`。因此未验证真实owner后台成功GET或部署后真实管理员分页渲染。模板loader路径与制品哈希已核实；QA另有的合成管理员/分页证据不等同于本次部署后的真实管理员会话。产品样本仅本机2条、云端1条，没有制造额外数据。
+
+**数据与运行边界**：没有迁移、数据库恢复、业务写入、依赖安装、账号变更、生产/NAS/网络设置修改或重启主机；10月12日既有本机/云端数据库及媒体备份保持原样。销售会话探测可能更新认证会话/last_login元数据，不涉及业务记录。原81文件初始制品记录没有覆盖或删除。
