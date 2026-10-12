@@ -1,6 +1,7 @@
 import json
 import threading
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
 from decimal import Decimal
 from unittest.mock import patch
 from uuid import uuid4
@@ -177,6 +178,10 @@ class CustomerPhase3Tests(Phase3Base):
         warehouse = Client()
         warehouse.force_login(self.user)
         self.assertEqual(warehouse.get("/api/v1/customers").status_code, 403)
+        self.assertEqual(
+            warehouse.get("/api/v1/customers", {"include_created_today": "true"}).status_code,
+            403,
+        )
         self.assertEqual(warehouse.get("/customers/").status_code, 403)
 
     def test_customer_owner_filter_and_options_follow_scope_before_search_and_pagination(self):
@@ -221,6 +226,90 @@ class CustomerPhase3Tests(Phase3Base):
             hidden.json()["filter_options"]["salespeople"],
             [{"id": str(self.sales.pk), "label": self.sales.get_username()}],
         )
+
+    def test_customer_created_today_summary_uses_local_day_and_final_filtered_queryset(self):
+        now = datetime.fromisoformat("2026-10-12T12:00:00+08:00")
+        customers = {
+            "midnight": self.create_customer(actor=self.sales, name="Today Midnight"),
+            "current": self.create_customer(actor=self.sales_two, name="Today Current"),
+            "archived": self.create_customer(actor=self.sales_two, name="Today Archived"),
+            "yesterday": self.create_customer(actor=self.sales, name="Yesterday"),
+            "future": self.create_customer(actor=self.sales_two, name="Future Today"),
+        }
+        created_at = {
+            "midnight": datetime.fromisoformat("2026-10-12T00:00:00+08:00"),
+            "current": now,
+            "archived": datetime.fromisoformat("2026-10-12T09:00:00+08:00"),
+            "yesterday": datetime.fromisoformat("2026-10-11T23:59:59.999999+08:00"),
+            "future": datetime.fromisoformat("2026-10-12T12:00:01+08:00"),
+        }
+        for key, customer in customers.items():
+            Customer.objects.filter(pk=customer.pk).update(created_at=created_at[key])
+        archive_customer(
+            self.owner,
+            customers["archived"].pk,
+            {"expected_version": customers["archived"].version, "operation_key": str(uuid4())},
+        )
+
+        client = Client()
+        client.force_login(self.owner)
+        with patch("crm.views.timezone.localtime", return_value=now):
+            default = client.get("/api/v1/customers", {"page_size": 1})
+            explicit_false = client.get(
+                "/api/v1/customers", {"include_created_today": "false", "page_size": 1}
+            )
+            self.assertEqual(default.status_code, 200, default.content)
+            self.assertEqual(explicit_false.status_code, 200, explicit_false.content)
+            self.assertNotIn("created_today_total", default.json())
+            self.assertEqual(default.json(), explicit_false.json())
+
+            response = client.get(
+                "/api/v1/customers", {"include_created_today": "true", "page_size": 1}
+            )
+            self.assertEqual(response.status_code, 200, response.content)
+            self.assertEqual(response.json()["total"], 4)
+            self.assertEqual(response.json()["created_today_total"], 2)
+            self.assertEqual(len(response.json()["items"]), 1)
+
+            own_scope = Client()
+            own_scope.force_login(self.sales)
+            own_data = own_scope.get(
+                "/api/v1/customers", {"include_created_today": "true", "page_size": 1}
+            ).json()
+            self.assertEqual(own_data["total"], 2)
+            self.assertEqual(own_data["created_today_total"], 1)
+
+            owner_filtered = client.get(
+                "/api/v1/customers",
+                {"include_created_today": "true", "owner_id": self.sales_two.pk, "page_size": 1},
+            )
+            self.assertEqual(owner_filtered.status_code, 200, owner_filtered.content)
+            self.assertEqual(owner_filtered.json()["total"], 2)
+            self.assertEqual(owner_filtered.json()["created_today_total"], 1)
+
+            archived = client.get(
+                "/api/v1/customers",
+                {"include_archived": "true", "include_created_today": "true", "page_size": 1},
+            )
+            self.assertEqual(archived.status_code, 200, archived.content)
+            self.assertEqual(archived.json()["total"], 5)
+            self.assertEqual(archived.json()["created_today_total"], 3)
+
+            filtered = client.get(
+                "/api/v1/customers",
+                {
+                    "include_created_today": "true",
+                    "q": "Today Midnight",
+                    "page_size": 1,
+                },
+            )
+            self.assertEqual(filtered.status_code, 200, filtered.content)
+            self.assertEqual(filtered.json()["total"], 1)
+            self.assertEqual(filtered.json()["created_today_total"], 1)
+
+            invalid = client.get("/api/v1/customers", {"include_created_today": "yes"})
+            self.assertEqual(invalid.status_code, 400)
+            self.assertEqual(invalid.json()["error"]["code"], "invalid_filter")
 
     def test_customer_address_http_contract_and_old_order_address_switch(self):
         client = Client()

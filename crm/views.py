@@ -1102,6 +1102,9 @@ def customers_api(request):
     include_archived = request.GET.get("include_archived", "false")
     if include_archived not in ("true", "false"):
         return _api_error(request, 400, "invalid_filter", "筛选参数须为true或false。")
+    include_created_today = request.GET.get("include_created_today", "false")
+    if include_created_today not in ("true", "false"):
+        return _api_error(request, 400, "invalid_filter", "筛选参数须为true或false。")
     items = customer_queryset_for(request.user).select_related("owner")
     if include_archived == "false":
         items = items.filter(is_active=True)
@@ -1127,11 +1130,18 @@ def customers_api(request):
             Q(name__icontains=query) | Q(company__icontains=query)
             | Q(contact__icontains=query) | Q(aliases__icontains=query)
         )
+    created_today_total = None
+    if include_created_today == "true":
+        now = timezone.localtime()
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        created_today_total = items.filter(created_at__gte=today_start, created_at__lte=now).count()
     try:
         page = paginate(items.order_by("name", "id"), request.GET)
     except CatalogQueryError as exc:
         return _api_error(request, 400, "invalid_pagination", str(exc), {"page": str(exc)})
     page["items"] = [_customer_data(item) for item in page["items"]]
+    if created_today_total is not None:
+        page["created_today_total"] = created_today_total
     page["filter_options"] = filter_options
     page["queried_at"] = timezone.localtime().isoformat(timespec="seconds")
     return JsonResponse(page)
