@@ -1,26 +1,69 @@
 {
   "synthetic": true,
-  "cases": {
+  "baseFontSizes": {
+    "desktop": {
+      "sales": "28px",
+      "growth": "27px"
+    },
+    "mobile": {
+      "sales": "32px",
+      "growth": "32px"
+    }
+  },
+  "normal": {
     "desktop-normal-growth": {
       "viewport": 1280,
-      "text": "+1729.90%",
-      "font": "14px",
-      "textWidth": 83.81,
-      "textHeight": 17,
-      "client": 105,
-      "scroll": 105,
-      "documentWidth": 1280
+      "documentWidth": 1280,
+      "sales": {
+        "text": "¥1,829.9",
+        "title": "完整金额：¥1829.900",
+        "aria": "完整金额：¥1829.900",
+        "font": "20.3459px",
+        "width": 95,
+        "scroll": 95,
+        "textWidth": 90.6,
+        "textHeight": 24
+      },
+      "growth": {
+        "text": "+1729.90%",
+        "title": "服务端增速：+1729.90%",
+        "aria": "增速 +1729.90%",
+        "font": "19.9058px",
+        "width": 119,
+        "scroll": 119,
+        "textWidth": 115.2,
+        "textHeight": 23
+      }
     },
     "mobile-normal-growth": {
       "viewport": 390,
-      "text": "+1729.90%",
-      "font": "14px",
-      "textWidth": 83.81,
-      "textHeight": 17,
-      "client": 161,
-      "scroll": 161,
-      "documentWidth": 390
+      "documentWidth": 390,
+      "sales": {
+        "text": "¥1,829.9",
+        "title": "完整金额：¥1829.900",
+        "aria": "完整金额：¥1829.900",
+        "font": "31.3561px",
+        "width": 144,
+        "scroll": 144,
+        "textWidth": 140,
+        "textHeight": 37
+      },
+      "growth": {
+        "text": "+1729.90%",
+        "title": "服务端增速：+1729.90%",
+        "aria": "增速 +1729.90%",
+        "font": "31.0014px",
+        "width": 183,
+        "scroll": 183,
+        "textWidth": 179.1,
+        "textHeight": 37
+      }
     }
   },
-  "extremeCase": "+123456.78% is recorded in geometry.json"
+  "resized": {
+    "viewport": 390,
+    "font": "31.0014px",
+    "width": 183,
+    "scroll": 183
+  }
 }

@@ -5,54 +5,78 @@
     "viewport": 1280,
     "documentWidth": 1280,
     "bodyWidth": 1280,
+    "sales": {
+      "text": "¥6,177.839",
+      "title": "完整金额：¥6177.839",
+      "aria": "完整金额：¥6177.839",
+      "font": "15.4745px",
+      "width": 95,
+      "scroll": 95,
+      "textRect": {
+        "x": 223,
+        "y": 147.7,
+        "width": 91.2,
+        "height": 18
+      },
+      "rect": {
+        "x": 223,
+        "y": 147.7,
+        "width": 95.2,
+        "height": 18.6
+      },
+      "parent": {
+        "x": 223,
+        "y": 125.9,
+        "width": 95.2,
+        "height": 40.7
+      }
+    },
     "growth": {
       "text": "+123456.78%",
+      "title": "服务端增速：+123456.78%",
+      "aria": "增速 +123456.78%",
+      "font": "15.9838px",
+      "width": 119,
+      "scroll": 119,
+      "textRect": {
+        "x": 323.2,
+        "y": 147.4,
+        "width": 115.3,
+        "height": 18
+      },
       "rect": {
-        "x": 337.5,
-        "y": 149.7,
-        "width": 104.5,
-        "height": 16.8
+        "x": 323.2,
+        "y": 147.4,
+        "width": 118.8,
+        "height": 19.2
       },
-      "font": "14px",
-      "client": 105,
-      "scroll": 105,
       "parent": {
-        "x": 332.5,
+        "x": 318.2,
         "y": 125.9,
-        "width": 109.5,
-        "height": 43
-      },
-      "range": {
-        "x": 337.5,
-        "y": 148.7,
-        "width": 102.3,
-        "height": 17
+        "width": 123.8,
+        "height": 40.7
       }
     },
     "cards": [
       {
-        "className": "data-card summary-card workbench-card workbench-sales-card",
         "x": 206,
         "y": 84,
         "width": 253,
         "height": 184
       },
       {
-        "className": "data-card summary-card workbench-card",
         "x": 471,
         "y": 84,
         "width": 253,
         "height": 184
       },
       {
-        "className": "data-card summary-card workbench-card",
         "x": 736,
         "y": 84,
         "width": 253,
         "height": 184
       },
       {
-        "className": "data-card summary-card workbench-card",
         "x": 1001,
         "y": 84,
         "width": 253,
@@ -166,54 +190,78 @@
     "viewport": 761,
     "documentWidth": 761,
     "bodyWidth": 761,
+    "sales": {
+      "text": "¥6,177.839",
+      "title": "完整金额：¥6177.839",
+      "aria": "完整金额：¥6177.839",
+      "font": "17.259px",
+      "width": 104,
+      "scroll": 104,
+      "textRect": {
+        "x": 203,
+        "y": 146.7,
+        "width": 100.2,
+        "height": 21
+      },
+      "rect": {
+        "x": 203,
+        "y": 147.7,
+        "width": 103.7,
+        "height": 20.7
+      },
+      "parent": {
+        "x": 203,
+        "y": 125.9,
+        "width": 103.7,
+        "height": 42.8
+      }
+    },
     "growth": {
       "text": "+123456.78%",
+      "title": "服务端增速：+123456.78%",
+      "aria": "增速 +123456.78%",
+      "font": "17.7578px",
+      "width": 130,
+      "scroll": 130,
+      "textRect": {
+        "x": 311.7,
+        "y": 147.4,
+        "width": 126.7,
+        "height": 21
+      },
       "rect": {
-        "x": 327.3,
-        "y": 148.6,
-        "width": 114.3,
-        "height": 16.8
+        "x": 311.7,
+        "y": 147.4,
+        "width": 129.8,
+        "height": 21.3
       },
-      "font": "14px",
-      "client": 114,
-      "scroll": 114,
       "parent": {
-        "x": 322.3,
+        "x": 306.7,
         "y": 125.9,
-        "width": 119.3,
-        "height": 40.7
-      },
-      "range": {
-        "x": 327.3,
-        "y": 147.6,
-        "width": 102.3,
-        "height": 17
+        "width": 134.8,
+        "height": 42.8
       }
     },
     "cards": [
       {
-        "className": "data-card summary-card workbench-card workbench-sales-card",
         "x": 186,
         "y": 84,
         "width": 272.5,
         "height": 184
       },
       {
-        "className": "data-card summary-card workbench-card",
         "x": 470.5,
         "y": 84,
         "width": 272.5,
         "height": 184
       },
       {
-        "className": "data-card summary-card workbench-card",
         "x": 186,
         "y": 280,
         "width": 272.5,
         "height": 184
       },
       {
-        "className": "data-card summary-card workbench-card",
         "x": 470.5,
         "y": 280,
         "width": 272.5,
@@ -327,54 +375,78 @@
     "viewport": 390,
     "documentWidth": 390,
     "bodyWidth": 390,
+    "sales": {
+      "text": "¥6,177.839",
+      "title": "完整金额：¥6177.839",
+      "aria": "完整金额：¥6177.839",
+      "font": "24.204px",
+      "width": 144,
+      "scroll": 144,
+      "textRect": {
+        "x": 29,
+        "y": 234.5,
+        "width": 139.5,
+        "height": 28
+      },
+      "rect": {
+        "x": 29,
+        "y": 234.5,
+        "width": 144.3,
+        "height": 29
+      },
+      "parent": {
+        "x": 29,
+        "y": 212.4,
+        "width": 144.3,
+        "height": 51.8
+      }
+    },
     "growth": {
       "text": "+123456.78%",
+      "title": "服务端增速：+123456.78%",
+      "aria": "增速 +123456.78%",
+      "font": "25.2352px",
+      "width": 183,
+      "scroll": 183,
+      "textRect": {
+        "x": 178.3,
+        "y": 233.9,
+        "width": 178.6,
+        "height": 29
+      },
       "rect": {
-        "x": 200,
-        "y": 235.1,
-        "width": 161,
-        "height": 16.8
+        "x": 178.3,
+        "y": 233.9,
+        "width": 182.6,
+        "height": 30.3
       },
-      "font": "14px",
-      "client": 161,
-      "scroll": 161,
       "parent": {
-        "x": 195,
+        "x": 173.3,
         "y": 212.4,
-        "width": 166,
-        "height": 40.7
-      },
-      "range": {
-        "x": 200,
-        "y": 234.1,
-        "width": 102.3,
-        "height": 17
+        "width": 187.6,
+        "height": 51.8
       }
     },
     "cards": [
       {
-        "className": "data-card summary-card workbench-card workbench-sales-card",
         "x": 12,
         "y": 170.5,
         "width": 366,
         "height": 184
       },
       {
-        "className": "data-card summary-card workbench-card",
         "x": 12,
         "y": 366.5,
         "width": 366,
         "height": 184
       },
       {
-        "className": "data-card summary-card workbench-card",
         "x": 12,
         "y": 562.5,
         "width": 366,
         "height": 184
       },
       {
-        "className": "data-card summary-card workbench-card",
         "x": 12,
         "y": 758.5,
         "width": 366,
@@ -484,14 +556,20 @@
       }
     ]
   },
-  "ownerReview": {
-    "text": "订单 4 · QA合成复核客户·阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名- · 待复核",
-    "title": "订单 4 · QA合成复核客户·阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名- · 待复核",
-    "aria": "订单 4 · QA合成复核客户·阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名- · 待复核",
-    "height": 14.84375,
-    "scroll": 992,
-    "client": 125
-  },
+  "ownerRows": [
+    {
+      "text": "订单 4 · QA合成复核客户·阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名- · 待复核",
+      "title": "订单 4 · QA合成复核客户·阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名- · 待复核",
+      "aria": "订单 4 · QA合成复核客户·阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名- · 待复核",
+      "height": 14.84375
+    },
+    {
+      "text": "订单 6 · QA合成复核客户·阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名- · 待复核",
+      "title": "订单 6 · QA合成复核客户·阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名- · 待复核",
+      "aria": "订单 6 · QA合成复核客户·阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名-阿罗拉展示长名- · 待复核",
+      "height": 14.84375
+    }
+  ],
   "networkFault": "网络连接失败，请稍后重试。；刷新页面重试。",
   "nonJsonFault": "服务器错误响应无法读取（HTTP 503），请稍后重试。；刷新页面重试。",
   "businessFault": "合成业务拒绝保留。；刷新页面重试。"
