@@ -1,0 +1,67 @@
+{
+  "task": "UI-HOME-REFINE",
+  "verified_at": "2026-10-12",
+  "source": {
+    "approved_file": "docs/workspaces/ui/home-refine-v1/index.html",
+    "sha256": "6c80552e7fcb7841ef8856bfe8f6c3a221d92e1fa81987ac370d4d653a3fe3f7",
+    "implementation_base": "f223906",
+    "application_commit": "8a48c768f8e5e5a72b17c88f4295fc83c202325c"
+  },
+  "environment": {
+    "url": "http://127.0.0.1:19024/",
+    "database": "alh_home_refine_data_20261012_u1",
+    "data": "synthetic-only",
+    "browser": "Codex in-app Chromium",
+    "screenshots": "Reviewed live in browser; not persisted"
+  },
+  "desktop_1280x720": {
+    "document_client_width": 1265,
+    "document_scroll_width": 1265,
+    "cards": 8,
+    "card_rects_px": "all 249.3 x 184",
+    "positive_sample": {
+      "today_sales_visual": "¥123万",
+      "growth_visual": "+23%",
+      "customer_total": 4,
+      "created_today": 3,
+      "in_stock_product_combinations": 1,
+      "low_stock_records": 1,
+      "top_customer_exact_amount": "¥125436789.123",
+      "top_customer_visual": "¥12,543.7万"
+    },
+    "chart": {
+      "box_px": [995, 260],
+      "viewBox": "0 0 995 260",
+      "point_radius": 4,
+      "line_width_px": 2.5
+    }
+  },
+  "mobile_390x844": {
+    "document_client_width": 375,
+    "document_scroll_width": 375,
+    "cards": 8,
+    "card_rects_px": "all 351 x 184",
+    "chart": {
+      "box_px": [323, 240],
+      "viewBox": "0 0 323 240",
+      "point_radius": 4,
+      "line_width_px": 2.5,
+      "focus_stroke_width_px": 3
+    },
+    "keyboard": "Enter focused the first chart point; accessible name included exact date and amount",
+    "series_rows": 7
+  },
+  "states": {
+    "all_zero": "7 actual dated rows at ¥0.000; y-axis ticks ¥0, ¥1,000, ¥2,000, ¥3,000; baseline rendered",
+    "single_day": "six zero rows and 2026-10-12 at ¥1230000.000; correct rising final segment",
+    "boss": "real ROLE_OWNER/老板 account showed 待确认复核订单 = 1",
+    "no_permissions": "basic synthetic account showed unavailable states; customer created-today element/API request was omitted by template permission gate and UI regression assertion"
+  },
+  "validation": {
+    "manage_py_check": "passed",
+    "crm_test_ui": "7 passed using unique automatically-created-and-dropped test database",
+    "git_diff_check": "passed",
+    "browser_console_errors_and_warnings": 0,
+    "chart_empty_or_transport_failure": "branches distinguish empty, error, and all-zero; natural empty/failure response not forced in browser"
+  }
+}
