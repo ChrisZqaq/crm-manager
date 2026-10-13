@@ -1,0 +1,313 @@
+[
+  {
+    "page": "order-address",
+    "width": 1280,
+    "data": {
+      "fields": [
+        {
+          "font": "16px",
+          "h": 42,
+          "id": "recipient",
+          "tag": "INPUT"
+        },
+        {
+          "font": "16px",
+          "h": 82,
+          "id": "contact",
+          "tag": "TEXTAREA"
+        },
+        {
+          "font": "16px",
+          "h": 42,
+          "id": "province",
+          "tag": "SELECT"
+        },
+        {
+          "font": "16px",
+          "h": 42,
+          "id": "city",
+          "tag": "SELECT"
+        },
+        {
+          "font": "16px",
+          "h": 82,
+          "id": "detail",
+          "tag": "TEXTAREA"
+        }
+      ],
+      "root": [
+        1265,
+        1265
+      ]
+    }
+  },
+  {
+    "page": "admin-home",
+    "data": {
+      "samples": [
+        {
+          "bg": "rgb(48, 44, 108)",
+          "font": "18px",
+          "tag": "CAPTION",
+          "text": "业务资料"
+        },
+        {
+          "bg": "rgba(0, 0, 0, 0)",
+          "font": "18px",
+          "tag": "A",
+          "text": "业务资料"
+        },
+        {
+          "bg": "color(srgb 0.930196 0.952941 0.913333)",
+          "font": "15px",
+          "tag": "TH",
+          "text": "IP"
+        },
+        {
+          "bg": "rgba(0, 0, 0, 0)",
+          "font": "16px",
+          "tag": "TD",
+          "text": "新增"
+        },
+        {
+          "bg": "rgba(0, 0, 0, 0)",
+          "font": "16px",
+          "tag": "A",
+          "text": "新增"
+        },
+        {
+          "bg": "rgba(0, 0, 0, 0)",
+          "font": "16px",
+          "tag": "TD",
+          "text": "管理"
+        },
+        {
+          "bg": "rgba(0, 0, 0, 0)",
+          "font": "16px",
+          "tag": "A",
+          "text": "管理"
+        },
+        {
+          "bg": "color(srgb 0.930196 0.952941 0.913333)",
+          "font": "15px",
+          "tag": "TH",
+          "text": "销售渠道"
+        },
+        {
+          "bg": "rgba(0, 0, 0, 0)",
+          "font": "16px",
+          "tag": "TD",
+          "text": "新增"
+        },
+        {
+          "bg": "rgba(0, 0, 0, 0)",
+          "font": "16px",
+          "tag": "A",
+          "text": "新增"
+        }
+      ],
+      "theme": "green",
+      "vars": {
+        "--body-bg": "#F7FAF2",
+        "--body-fg": "#28362E",
+        "--body-quiet-color": "#606E62",
+        "--darkened-bg": "color-mix(in srgb, #E9F0E5 70%, #F7FAF2)",
+        "--hairline-color": "#D9E2D5"
+      }
+    }
+  },
+  {
+    "page": "admin-list-green",
+    "data": {
+      "paginator": {
+        "bg": "rgb(247, 250, 242)",
+        "font": "13px",
+        "text": "\n\n\n    1 \n\n    2 \n\n\n101 件商品\n显示全部\n\n"
+      },
+      "root": [
+        1265,
+        1265
+      ],
+      "rows": [
+        {
+          "bg": "rgb(247, 250, 242)",
+          "cells": [
+            {
+              "bg": "color(srgb 0.930196 0.952941 0.913333)",
+              "font": "15px",
+              "tag": "TH"
+            },
+            {
+              "bg": "rgba(0, 0, 0, 0)",
+              "font": "16px",
+              "tag": "TD"
+            },
+            {
+              "bg": "rgba(0, 0, 0, 0)",
+              "font": "16px",
+              "tag": "TD"
+            }
+          ]
+        },
+        {
+          "bg": "color(srgb 0.930196 0.952941 0.913333)",
+          "cells": [
+            {
+              "bg": "color(srgb 0.930196 0.952941 0.913333)",
+              "font": "15px",
+              "tag": "TH"
+            },
+            {
+              "bg": "rgba(0, 0, 0, 0)",
+              "font": "16px",
+              "tag": "TD"
+            },
+            {
+              "bg": "rgba(0, 0, 0, 0)",
+              "font": "16px",
+              "tag": "TD"
+            }
+          ]
+        }
+      ],
+      "theme": "green",
+      "vars": {
+        "--body-bg": "#F7FAF2",
+        "--body-fg": "#28362E",
+        "--body-quiet-color": "#606E62",
+        "--darkened-bg": "color-mix(in srgb, #E9F0E5 70%, #F7FAF2)",
+        "--hairline-color": "#D9E2D5"
+      }
+    }
+  },
+  {
+    "page": "admin-list-cream",
+    "data": {
+      "paginatorBg": "rgb(255, 253, 247)",
+      "theme": "cream",
+      "vars": {
+        "--body-bg": "#FFFDF7",
+        "--body-fg": "#2D2D3F",
+        "--body-quiet-color": "#6F6B7E",
+        "--darkened-bg": "color-mix(in srgb, #F4F1E9 70%, #FFFDF7)",
+        "--hairline-color": "#E3DED3"
+      }
+    }
+  },
+  {
+    "page": "admin-list-cream-mobile-page2",
+    "data": {
+      "paginatorBg": "rgb(255, 253, 247)",
+      "root": [
+        375,
+        375
+      ],
+      "td": [
+        {
+          "font": "16px"
+        },
+        {
+          "font": "16px"
+        },
+        {
+          "font": "16px"
+        }
+      ],
+      "theme": "cream"
+    }
+  },
+  {
+    "page": "admin-add-green-mobile",
+    "data": {
+      "inputs": [
+        {
+          "font": "16px",
+          "h": 42,
+          "tag": "SELECT"
+        },
+        {
+          "font": "16px",
+          "h": 42,
+          "tag": "SELECT"
+        },
+        {
+          "font": "16px",
+          "h": 42,
+          "tag": "INPUT"
+        },
+        {
+          "font": "16px",
+          "h": 42,
+          "tag": "INPUT"
+        },
+        {
+          "font": "16px",
+          "h": 42,
+          "tag": "SELECT"
+        },
+        {
+          "font": "16px",
+          "h": 42,
+          "tag": "INPUT"
+        },
+        {
+          "font": "16px",
+          "h": 86,
+          "tag": "TEXTAREA"
+        }
+      ],
+      "related": [
+        {
+          "href": null,
+          "label": "更改选中的brand"
+        },
+        {
+          "href": "/admin/crm/brand/add/?_to_field=id&_popup=1",
+          "label": "增加另一个 brand"
+        },
+        {
+          "href": null,
+          "label": "查看已选择的brand"
+        },
+        {
+          "href": null,
+          "label": "更改选中的商品语言"
+        },
+        {
+          "href": "/admin/crm/productlanguageoption/add/?_to_field=id&_popup=1",
+          "label": "增加另一个 商品语言"
+        },
+        {
+          "href": null,
+          "label": "取消选中 商品语言"
+        },
+        {
+          "href": null,
+          "label": "查看已选择的商品语言"
+        }
+      ],
+      "root": [
+        375,
+        375
+      ],
+      "save": [
+        {
+          "font": "16px",
+          "h": 44,
+          "name": "_save"
+        },
+        {
+          "font": "16px",
+          "h": 44,
+          "name": "_addanother"
+        },
+        {
+          "font": "16px",
+          "h": 44,
+          "name": "_continue"
+        }
+      ],
+      "theme": "green"
+    }
+  }
+]

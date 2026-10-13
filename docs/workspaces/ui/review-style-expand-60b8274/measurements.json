@@ -1,0 +1,448 @@
+[
+  {
+    "page": "order-new",
+    "viewport": 1280,
+    "data": {
+      "fields": [
+        {
+          "cssheight": "62px",
+          "font": "16px",
+          "id": "recipient",
+          "rect": {
+            "bottom": 538.296875,
+            "height": 62,
+            "left": 238,
+            "right": 437.6640625,
+            "top": 476.296875,
+            "width": 199.6640625,
+            "x": 238,
+            "y": 476.296875
+          },
+          "tag": "INPUT"
+        },
+        {
+          "cssheight": "82px",
+          "font": "16px",
+          "id": "contact",
+          "rect": {
+            "bottom": 538.296875,
+            "height": 82,
+            "left": 449.6640625,
+            "right": 649.328125,
+            "top": 456.296875,
+            "width": 199.6640625,
+            "x": 449.6640625,
+            "y": 456.296875
+          },
+          "tag": "TEXTAREA"
+        },
+        {
+          "cssheight": "62px",
+          "font": "16px",
+          "id": "province",
+          "rect": {
+            "bottom": 538.296875,
+            "height": 62,
+            "left": 661.328125,
+            "right": 861,
+            "top": 476.296875,
+            "width": 199.671875,
+            "x": 661.328125,
+            "y": 476.296875
+          },
+          "tag": "SELECT"
+        },
+        {
+          "cssheight": "62px",
+          "font": "16px",
+          "id": "city",
+          "rect": {
+            "bottom": 659.796875,
+            "height": 62,
+            "left": 238,
+            "right": 437.6640625,
+            "top": 597.796875,
+            "width": 199.6640625,
+            "x": 238,
+            "y": 597.796875
+          },
+          "tag": "SELECT"
+        }
+      ],
+      "root": [
+        1265,
+        1265
+      ],
+      "textareas": [
+        {
+          "id": "contact",
+          "rect": {
+            "bottom": 538.296875,
+            "height": 82,
+            "left": 449.6640625,
+            "right": 649.328125,
+            "top": 456.296875,
+            "width": 199.6640625,
+            "x": 449.6640625,
+            "y": 456.296875
+          }
+        },
+        {
+          "id": "detail",
+          "rect": {
+            "bottom": 659.796875,
+            "height": 82,
+            "left": 449.6640625,
+            "right": 649.328125,
+            "top": 577.796875,
+            "width": 199.6640625,
+            "x": 449.6640625,
+            "y": 577.796875
+          }
+        }
+      ]
+    }
+  },
+  {
+    "page": "admin-home",
+    "theme": "cream",
+    "data": {
+      "bodyBg": "rgb(244, 241, 233)",
+      "links": [
+        {
+          "font": "12px",
+          "text": "业务资料"
+        },
+        {
+          "font": "13px",
+          "text": "新增"
+        },
+        {
+          "font": "13px",
+          "text": "管理"
+        },
+        {
+          "font": "13px",
+          "text": "新增"
+        },
+        {
+          "font": "13px",
+          "text": "管理"
+        }
+      ],
+      "samples": [
+        {
+          "bg": "rgb(48, 44, 108)",
+          "color": "rgb(255, 255, 255)",
+          "font": "12px",
+          "tag": "CAPTION",
+          "text": "业务资料"
+        },
+        {
+          "bg": "color(srgb 0.969804 0.959216 0.930196)",
+          "color": "rgb(111, 107, 126)",
+          "font": "15px",
+          "tag": "TH",
+          "text": "IP"
+        },
+        {
+          "bg": "rgba(0, 0, 0, 0)",
+          "color": "rgb(45, 45, 63)",
+          "font": "13px",
+          "tag": "TD",
+          "text": "新增"
+        },
+        {
+          "bg": "rgba(0, 0, 0, 0)",
+          "color": "rgb(45, 45, 63)",
+          "font": "13px",
+          "tag": "TD",
+          "text": "管理"
+        },
+        {
+          "bg": "color(srgb 0.969804 0.959216 0.930196)",
+          "color": "rgb(111, 107, 126)",
+          "font": "15px",
+          "tag": "TH",
+          "text": "销售渠道"
+        },
+        {
+          "bg": "rgba(0, 0, 0, 0)",
+          "color": "rgb(45, 45, 63)",
+          "font": "13px",
+          "tag": "TD",
+          "text": "新增"
+        },
+        {
+          "bg": "rgba(0, 0, 0, 0)",
+          "color": "rgb(45, 45, 63)",
+          "font": "13px",
+          "tag": "TD",
+          "text": "管理"
+        },
+        {
+          "bg": "color(srgb 0.969804 0.959216 0.930196)",
+          "color": "rgb(111, 107, 126)",
+          "font": "15px",
+          "tag": "TH",
+          "text": "收款账户"
+        },
+        {
+          "bg": "rgba(0, 0, 0, 0)",
+          "color": "rgb(45, 45, 63)",
+          "font": "13px",
+          "tag": "TD",
+          "text": "新增"
+        }
+      ],
+      "vars": {
+        "--body-bg": "#fff",
+        "--body-fg": "#333",
+        "--body-quiet-color": "#666",
+        "--darkened-bg": "#f8f8f8",
+        "--hairline-color": "#e8e8e8"
+      }
+    }
+  },
+  {
+    "page": "admin-list",
+    "theme": "green",
+    "data": {
+      "bodyBg": "rgb(233, 240, 229)",
+      "root": [
+        1265,
+        1265
+      ],
+      "samples": [
+        {
+          "bg": "rgb(247, 250, 242)",
+          "font": "16px",
+          "tag": "DIV",
+          "text": ""
+        },
+        {
+          "bg": "color(srgb 0.930196 0.952941 0.913333)",
+          "font": "15px",
+          "tag": "TH",
+          "text": "产品名"
+        },
+        {
+          "bg": "color(srgb 0.930196 0.952941 0.913333)",
+          "font": "15px",
+          "tag": "TH",
+          "text": "IP"
+        },
+        {
+          "bg": "color(srgb 0.930196 0.952941 0.913333)",
+          "font": "15px",
+          "tag": "TH",
+          "text": "商品类型"
+        },
+        {
+          "bg": "color(srgb 0.930196 0.952941 0.913333)",
+          "font": "15px",
+          "tag": "TH",
+          "text": "系列"
+        },
+        {
+          "bg": "color(srgb 0.930196 0.952941 0.913333)",
+          "font": "15px",
+          "tag": "TH",
+          "text": "语言版本"
+        },
+        {
+          "bg": "color(srgb 0.930196 0.952941 0.913333)",
+          "font": "15px",
+          "tag": "TH",
+          "text": "启用"
+        },
+        {
+          "bg": "color(srgb 0.930196 0.952941 0.913333)",
+          "font": "15px",
+          "tag": "TH",
+          "text": "样式抽查商品"
+        },
+        {
+          "bg": "rgba(0, 0, 0, 0)",
+          "font": "13px",
+          "tag": "TD",
+          "text": "QA样式抽查IP"
+        },
+        {
+          "bg": "rgba(0, 0, 0, 0)",
+          "font": "13px",
+          "tag": "TD",
+          "text": "周边"
+        },
+        {
+          "bg": "rgba(0, 0, 0, 0)",
+          "font": "13px",
+          "tag": "TD",
+          "text": "样式验收"
+        },
+        {
+          "bg": "rgba(0, 0, 0, 0)",
+          "font": "13px",
+          "tag": "TD",
+          "text": "-"
+        },
+        {
+          "bg": "rgba(0, 0, 0, 0)",
+          "font": "13px",
+          "tag": "TD",
+          "text": ""
+        },
+        {
+          "bg": "rgb(255, 255, 255)",
+          "font": "13px",
+          "tag": "P",
+          "text": "1 件商品"
+        }
+      ],
+      "theme": "green",
+      "vars": {
+        "--body-bg": "#fff",
+        "--body-fg": "#333",
+        "--body-quiet-color": "#666",
+        "--darkened-bg": "#f8f8f8",
+        "--hairline-color": "#e8e8e8"
+      }
+    }
+  },
+  {
+    "page": "admin-product-change",
+    "viewport": 390,
+    "data": {
+      "inputs": [
+        {
+          "font": "16px",
+          "h": 42,
+          "name": "brand",
+          "type": "select-one"
+        },
+        {
+          "font": "16px",
+          "h": 42,
+          "name": "type",
+          "type": "select-one"
+        },
+        {
+          "font": "16px",
+          "h": 42,
+          "name": "series",
+          "type": "text"
+        },
+        {
+          "font": "16px",
+          "h": 42,
+          "name": "name",
+          "type": "text"
+        },
+        {
+          "font": "16px",
+          "h": 42,
+          "name": "language",
+          "type": "select-one"
+        },
+        {
+          "font": "16px",
+          "h": 42,
+          "name": "official_code",
+          "type": "text"
+        },
+        {
+          "font": "16px",
+          "h": 86,
+          "name": "aliases",
+          "type": "textarea"
+        },
+        {
+          "font": "13px",
+          "h": 38,
+          "name": "is_active",
+          "type": "checkbox"
+        },
+        {
+          "font": "16px",
+          "h": 44,
+          "name": "_save",
+          "type": "submit"
+        },
+        {
+          "font": "16px",
+          "h": 44,
+          "name": "_addanother",
+          "type": "submit"
+        },
+        {
+          "font": "16px",
+          "h": 44,
+          "name": "_continue",
+          "type": "submit"
+        }
+      ],
+      "nav": {
+        "bottom": 96,
+        "height": 96,
+        "left": 0,
+        "right": 375,
+        "top": 0,
+        "width": 375,
+        "x": 0,
+        "y": 0
+      },
+      "root": [
+        375,
+        375
+      ]
+    }
+  },
+  {
+    "page": "payment-selected",
+    "viewport": 390,
+    "data": {
+      "bg": "rgb(233, 240, 229)",
+      "bodyfont": "16px",
+      "root": [
+        375,
+        375
+      ]
+    }
+  },
+  {
+    "page": "order-new",
+    "viewport": 390,
+    "data": {
+      "fields": [
+        {
+          "font": "16px",
+          "height": 42,
+          "id": "recipient",
+          "tag": "INPUT"
+        },
+        {
+          "font": "16px",
+          "height": 82,
+          "id": "contact",
+          "tag": "TEXTAREA"
+        },
+        {
+          "font": "16px",
+          "height": 42,
+          "id": "province",
+          "tag": "SELECT"
+        },
+        {
+          "font": "16px",
+          "height": 42,
+          "id": "city",
+          "tag": "SELECT"
+        }
+      ],
+      "root": [
+        375,
+        375
+      ]
+    }
+  }
+]
