@@ -251,3 +251,5 @@ UI-HOME-REFINE新增客户依赖只读收口：现Customer.created_at可复用�
 RELEASE-HOME-UPDATE运行末检发现原81文件artifact漏根templates/admin/两个运行模板，已排同固定版本最小部署纠正，补完整运行文件再最终只读烟测。无新业务/源码/数据库修改，不在最终完成前宣称部署完整。
 
 2026-10-12发布结果收口：完整83文件包hash9d470833f4dfe2ff856cded4bea9e76b78ed9ebf0e9e8e96555746165ebccaff，根templates两份hash/loader正确。QA本机sales一次真实登录首页/客户新增非负整数/7日series日期排序/静态hash及admin隔离通过；不冒称真实管理员成功会话。云最新模板源hash/active unit/内网健康通过，当前--noproxy公网connect timeout且探针未到nginx日志，历史502原因不猜。当前UFW18888 IPv4/IPv6 ALLOW Anywhere，与旧文档来源描述不一致，腾讯安全组规则未读取，不能称来源限制已确认；未改任何网络。用户已收到实际浏览器访问及安全组核对问题，等待仅云公网依赖验证，不影响本机使用；自动跟进已删除不新建。
+
+2026-10-13用户请求测试前恢复本机：8765无监听，原共享PG PID8355正常以Unix socket（非TCP）接受连接；未重启/修改数据库。负责人从c29固定发布目录启动独立后台runserver--noreload，PID85565，沿原demo配置/库/媒体/静态，不从共享工作树运行。登录与app.css现场HTTP200，数据账号未改。云公网仍保留用户可能拦截、未改网络；本机可继续合成试用，真实期初未导入。
