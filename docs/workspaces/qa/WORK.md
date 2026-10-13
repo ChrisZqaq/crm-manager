@@ -559,3 +559,11 @@ QA浏览器内API响应85个200、2个模拟409、2个模拟503；隔离库业�
 仅使用既有本机销售凭据一次真实登录（登录表GET 200，登录后到 `/catalog/`），未记录账号或凭据。固定副本 `127.0.0.1:8765`：首页GET 200，`#customer-created-today` 存在且显示数值，首页发出的 `include_created_today=true` 请求200；独立客户API GET 200、JSON中的 `total` 与 `created_today_total` 均为非负整数、`items` 为数组且最多1项。销售 `series=day` GET 200，返回7个日期升序点，点含字符串 `revenue_amount`。销售 GET `/admin/` 被重定向到 `/admin/login/`。`/static/crm/app.css` GET 200、`text/css`、32,455字节，SHA256 `d7d4403d464c781542748846c94a8344e0073f1919bd29f9de3f0bdf406e14d4`，与固定副本源文件一致。
 
 云端公网入口按负责人要求仅做一次 `--noproxy` 5秒直连探测，连接超时；不重试、不调整安全组。云端真实销售登录及修正包后的公网API未取得新证据。管理员登录同样未验证：本机没有可用staff凭据或现成owner会话，云端无staff账号；未试错、使用 `force_login`、改账号或权限。因此本次部署后的真实管理员品牌sidebar和商品中文计数未验证；既有合成管理员/分页证据不代替部署后真实会话。未跑完整页面/业务矩阵、390视口或真实手机检查；除常规登录会话/last_login外，无业务写入、数据库或代码改动。
+
+### RELEASE-CLOUD-ACCESS｜公网恢复后最终短烟测（2026-10-13）
+
+按负责人指令仅复查云端发布 `5218025891dce41959828d517d87fc48c437fa68` / app树 `c29ca9ac83f0cafcca2085179f06c7113e15de4b`，83文件包SHA256 `9d470833f4dfe2ff856cded4bea9e76b78ed9ebf0e9e8e96555746165ebccaff`。通过禁用代理的浏览器直连 `http://106.52.174.55:18888`，登录页GET 200；使用已有云sales凭据登录一次成功，未记录凭据，之后仅发GET。
+
+工作台GET 200，客户新增卡显示数值；页面发出的 `include_created_today=true` 请求200。独立客户API GET 200，`total` 与 `created_today_total` 为非负整数、`items` 为数组且最多1项。销售 `series=day` GET 200，返回7个升序日期点，`revenue_amount` 为字符串。sales GET `/admin/` 重定向到 `/admin/login/`。`/static/crm/app.css` GET 200、`text/css`、32,455字节；SHA256 `d7d4403d464c781542748846c94a8344e0073f1919bd29f9de3f0bdf406e14d4`，与固定发布源CSS一致。
+
+未测试staff后台功能或管理员品牌sidebar/商品中文计数（云端无staff账号）；未重跑页面/业务旧矩阵、创建测试库、重启服务或改账号/权限/网络。除登录会话及可能的 `last_login` 元数据外，没有业务写入。
