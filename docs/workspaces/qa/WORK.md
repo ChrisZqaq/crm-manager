@@ -567,3 +567,19 @@ QA浏览器内API响应85个200、2个模拟409、2个模拟503；隔离库业�
 工作台GET 200，客户新增卡显示数值；页面发出的 `include_created_today=true` 请求200。独立客户API GET 200，`total` 与 `created_today_total` 为非负整数、`items` 为数组且最多1项。销售 `series=day` GET 200，返回7个升序日期点，`revenue_amount` 为字符串。sales GET `/admin/` 重定向到 `/admin/login/`。`/static/crm/app.css` GET 200、`text/css`、32,455字节；SHA256 `d7d4403d464c781542748846c94a8344e0073f1919bd29f9de3f0bdf406e14d4`，与固定发布源CSS一致。
 
 未测试staff后台功能或管理员品牌sidebar/商品中文计数（云端无staff账号）；未重跑页面/业务旧矩阵、创建测试库、重启服务或改账号/权限/网络。除登录会话及可能的 `last_login` 元数据外，没有业务写入。
+
+### LOGIN-HOME-1013｜固定版真实登录跳转定向QA（2026-10-13）
+
+依据应用SHA `0399e4f6cb1e572e3b15628a1c5d036bb043911e`；测试时HEAD相同，`config/`、`crm/`、`manage.py` 无漂移。只验证登录跳转、匿名工作台门禁及认证不改账户/权限；未改应用。
+
+在此前不存在的独立PostgreSQL库 `qa_login_home_20261013_qa01` 应用全部迁移；设置独立媒体/静态路径于 `.local/qa_login_home_20261013_qa01/`（目录700、凭据文件600），另用 `127.0.0.1:18786`。只创建一个隔离销售组中的合成普通用户，无staff/superuser标记和直接权限。Playwright通过真实登录表单POST，CSRF隐藏令牌与Cookie均存在，每次成功建立session。
+
+- 无 `next`：登录POST 302 `Location: /`，工作台GET 200。
+- 合法 `next=/catalog/`：登录POST 302 `Location: /catalog/`，目标GET 200。
+- 外部 `next=https://example.invalid/`：登录POST 302 `Location: /`，浏览器未离开本地测试源，工作台GET 200。
+- 未登录GET `/`：302到 `/accounts/login/?next=/`。
+- 登录前后账号/权限快照完全一致：始终只有一个合成用户，角色组、组权限、直接权限、staff/superuser状态均未变化；认证按预期更新该测试用户的 `last_login` 并产生3个session。客户、订单、业务操作均为0。
+
+首次脚本多拼一条斜杠，只对 `/accounts/login//` 发GET并得到404；随后检查确认没有登录POST、`last_login` 或session变化，修正请求路径后再执行上述正式验证。结果不受该脚本错误影响。
+
+清理：停止本轮自建18786服务；确认专用库owner `crm_dev`、活动连接0后删除QA库及整个私有运行目录，复查端口无监听、QA库不存在。本机演示8765仍在监听，未触碰；未运行测试套件。另：后端WORK记录已有旧工作台用例的文案断言过时（`今日已交付销售额` 与当前模板 `今日销售额` 不一致），本轮未运行该用例或改断言，不影响以上登录验收。
