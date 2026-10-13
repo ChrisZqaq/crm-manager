@@ -1,6 +1,6 @@
 # 当前开发计划与交付状态
 
-更新：2026-10-14。**最终应用e59e15e已完成三页UI、Astra后端修复及HTTP兼容/旧页重试的分阶段独立验收，并更新本机8765与云IP18888。完整85文件制品、两处必要私有备份、原账号/数据库/媒体保留；两端真实销售登录及只读页面通过，云独立管理员登录及真正公网非安全HTTP浏览器helper验证通过。运行副本保持e59e15e供合成试用；用户最新要求将已定字体/两主题推广销售订单、商品、收款核对、采购、限制、库存调整及管理后台，60b8274独立QA/UI已收口并清理18793，d7334df两类返工已通过独立QA/UI，准备测试环境更新，全应用停写。真实期初仅隔离预览未入账；用户已提出验证后导入，具体目标/完整范围/快照待确认，正式业务切换/NAS未执行，定时任务已删除。**
+更新：2026-10-14。**最终应用d7334df已将已定字体/米绿配色推广到指定运营页面及Admin，订单单行高度/Admin原生变量与字级返工已独立QA/UI通过。已更新本机8765及云IP18888，完整85文件制品、必要私有DB/媒体备份、全部原账号及数据保留；两端真实登录/只读页面及实际浏览器样式烟测通过，销售采购/调整403为原权限范围。全应用停写进入试用。用户要求验证后期初导入，文件隔离预览已过但独立目标库/完整仓库范围/有效库存截止与差异尚待回复，未confirm；正式切换/NAS未执行，定时任务已删除。云原hermes.service not-found已单独只读核查，不擅自改其它服务。**
 
 只在此记录当前安排和简短阶段结果；历史命令、返工和限制证据见[完整历史](../archive/DEVELOPMENT_PLAN_HISTORY.md)。会话ID只维护在[协作表](COORDINATION.md)。
 
@@ -10,7 +10,7 @@
 
 | 任务 | 状态／角色 | 当前范围与下一步 |
 | --- | --- | --- |
-| UI-STYLE-EXPAND-1013 | d7334df独立QA/UI通过，负责人推送/安排两测试环境更新 | 基线HEAD4008485/应用e59e15e；指定七类页面及对应常用详情/表单，复用现字体/控件密度与米/绿主题，保业务字段/导航/权限；固定后QA/UI定向复核→负责人验收→两测试环境更新，不重做布局或全套 |
+| UI-STYLE-EXPAND-1013 | d7334df独立QA/UI通过并已部署两测试环境 | 基线HEAD4008485/应用e59e15e；指定七类页面及对应常用详情/表单，复用现字体/控件密度与米/绿主题，保业务字段/导航/权限；固定后QA/UI定向复核→负责人验收→两测试环境更新，不重做布局或全套 |
 | CLOUD-TEST-ADMIN-1013 | 已完成：iptest-admin独立超级管理员 | 用户明确授权；老板账号保持现状，私有凭据交付；云公网真实登录及/admin/中文品牌首页200通过，无业务表单或公网来源变更，证据0553dc6 |
 | LOGIN-HOME-1013 | 0399e4f已验收、两测试环境更新完成 | 默认登录到工作台/，合法next保留、外部next拒绝、匿名权限不变；合成PG及真实CSRF/session验证通过，旧文案断言过时单列；账号/业务不变 |
 | INITIAL-DATA-PREP-1013 | 固定0399e4f隔离系统preview通过：ready=true，尚未入账 | 独立临时库识别15商品/1仓/15库存行，无映射缺口或条码警告；仅preview未confirm，临时进程/库/目录已清理，用户原件保留；2026-10-14用户要求验证无问题后导入，目标独立业务库/完整仓库范围/有效快照时点及期间差异已提问待确认；不清测试库，不直接confirm |
@@ -20,7 +20,7 @@
 | UI-DENSITY-1013 | 最终18dad2d独立QA/UI通过，已集成候选e59e15e | 仅获批工作台/客户/库存三页密度及米/绿主题；冻结原型SHA b7d493a3711110e2391ea928e557540eec2e7144564994a66665815aee7d1db2，用户最新右区左齐；两轮明确缺陷已定向收口，不重复旧矩阵 |
 | UI-HOME-REFINE | 最终c29ca9a已验收/发行5218025已推送；全应用停写 | 本机新版可试用；已通过范围不重跑 |
 | RELEASE-HOME-UPDATE | 两处已部署，QA本机及云公网真实销售烟测通过 | 2026-10-13用户放行18888后最终验证关闭，不再反复测试 |
-| USER-TEST | 本机与云同源e59e15e可试用 | 仅合成测试；云iptest-admin真实后台登录已测、不导真实期初 |
+| USER-TEST | 本机与云同源d7334df可试用 | 仅合成测试；云iptest-admin真实后台登录已测、不导真实期初 |
 | RELEASE-7 | 正式切换待办 | 真实期初、正式账号权限、HTTPS、异地备份与实际恢复/切换窗口 |
 
 ## 已完成及中间历史任务记录
@@ -68,16 +68,16 @@
 
 ## 本机演示（供用户试用）
 
-- 入口：http://127.0.0.1:8765/accounts/login/ ，仅本机访问；运行版e59e15e与开发checkout隔离。候选验收不表示已更新演示。
+- 入口：http://127.0.0.1:8765/accounts/login/ ，仅本机访问；运行版d7334df与开发checkout隔离。候选验收不表示已更新演示。
 - 独立持久化库aluola_crm_local_demo，迁移0014；配置/媒体/日志在忽略目录.local/demo-runtime。真实期初未入账；已存在合成库存与用户试用操作不得覆盖。
 - demo-owner/demo-sales/demo-warehouse，口令不保存在Git。最新库存以页面/流水为准，不能按旧初始样例数字判断。
 - 进程是否存活须现场验证，不依赖历史PID/exec session。共享PostgreSQL为原.local/postgresql集群、socket .local/postgres-socket、端口标识55439、listen_addresses空；TCP无监听属正常。不要随意停止共享PG、重建集群或改连接方式。
-- 重启仅在确认8765原服务已停止后，从固定发布目录启动，不能从共享项目根运行候选代码。当前工作目录为 `.local/demo-runtime/app/releases/e59e15e4dea2009bf041d06672b1b1f8a2f3cd2c/aluola-crm`，使用绝对路径 `.venv/bin/python`，环境 `PYTHONPATH=/Users/chrisz/Documents/projects/aluolaCRM/.local/demo-runtime`、`DJANGO_SETTINGS_MODULE=demo_settings`，执行 `manage.py runserver --noreload 127.0.0.1:8765`。路径均以项目根 `/Users/chrisz/Documents/projects/aluolaCRM` 为基准，下一发布由部署记录更新目录。
+- 重启仅在确认8765原服务已停止后，从固定发布目录启动，不能从共享项目根运行候选代码。当前工作目录为 `.local/demo-runtime/app/releases/d7334df08474d1f3867997251743b6dd45343f09/aluola-crm`，使用绝对路径 `.venv/bin/python`，环境 `PYTHONPATH=/Users/chrisz/Documents/projects/aluolaCRM/.local/demo-runtime`、`DJANGO_SETTINGS_MODULE=demo_settings`，执行 `manage.py runserver --noreload 127.0.0.1:8765`。路径均以项目根 `/Users/chrisz/Documents/projects/aluolaCRM` 为基准，下一发布由部署记录更新目录。
 - 本地HTTP诊断需绕过系统代理，如 `curl --noproxy '*'`。只重启本任务服务，保留库、媒体和账号。2026-10-13共享PG曾收到smart shutdown，发起者未知；QA核对原集群身份后按原参数恢复，未重建或改库。
 
 ## 上线7剩余条件
 
-当前IP测试环境已具备Python3.12.13、PostgreSQL14及完整应用e59e15e；已运行与依赖可用不代表正式切换或异地恢复验收。生产剩余条件以问题账V01及具体部署记录为准。
+当前IP测试环境已具备Python3.12.13、PostgreSQL14及完整应用d7334df；已运行与依赖可用不代表正式切换或异地恢复验收。生产剩余条件以问题账V01及具体部署记录为准。
 
 早期只读历史资料（已被后续部署记录替代，不作为当前环境状态）：候选为上海Ubuntu24.04/2核2GB/磁盘剩约27GB；2026-10-08现场核实实际Ubuntu22.04.5、2vCPU/1.9GiB、50GiB根盘余22GiB，与Hermes及tracker/MySQL/nginx共用。available约1GiB、swap使用约705MiB只是短采样，峰值未知。Python仅探测到3.10.12，未发现项目要求3.12；PostgreSQL未检测到。Certbot CLI依赖报错，现有证书未过期不代表续期验证通过。生产启动/HTTPS/静态目录及私有媒体持久化尚待配置，不直接用开发设置上线。
 

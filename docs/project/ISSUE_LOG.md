@@ -1,6 +1,6 @@
 # 当前问题与待办
 
-更新：2026-10-13。本轮三页UI、Astra确认缺陷及HTTP兼容/旧页重试已独立验收，应用e59e15e已更新本机8765与云IP18888并完成真实登录/只读浏览器烟测。闭环证据见[开发计划](DEVELOPMENT_PLAN.md)、[QA WORK](../workspaces/qa/WORK.md)及[部署 WORK](../workspaces/deploy/WORK.md)；审查报告保留审查时事实，不代表这些问题仍未修复。
+更新：2026-10-14。本轮三页UI、Astra确认缺陷及HTTP兼容/旧页重试已独立验收，已集成至d7334df并更新本机8765与云IP18888并完成真实登录/只读浏览器烟测。闭环证据见[开发计划](DEVELOPMENT_PLAN.md)、[QA WORK](../workspaces/qa/WORK.md)及[部署 WORK](../workspaces/deploy/WORK.md)；审查报告保留审查时事实，不代表这些问题仍未修复。
 
 | ID | 当前状态 | 后续与边界 |
 | --- | --- | --- |
@@ -8,5 +8,6 @@
 | TEST-DB-REUSE | 旧测试资源归属/影响未知 | test_admin_polish_20261010及test_admin_polish_mv24emvm创建前存在性、owner及runner影响未完整证实；保持不访问、不删除，后续测试只用查无后明确新建的隔离资源。原证据在历史及前端WORK |
 | REPLAY-CAPACITY | 未决，未排期 | Astra B3仅静态历史量风险，未压力测得容量失败；在正式历史量规划或实测性能问题出现时评估耗时/内存/全局锁，不为此新增回放平台 |
 | SHARED-PG-SHUTDOWN | 原集群已恢复，停机发起者未知 | 2026-10-13本机原PG收到smart shutdown；核对PGDATA/socket/原参数后恢复，未重建或改库。若重现先查发起进程/日志，不自动重建或随意停止共享服务 |
+| HERMES-UNIT-DRIFT | 只读识别中 | 云端原hermes.service LoadState=not-found，与早期active记录不同；尚不能判断整体Hermes是否停止，部署工程师仅核unit/PID等元信息，不启动或修复其它业务 |
 
 角色问题先记录自己的WORK并向负责人报告；负责人统一登记，仅阻断依赖部分。已关闭问题与返工过程见[问题历史](../archive/ISSUE_LOG_HISTORY.md)，不能据历史待测记录重启任务。真实用户表格、成本/个人资料、凭据及私有备份不进入公共问题账或Git。
