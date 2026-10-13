@@ -1,0 +1,210 @@
+{
+  "task": "HTTP-COMPAT-RETRY-1013",
+  "fixedAppCommit": "e59e15e4dea2009bf041d06672b1b1f8a2f3cd2c",
+  "runtime": {
+    "browser": "Chrome 155 headless, isolated profile",
+    "httpOrigin": "http://audit.invalid:18915",
+    "serverBind": "127.0.0.1:18915",
+    "database": "qa_httpcompat_e59e15e_1013",
+    "postgresVersion": "PostgreSQL 17.11 on aarch64-apple-darwin27.0.0",
+    "databaseTransport": "private Unix socket in .local test directory"
+  },
+  "helperLoadOrder": {
+    "crmBase": {
+      "helper": "object",
+      "helperIndex": 0,
+      "firstInlineIndex": 1,
+      "secure": false
+    },
+    "adminBase": {
+      "title": "系统管理 | 阿罗拉潮玩空间 CRM",
+      "helper": "object",
+      "helperIndex": 1,
+      "consumers": [
+        {
+          "i": 2,
+          "has": true
+        }
+      ]
+    }
+  },
+  "uuidCallAccounting": {
+    "parentDirectCalls": 27,
+    "currentSharedHelperReferences": 26,
+    "currentPageLevelNativeCalls": 0,
+    "pageTemplates": 12,
+    "holdsCallsConsolidated": true
+  },
+  "crypto": {
+    "fallbackContext": {
+      "secure": false,
+      "subtle": false,
+      "randomUUID": "undefined",
+      "getRandomValues": "function"
+    },
+    "nativeContext": {
+      "secure": true,
+      "subtle": true,
+      "randomUUID": "function",
+      "getRandomValues": "function"
+    },
+    "fallbackUuidV4Shape": true,
+    "nativeUuidV4Shape": true,
+    "vectors": [
+      {
+        "name": "empty",
+        "byteLength": 0,
+        "digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "name": "abc",
+        "byteLength": 3,
+        "digest": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+      },
+      {
+        "name": "chinese",
+        "byteLength": 15,
+        "digest": "5ecd3bc6885edf64505a5255f81715186b9a6079ffe91098e9244f99b544990f"
+      },
+      {
+        "name": "emoji",
+        "byteLength": 7,
+        "digest": "346076829a04f2f788b90eaebb2503cbb5250bedf0285009f1b9436fc21280d7"
+      },
+      {
+        "name": "boundary55",
+        "byteLength": 55,
+        "digest": "9f4390f8d30c2dd92ec9f095b65e2b9ae9b0a925a5258e241c9f1e910f734318"
+      },
+      {
+        "name": "boundary56",
+        "byteLength": 56,
+        "digest": "b35439a4ac6f0948b6d6f9e3c6af0f5f590ce20f1bde7090ef7970686ec6738a"
+      },
+      {
+        "name": "boundary63",
+        "byteLength": 63,
+        "digest": "7d3e74a05d7db15bce4ad9ec0658ea98e3f06eeecf16b4c6fff2da457ddc2f34"
+      },
+      {
+        "name": "boundary64",
+        "byteLength": 64,
+        "digest": "ffe054fe7ae0cb6dc65c3af9b61d5209f439851db43d0ba5997337df154668eb"
+      },
+      {
+        "name": "boundary65",
+        "byteLength": 65,
+        "digest": "635361c48bb9eab14198e76ea8ab7f1a41685d6ad62aa9146d301d4f17eb0ae0"
+      },
+      {
+        "name": "long_reason",
+        "byteLength": 19800,
+        "digest": "8fb66b4df9aed5daabf7a89ab587f93f9c10bf3865d8891cde04f3b825a8bf57"
+      }
+    ],
+    "nativeDigestsEqualFallback": true,
+    "pythonHashlibVerifiedDigests": 20
+  },
+  "browserApiChecks": [
+    {
+      "name": "customer_create_double_submit_and_dropped_response_retry",
+      "firstStatus": 200,
+      "firstDropped": true,
+      "requestsBeforeRetry": 1,
+      "requestCount": 2,
+      "sameKey": true
+    },
+    {
+      "name": "changed_customer_input_new_key",
+      "newKey": true,
+      "status": 200
+    },
+    {
+      "name": "native_and_fallback_crypto_vectors_and_uuid",
+      "nativeSecure": true,
+      "fallbackNonsecure": true,
+      "vectorCount": 10,
+      "sameDigests": true
+    },
+    {
+      "name": "opening_new_preview_new_key_double_submit_drop_retry_and_one_time_guard",
+      "previewChanged": true,
+      "firstPreviewKeyFailedBeforeServer": true,
+      "newPreviewKey": true,
+      "firstCommitStatus": 200,
+      "retrySameKey": true
+    },
+    {
+      "name": "opening_completed_guard",
+      "guardObserved": true
+    },
+    {
+      "name": "hold_create_double_submit_and_dropped_response_retry",
+      "status": 200,
+      "requestCount": 2,
+      "sameKey": true
+    },
+    {
+      "name": "hold_release_double_submit_and_dropped_response_retry",
+      "status": 200,
+      "requestCount": 2,
+      "sameKey": true
+    },
+    {
+      "name": "adjustment_double_submit_drop_refresh_same_key_clear_on_success",
+      "firstStatus": 200,
+      "storageKeyShapeOnly": true,
+      "survivesRefresh": true,
+      "sameKey": true,
+      "clearedAfterSuccess": true,
+      "sourceSku": "1",
+      "targetSku": "2"
+    }
+  ],
+  "databaseEffects": {
+    "database": "qa_httpcompat_e59e15e_1013",
+    "serverVersion": "PostgreSQL 17.11 on aarch64-apple-darwin27.0.0",
+    "customers": 2,
+    "customerAddresses": 2,
+    "openingBatches": 1,
+    "openingLines": 2,
+    "openingCompleted": true,
+    "holds": 1,
+    "holdRemaining": [
+      1
+    ],
+    "splits": 1,
+    "businessOperations": {
+      "hold_release": 1,
+      "opening": 1,
+      "customer_create": 2,
+      "inventory_split": 1,
+      "hold_create": 1
+    },
+    "inventoryMovements": {
+      "hold_release": 1,
+      "split_out": 1,
+      "split_in": 1,
+      "opening": 2,
+      "hold_create": 1
+    },
+    "operationInputHashesAreOpaqueSha256": true,
+    "balances": [
+      {
+        "skuId": 1,
+        "onHand": 49,
+        "reserved": 1,
+        "costAmount": "490.000"
+      },
+      {
+        "skuId": 2,
+        "onHand": 31,
+        "reserved": 0,
+        "costAmount": "320.000"
+      }
+    ]
+  },
+  "syntheticDataOnly": true,
+  "screenshotsSaved": false,
+  "appFilesChanged": false
+}
