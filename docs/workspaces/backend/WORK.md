@@ -402,6 +402,7 @@ UV_PROJECT_ENVIRONMENT=/Users/chrisz/.cache/aluola-crm-uiquery1-venv CRM_DB_NAME
 - `_invoice_fallback_customer_id` 现在返回请求中的 `payload.customer_id`，即 `_order_references` 实际读取并用于发票字段回退的目标客户；确认和幂等重放按同一个目标客户检查当前可见范围。
 - 新增覆盖：旧客户已转交、当前销售切换到可见新客户并省略发票字段时，预览/确认/可见范围内重放成功；新客户转交后，确认和既有成功操作的重放均返回当前范围拒绝。保留旧客户转交后不能回退旧资料、历史快照只改数量不写回客户档案的既有用例。
 - 在隔离基库 `aluola_crm_a6_customer_source_20261013`（角色 `crm_dev`）运行4项A6定向测试，通过；测试库由Django删除，复查基库与测试库均不存在、活动连接为0。语法编译、`git diff --check`及Django系统检查通过；未使用`--keepdb`，无模型/迁移变更。
+- 补正应用提交：`8a52ee7cbe57ebd0665bc48dd39f8a5574e0f206`；自此停止应用写入。
 - 本次修复固定提交后停止应用写入，交 QA 按固定SHA独立复验。后端自测不代替QA验收。
 
 ## UI-HOME-REFINE-CUSTOMER-COUNT｜后端固定交付（2026-10-12）
