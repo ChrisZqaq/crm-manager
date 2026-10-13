@@ -305,7 +305,7 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
 .order-subsection h3, .sku-row-heading h3 { margin: 0; font-size: 14px; }
 .order-delivery-fields details { min-width: 0; border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
 .order-delivery-fields summary { cursor: pointer; font-weight: 600; }
-.order-address-fields { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 12px; }
+.order-address-fields { grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: start; margin-top: 12px; }
 .order-form #new-customer-fields[hidden], .order-form #invoice-details[hidden], .order-form #delivery-fields[hidden] { display: none; }
 .order-invoice-fields { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 10px; }
 .order-checkbox { display: flex !important; grid-template-columns: auto 1fr; align-items: center; gap: 8px !important; }

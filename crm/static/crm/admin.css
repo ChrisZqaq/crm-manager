@@ -45,6 +45,11 @@ body.crm-admin-theme {
   --muted: #6F6B7E;
   --line: #E3DED3;
   --soft-indigo: #F1EEE6;
+  --body-bg: var(--surface);
+  --darkened-bg: color-mix(in srgb, var(--canvas) 70%, var(--surface));
+  --body-fg: var(--ink);
+  --body-quiet-color: var(--muted);
+  --hairline-color: var(--line);
   font-size: 16px;
   background: var(--canvas);
   color: var(--ink);
@@ -63,8 +68,10 @@ body.crm-admin-theme #changelist-filter { background-color: var(--surface); colo
 body.crm-admin-theme .module, body.crm-admin-theme fieldset.module { border-color: var(--line); }
 body.crm-admin-theme h1 { color: var(--ink); font-size: 28px; }
 body.crm-admin-theme fieldset.module h2, body.crm-admin-theme .module h2 { font-size: 18px; }
+body.crm-admin-theme .module caption, body.crm-admin-theme .module caption a { font-size: 18px; }
 body.crm-admin-theme label, body.crm-admin-theme small, body.crm-admin-theme .help, body.crm-admin-theme .helptext { font-size: 15px; }
 body.crm-admin-theme table, body.crm-admin-theme .results { background: var(--surface); color: var(--ink); font-size: 16px; }
+body.crm-admin-theme td { color: var(--ink); font-size: 16px; }
 body.crm-admin-theme th { background: color-mix(in srgb, var(--canvas) 70%, var(--surface)); color: var(--muted); font-size: 15px; }
 body.crm-admin-theme td, body.crm-admin-theme th { border-color: var(--line); }
 body.crm-admin-theme input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="reset"]), body.crm-admin-theme select:not([multiple]) { min-height: 42px; background-color: var(--surface); color: var(--ink); font-family: inherit; font-size: 16px; }
@@ -73,7 +80,7 @@ body.crm-admin-theme textarea, body.crm-admin-theme select[multiple] { backgroun
 body.crm-admin-theme button, body.crm-admin-theme input[type="submit"], body.crm-admin-theme input[type="button"], body.crm-admin-theme .button { min-height: 44px; font-family: inherit; font-size: 16px; }
 body.crm-admin-theme .breadcrumbs { color: var(--muted); }
 body.crm-admin-theme .breadcrumbs a { color: var(--brand); }
-body.crm-admin-theme .paginator, body.crm-admin-theme #changelist .paginator { color: var(--muted); }
+body.crm-admin-theme .paginator, body.crm-admin-theme #changelist .paginator { background-color: var(--surface); color: var(--muted); }
 body.crm-admin-theme > .page-theme-picker { margin: 16px 26px 24px 206px; }
 body.crm-admin-theme .page-theme-picker button { min-height: 40px; }
 @media (max-width: 1024px) {
