@@ -9,12 +9,14 @@
       document.documentElement.dataset.theme = selected;
       choices.forEach(button => button.setAttribute('aria-pressed', String(button.dataset.themeChoice === selected)));
     };
-    applyTheme(localStorage.getItem(key));
+    let savedTheme = 'cream';
+    try { savedTheme = localStorage.getItem(key) || 'cream'; } catch {}
+    applyTheme(savedTheme);
     themePicker.addEventListener('click', event => {
       const choice = event.target.closest('[data-theme-choice]');
       if (!choice) return;
       applyTheme(choice.dataset.themeChoice);
-      localStorage.setItem(key, choice.dataset.themeChoice);
+      try { localStorage.setItem(key, choice.dataset.themeChoice); } catch {}
     });
   }
 
