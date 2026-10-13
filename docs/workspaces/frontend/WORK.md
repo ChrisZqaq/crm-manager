@@ -1,5 +1,14 @@
 # 前端当前工作
 
+## HTTP-COMPAT-RETRY-1013 固定交付（2026-10-13）
+
+- 依据负责人正式唯一应用写入窗口。派发基线 HEAD `9711123`／应用 `8a52ee7`；写入期间 HEAD 前进至 `36b5efb`，核对 `9711123..36b5efb` 仅有 `docs/` 变化、应用文件未变；应用固定提交 `e59e15e4dea2009bf041d06672b1b1f8a2f3cd2c`。
+- 新增 84 行第一方 `crypto-compat.js`：同步从 CRM base 与 Admin base_site head 加载；UUID优先原生 randomUUID，缺失时用 getRandomValues 生成标准v4，不可用则明确失败；摘要优先 subtle，缺失时用纯JS标准SHA-256。12个旧模板的 UUID 操作流统一接入。adjustments 保持 canonical signature、UTF-8 字节、`crm-operation:<sha256>` sessionStorage键、重载恢复及成功清理不变。
+- `customer_form.html`、`holds.html` 按 endpoint/body 同输入复用 pending key 并防并发双击；`opening.html` 按 preview_token 复用，失败保留原预览和 key，文案不再断言未确认。输入/预览变化产生新 key；不改同名客户、库存、期初一次保护、权限或页面设计。
+- 验证：`manage.py check`通过；helper `node --check`通过。空/abc/中文/emoji/55、56、63、64、65字节/19,800字节长原因共10向量，fallback及subtle均与Python hashlib一致；UUIDv4版本/变体位通过，缺失getRandomValues时失败。Chrome 155隔离 `audit.invalid` origin 实测 `isSecureContext=false`，subtle/randomUUID缺失、getRandomValues可用；同签名跨安全/非安全摘要相等。实际Django渲染页的客户新建/编辑/转交、限制创建/释放、期初确认和adjustments刷新恢复均做了双击/丢弃响应/重试；合成服务记录每个失败后重试复用同一 key、每个 operation 仅一次效果、改变输入或预览使用新 key，期初一次保护仍只提交一次。Admin head同步加载顺序通过。
+- 页面与服务端请求使用本轮隔离、仅绑定 `127.0.0.1:18914` 的合成环境；CDP在合成服务已记录成功后丢弃首响应。没有使用PostgreSQL、实际API、8001/8765演示站、云服务或真实期初；真实后端幂等仍需QA对固定应用/API组合独立复核。检查、向量及实屏证据见[本轮证据](http-compat-retry-1013/)。隔离server、Chrome profile与临时脚本已清理。
+- 固定后停止应用写入；未推送或部署，交QA定向验证并同步负责人。
+
 ## UI-HOME-REFINE-ERROR-FIT 固定交付（2026-10-12）
 
 - 依据负责人新开的唯一失败态写入窗口，基线为应用 `5a3e97d2073532032db5312b5630d166b22b7f06`。最终应用提交 `c29ca9ac83f0cafcca2085179f06c7113e15de4b`，只在 `crm/templates/crm/workbench.html` 的失败分支增加一行 `fitMetrics()`：错误占位文本写入后复用既有测量适配，使“暂不可用”不会覆盖邻列。未改成功数值、CSS、其它错误语义或旧模块。
