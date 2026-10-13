@@ -529,7 +529,9 @@ def confirm_receipt(actor, operation_key, preview_token, request_id=""):
                 sku.low_stock_threshold = threshold
                 sku.save(update_fields=("low_stock_threshold",))
             if images:
-                ReceiptImage.objects.filter(pk__in=images, payment__isnull=True).update(receipt=receipt)
+                bound = ReceiptImage.objects.filter(pk__in=images, payment__isnull=True, receipt__isnull=True).update(receipt=receipt)
+                if bound != len(images):
+                    raise OperationError("图片关联状态已变化，请重新上传。", status=409, code="stale_preview")
             result = {
                 "document_id": receipt.pk,
                 "receipt_id": receipt.pk,

@@ -818,12 +818,13 @@ def _persist_result(result, replay, before_result, correction, actor, operation)
         order.commission_estimate = values["commission_estimate"]
         order.version += 1
         fields = ["revenue_amount", "cost_amount", "margin_amount", "commission_estimate", "version", "updated_at"]
+        amount_version_before_correction = order.amount_version
         if active_change:
             order.amount_version += 1
             fields.append("amount_version")
         order.save(update_fields=tuple(fields))
         review = CommissionReview.objects.select_for_update().filter(order=order, approved_amount__isnull=False).first()
-        if review is not None and active_change:
+        if review is not None and active_change and review.approved_amount_version == amount_version_before_correction:
             old_approved = review.approved_amount
             new_approved = values["commission_estimate"]
             review.approved_amount = new_approved

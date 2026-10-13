@@ -473,12 +473,12 @@ class InventoryReplay:
         delta = line.observed_quantity - balance["on_hand"]
         if delta == 0:
             return 0, ZERO, ZERO
-        if line.cost_mode == StockCountLine.CostMode.MANUAL:
-            unit = line.manual_unit_cost
-            cost = amount(unit * abs(delta), "cost_delta") * (1 if delta > 0 else -1)
-        elif delta < 0:
+        if delta < 0:
             cost = -_outflow_cost(balance["cost_amount"], balance["on_hand"], -delta)
             unit = amount(-cost / -delta, "effective_unit_cost")
+        elif line.cost_mode == StockCountLine.CostMode.MANUAL:
+            unit = line.manual_unit_cost
+            cost = amount(unit * delta, "cost_delta")
         elif balance["on_hand"] > 0:
             with localcontext() as context:
                 context.prec = 50

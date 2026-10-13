@@ -101,7 +101,7 @@ def _expected_version(order, expected):
 def _images_for_payment(actor, payment, image_ids):
     existing_ids = set(payment.images.values_list("pk", flat=True)) if payment else set()
     wanted = set(image_ids)
-    images = {image.pk: image for image in ReceiptImage.objects.filter(pk__in=wanted)}
+    images = {image.pk: image for image in ReceiptImage.objects.select_for_update().filter(pk__in=wanted).order_by("id")}
     if images.keys() != wanted:
         raise OperationError("图片不存在或已清理。", status=404, code="not_found", fields={"image_ids": "请重新上传图片。"})
     for image in images.values():
@@ -215,7 +215,9 @@ def register_payment(actor, order_id, data, request_id=""):
                 payment.version += 1
                 payment.save()
             if images:
-                ReceiptImage.objects.filter(pk__in=images, payment__isnull=True).update(payment=payment)
+                bound = ReceiptImage.objects.filter(pk__in=images, payment__isnull=True, receipt__isnull=True).update(payment=payment)
+                if bound != sum(image.payment_id is None for image in images.values()):
+                    raise OperationError("图片关联状态已变化，请重新上传。", status=409, code="stale_image")
             if order.status == SalesOrder.Status.AWAITING_PAYMENT:
                 order.status = SalesOrder.Status.READY_TO_SHIP
                 changed = True

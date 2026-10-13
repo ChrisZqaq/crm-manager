@@ -468,8 +468,9 @@ def revise_stock_count(actor, count_id, data, request_id=""):
             for line in current_lines.values():
                 line.delete()
             count.reason = normalized["reason"]
+            count.submitted_by = actor
             count.version += 1
-            count.save(update_fields=("reason", "version"))
+            count.save(update_fields=("reason", "submitted_by", "version"))
             sequence = _next_sequence(control)
             operation = BusinessOperation.objects.create(
                 operation_key=key, sequence=sequence, actor=actor, action="stock_count_resubmit", input_hash=input_hash,

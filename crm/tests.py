@@ -4,8 +4,9 @@ from uuid import uuid4
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group, Permission
 from django.core.exceptions import ValidationError
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError, connection, transaction
 from django.test import Client, TestCase
+from django.test.utils import CaptureQueriesContext
 
 from .catalog import search_products, search_skus, search_warehouses
 from .forms import ProductAdminForm, SKUAdminForm, WarehouseAdminForm
@@ -68,6 +69,28 @@ class CatalogTestCase(TestCase):
         warehouse.permissions.set(permissions.filter(codename="view_sku"))
         user.groups.add(sales, warehouse)
         self.assertTrue(user.has_perms(("crm.view_brand", "crm.view_product", "crm.view_sku")))
+
+    def test_product_and_sku_search_load_language_without_per_row_queries(self):
+        for index in range(4):
+            language, _ = ProductLanguageOption.objects.get_or_create(name=f"Synthetic language {index}")
+            product = Product.objects.create(
+                brand=self.brand,
+                type=Product.Type.BOOSTER,
+                series=f"Query series {index}",
+                name=f"Query product {index}",
+                language=language,
+            )
+            SKU.objects.create(product=product, code=f"SEA-QUERY-{index}", unit="box")
+
+        with CaptureQueriesContext(connection) as product_queries:
+            products = search_products({"q": ""})
+        with CaptureQueriesContext(connection) as sku_queries:
+            skus = search_skus({"q": ""})
+
+        self.assertEqual(len(products), 5)
+        self.assertEqual(len(skus), 5)
+        self.assertLess(len(product_queries), len(products))
+        self.assertLess(len(sku_queries), len(skus))
 
     def test_warehouse_customer_permission_upgrade_preserves_custom_permissions(self):
         self.assertIn(("crm", "add_customer"), ROLE_DEFAULTS[ROLE_WAREHOUSE])

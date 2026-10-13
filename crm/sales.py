@@ -528,6 +528,14 @@ def _balance_query(keys):
     return condition
 
 
+def _invoice_fallback_customer_id(payload, order):
+    if order and payload["requires_invoice"] and any(
+        payload[name] is None for name in ("invoice_title", "invoice_credit_code", "invoice_email")
+    ):
+        return order.customer_id
+    return None
+
+
 def _order_references(actor, payload, order, *, lock_balances=False):
     existing_customer_id = order.customer_id if order else None
     existing_channel_id = order.channel_id if order else None
@@ -543,12 +551,18 @@ def _order_references(actor, payload, order, *, lock_balances=False):
     if payload["customer_id"] is not None:
         customer_id = payload["customer_id"]
         unchanged_customer = customer_id == existing_customer_id
+        needs_invoice_fallback = _invoice_fallback_customer_id(payload, order) is not None
         if not unchanged_customer:
             _require(actor, "view_customer")
             customer = customer_queryset_for(actor).filter(pk=customer_id).first()
             if customer is None or not customer.is_active:
                 raise OperationError("客户不存在、已归档或不在可见范围。", status=404, code="not_found", fields={"customer_id": "请选择可用客户。"})
         elif payload["customer_address_id"] is not None:
+            _require(actor, "view_customer")
+            customer = customer_queryset_for(actor).filter(pk=customer_id).first()
+            if customer is None:
+                raise OperationError("客户不存在或不在可见范围。", status=404, code="not_found", fields={"customer_id": "请选择可见客户。"})
+        elif needs_invoice_fallback:
             _require(actor, "view_customer")
             customer = customer_queryset_for(actor).filter(pk=customer_id).first()
             if customer is None:
@@ -651,6 +665,7 @@ def _plan_order(actor, payload, order, *, lock_balances=False):
         actor, payload, order, lock_balances=lock_balances
     )
     invoice_values = {name: "" for name in ("invoice_title", "invoice_credit_code", "invoice_email")}
+    customer_invoice_update_fields = []
     if payload["requires_invoice"]:
         if customer is None and payload["new_customer"] is None:
             raise OperationError("散客订单不能开票。", fields={"requires_invoice": "请选择客户档案后再开票。"})
@@ -659,7 +674,12 @@ def _plan_order(actor, payload, order, *, lock_balances=False):
             invoice_values[name] = getattr(customer, name) if value is None and customer else value or ""
         if not invoice_values["invoice_title"]:
             raise OperationError("开票抬头不能为空。", fields={"invoice_title": "勾选开票时此项必填。"})
-        if customer and any(getattr(customer, name) != value for name, value in invoice_values.items()):
+        if customer:
+            customer_invoice_update_fields = [
+                name for name, value in invoice_values.items()
+                if getattr(customer, name) != value and (order is None or getattr(order, name) != value)
+            ]
+        if customer_invoice_update_fields:
             _require(actor, "change_customer")
             if not customer.is_active or not customer_queryset_for(actor, changing=True).filter(pk=customer.pk).exists():
                 raise OperationError("客户不存在、已归档或不在维护范围。", status=404, code="not_found")
@@ -770,6 +790,7 @@ def _plan_order(actor, payload, order, *, lock_balances=False):
         "margin_amount": margin_amount,
         "commission_estimate": commission_estimate,
         "invoice_values": invoice_values,
+        "customer_invoice_update_fields": customer_invoice_update_fields,
     }
 
 
@@ -845,6 +866,7 @@ def preview_sales_order(actor, data, order_id=None):
         payload = _normalize_order_input(actor, data, order)
         if order and payload["expected_version"] != order.version:
             raise OperationError("订单已变化，请刷新后重试。", status=409, code="version_conflict")
+        invoice_fallback_customer_id = _invoice_fallback_customer_id(payload, order)
         plan = _plan_order(actor, payload, order)
         payload.update(plan["invoice_values"])
         action = "sales_order_amend" if order else "sales_order_submit"
@@ -857,6 +879,7 @@ def preview_sales_order(actor, data, order_id=None):
                 "sequence": control.last_sequence,
                 "dependencies": canonical_hash(plan["dependencies"]),
                 "input_hash": input_hash,
+                "invoice_fallback_customer_id": invoice_fallback_customer_id,
                 "payload": payload,
             },
             salt=SALES_ORDER_PREVIEW_SALT,
@@ -894,6 +917,17 @@ def confirm_sales_order(actor, operation_key_value, preview_token, request_id=""
         with transaction.atomic():
             control = _lock_control()
             _require(actor, "change_salesorder" if is_amend else "add_salesorder")
+            order = None
+            if is_amend:
+                order = sales_order_queryset_for(actor, changing=True).select_for_update().filter(pk=preview["order_id"]).first()
+                if order is None:
+                    raise OperationError("订单不存在或不在可维护范围。", status=404, code="not_found")
+                set_operation_document_id(order.pk)
+            invoice_fallback_customer_id = preview.get("invoice_fallback_customer_id")
+            if invoice_fallback_customer_id is not None:
+                _require(actor, "view_customer")
+                if not customer_queryset_for(actor).filter(pk=invoice_fallback_customer_id).exists():
+                    raise OperationError("客户不存在或不在可见范围。", status=404, code="not_found")
             replay = _operation_replay(actor, key, action, input_hash)
             if replay is not None:
                 customer_id = BusinessOperation.objects.filter(
@@ -907,12 +941,7 @@ def confirm_sales_order(actor, operation_key_value, preview_token, request_id=""
                 return replay
             if control.last_sequence != preview["sequence"]:
                 raise OperationError("预览后业务数据已变化，请重新预览。", status=409, code="stale_preview")
-            order = None
             if is_amend:
-                order = sales_order_queryset_for(actor, changing=True).select_for_update().filter(pk=preview["order_id"]).first()
-                if order is None:
-                    raise OperationError("订单不存在或不在可维护范围。", status=404, code="not_found")
-                set_operation_document_id(order.pk)
                 if order.status not in (SalesOrder.Status.AWAITING_PAYMENT, SalesOrder.Status.READY_TO_SHIP):
                     raise OperationError("只有未交付订单可以修改。", status=409, code="state_conflict")
                 if order.version != preview["payload"]["expected_version"]:
@@ -948,10 +977,7 @@ def confirm_sales_order(actor, operation_key_value, preview_token, request_id=""
                 plan["customer_name_snapshot"] = customer.name
             elif plan["customer"] is not None and payload["requires_invoice"]:
                 customer = Customer.objects.select_for_update().get(pk=plan["customer"].pk)
-                changed_fields = [
-                    name for name, value in plan["invoice_values"].items()
-                    if getattr(customer, name) != value
-                ]
+                changed_fields = plan["customer_invoice_update_fields"]
                 if changed_fields:
                     for name in changed_fields:
                         setattr(customer, name, plan["invoice_values"][name])

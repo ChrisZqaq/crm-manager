@@ -615,6 +615,142 @@ class CustomerPhase3Tests(Phase3Base):
 
 
 class SalesOrderPhase3Tests(Phase3Base):
+    def test_invoice_fallback_requires_current_customer_visibility(self):
+        customer = self.create_customer(
+            invoice_title="Current invoice title",
+            invoice_credit_code="Current credit code",
+            invoice_email="current@example.test",
+        )
+        _, _, order = self.preview_and_confirm(self.order_payload(customer_id=customer.pk))
+        payload = self.amendment_payload(order)
+        payload["requires_invoice"] = True
+        client = Client()
+        client.force_login(self.sales)
+        url = f"/api/v1/orders/{order.pk}/amend/preview"
+
+        visible = client.post(url, data=json.dumps(payload), content_type="application/json")
+        self.assertEqual(visible.status_code, 200, visible.content)
+        self.assertEqual(visible.json()["invoice_title"], "Current invoice title")
+        self.assertEqual(visible.json()["invoice_credit_code"], "Current credit code")
+
+        view_customer = Permission.objects.get(content_type__app_label="crm", codename="view_customer")
+        sales_group = Group.objects.get(name=ROLE_SALES)
+        sales_group.permissions.remove(view_customer)
+        self.sales = self.User.objects.get(pk=self.sales.pk)
+        client = Client()
+        client.force_login(self.sales)
+        denied = client.post(url, data=json.dumps(payload), content_type="application/json")
+        self.assertEqual(denied.status_code, 403)
+        denied_confirm = client.post(
+            f"/api/v1/orders/{order.pk}/amend",
+            data=json.dumps({"operation_key": str(uuid4()), "preview_token": visible.json()["preview_token"]}),
+            content_type="application/json",
+        )
+        self.assertEqual(denied_confirm.status_code, 403)
+
+        self.sales.user_permissions.add(view_customer)
+        self.sales = self.User.objects.get(pk=self.sales.pk)
+        self.assertTrue(self.sales.has_perm("crm.view_customer"))
+        customer.refresh_from_db()
+        transfer_customer(self.owner, customer.pk, {
+            "owner_id": self.sales_two.pk,
+            "expected_version": customer.version,
+            "operation_key": str(uuid4()),
+        })
+        customer.refresh_from_db()
+        update_customer(self.sales_two, customer.pk, {
+            "expected_version": customer.version,
+            "operation_key": str(uuid4()),
+            "invoice_title": "Transferred live title",
+            "invoice_credit_code": "Transferred live code",
+        })
+        self.sales = self.User.objects.get(pk=self.sales.pk)
+        client = Client()
+        client.force_login(self.sales)
+        before = (order.version, BusinessControl.objects.get(pk=1).last_sequence)
+        stale_confirm = client.post(
+            f"/api/v1/orders/{order.pk}/amend",
+            data=json.dumps({"operation_key": str(uuid4()), "preview_token": visible.json()["preview_token"]}),
+            content_type="application/json",
+        )
+        self.assertEqual(stale_confirm.status_code, 404, stale_confirm.content)
+        hidden = client.post(url, data=json.dumps(payload), content_type="application/json")
+        self.assertEqual(hidden.status_code, 404, hidden.content)
+        self.assertNotIn("invoice_title", hidden.json())
+        order.refresh_from_db()
+        self.assertEqual((order.version, BusinessControl.objects.get(pk=1).last_sequence), before)
+
+    def test_historical_invoice_snapshot_survives_unrelated_amendment(self):
+        customer = self.create_customer(
+            invoice_title="Historical title",
+            invoice_credit_code="Historical code",
+            invoice_email="historical@example.test",
+        )
+        _, _, order = self.preview_and_confirm(self.order_payload(customer_id=customer.pk, requires_invoice=True))
+        customer.refresh_from_db()
+        update_customer(self.sales, customer.pk, {
+            "expected_version": customer.version,
+            "operation_key": str(uuid4()),
+            "invoice_title": "Current title",
+            "invoice_credit_code": "Current code",
+            "invoice_email": "current@example.test",
+        })
+        customer.refresh_from_db()
+        current_profile = (customer.version, customer.invoice_title, customer.invoice_credit_code, customer.invoice_email)
+        Group.objects.get(name=ROLE_SALES).permissions.remove(
+            Permission.objects.get(content_type__app_label="crm", codename="change_customer")
+        )
+        self.sales = self.User.objects.get(pk=self.sales.pk)
+        client = Client()
+        client.force_login(self.sales)
+        payload = self.amendment_payload(order)
+        payload["lines"][0]["quantity"] = 1
+        preview = client.post(
+            f"/api/v1/orders/{order.pk}/amend/preview",
+            data=json.dumps(payload), content_type="application/json",
+        )
+        self.assertEqual(preview.status_code, 200, preview.content)
+        self.assertEqual(preview.json()["invoice_title"], "Historical title")
+        operation_key = str(uuid4())
+        confirmed = client.post(
+            f"/api/v1/orders/{order.pk}/amend",
+            data=json.dumps({"operation_key": operation_key, "preview_token": preview.json()["preview_token"]}),
+            content_type="application/json",
+        )
+        self.assertEqual(confirmed.status_code, 200, confirmed.content)
+        customer.refresh_from_db()
+        order.refresh_from_db()
+        self.assertEqual((customer.version, customer.invoice_title, customer.invoice_credit_code, customer.invoice_email), current_profile)
+        self.assertEqual((order.invoice_title, order.invoice_credit_code, order.invoice_email), (
+            "Historical title", "Historical code", "historical@example.test",
+        ))
+        self.assertFalse(BusinessOperation.objects.filter(
+            action="customer_order_invoice_update", payload__order_operation_key=operation_key,
+        ).exists())
+
+        change_customer = Permission.objects.get(content_type__app_label="crm", codename="change_customer")
+        self.sales.user_permissions.add(change_customer)
+        self.sales = self.User.objects.get(pk=self.sales.pk)
+        client = Client()
+        client.force_login(self.sales)
+        active_edit = self.amendment_payload(order)
+        active_edit["invoice_title"] = "Intentional invoice edit"
+        active_preview = client.post(
+            f"/api/v1/orders/{order.pk}/amend/preview",
+            data=json.dumps(active_edit), content_type="application/json",
+        )
+        self.assertEqual(active_preview.status_code, 200, active_preview.content)
+        active_confirm = client.post(
+            f"/api/v1/orders/{order.pk}/amend",
+            data=json.dumps({"operation_key": str(uuid4()), "preview_token": active_preview.json()["preview_token"]}),
+            content_type="application/json",
+        )
+        self.assertEqual(active_confirm.status_code, 200, active_confirm.content)
+        customer.refresh_from_db()
+        self.assertEqual((customer.invoice_title, customer.invoice_credit_code, customer.invoice_email), (
+            "Intentional invoice edit", "Current code", "current@example.test",
+        ))
+
     def test_multisku_multiwarehouse_duplicate_lines_use_rounded_unit_cost(self):
         second_sku = self.new_sku(2)
         self.add_balance(second_sku, self.second_warehouse, 3, "1.000")

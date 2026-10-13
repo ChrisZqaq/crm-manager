@@ -87,7 +87,7 @@ def _product_queryset(params, *, include_skus=True, include_sku_status=False):
         queryset = queryset.filter(skus__isnull=False).distinct()
     elif sku_status:
         queryset = queryset.filter(skus__is_active=(sku_status == "active")).distinct()
-    queryset = queryset.select_related("brand")
+    queryset = queryset.select_related("brand", "language")
     if include_skus:
         queryset = queryset.prefetch_related(
             Prefetch("skus", queryset=sku_queryset.order_by("id"))
@@ -115,7 +115,7 @@ def _ranked_skus(params):
     matches = []
     for sku in (
         SKU.objects.filter(is_active=True, product_id__in=product_ids)
-        .select_related("product__brand")
+        .select_related("product__brand", "product__language")
         .order_by("id")
     ):
         values = [

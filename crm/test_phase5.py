@@ -16,12 +16,13 @@ from .corrections import (
     submit_cost_correction,
 )
 from . import corrections as correction_service
-from .fulfillment import deliver_on_site, review_commission
+from .fulfillment import deliver_on_site, review_commission, update_outbound_freight
 from .inventory_adjustments import (
     approve_stock_count,
     create_inventory_gift,
     create_inventory_split,
     create_stock_count,
+    revise_stock_count,
     resolve_damaged_record,
     stock_count_rows,
 )
@@ -582,6 +583,44 @@ class InventoryAdjustmentPhase5Tests(Phase5Base):
         self.assertEqual(approved["status"], StockCount.Status.APPROVED)
         run_and_validate()
 
+    def test_stock_count_resubmission_makes_the_effective_submitter_own_the_review(self):
+        self.receive(quantity_value=3, price="1.000")
+        created = create_stock_count(self.user, {"reason": "First submitter", "lines": [{
+            "warehouse_id": self.warehouse.pk, "sku_id": self.sku.pk, "observed_quantity": 2,
+        }]}, uuid4())
+        count = StockCount.objects.get(pk=created["stock_count_id"])
+        first_submitter = self.user
+        second_submitter = self.User.objects.create_user(username="count-resubmitter", password="test-only-password")
+        second_submitter.groups.add(Group.objects.get(name=ROLE_WAREHOUSE))
+        second_submitter.user_permissions.add(Permission.objects.get(content_type__app_label="crm", codename="approve_stockcount"))
+        original_operations = list(BusinessOperation.objects.filter(stock_count=count).order_by("id").values_list("action", "actor_id"))
+        balance = self.balance_for()
+        before = (balance.on_hand, balance.version, InventoryMovement.objects.filter(stock_count_line__stock_count=count).count())
+
+        resubmitted = revise_stock_count(second_submitter, count.pk, {
+            "operation_key": str(uuid4()), "expected_version": count.version,
+            "reason": "Second submitter", "lines": [{
+                "warehouse_id": self.warehouse.pk, "sku_id": self.sku.pk, "observed_quantity": 2,
+            }],
+        })
+        count.refresh_from_db()
+        operations = list(BusinessOperation.objects.filter(stock_count=count).order_by("id").values_list("action", "actor_id"))
+        self.assertEqual(count.submitted_by_id, second_submitter.pk)
+        self.assertEqual((operations[0][1], operations[1][1]), (first_submitter.pk, second_submitter.pk))
+        self.assertEqual(resubmitted["version"], count.version)
+        with self.assertRaises(OperationError) as raised:
+            self.approve_count(count, actor=second_submitter)
+        self.assertEqual(raised.exception.code, "self_approval_denied")
+        self.assertEqual(count.status, StockCount.Status.PENDING)
+        self.assertIsNone(count.approved_by_id)
+        balance.refresh_from_db()
+        self.assertEqual((balance.on_hand, balance.version, InventoryMovement.objects.filter(stock_count_line__stock_count=count).count()), before)
+        self.assertEqual(list(BusinessOperation.objects.filter(stock_count=count).order_by("id").values_list("action", "actor_id")), operations)
+        approved = self.approve_count(count, actor=self.owner)
+        self.assertEqual(approved["status"], StockCount.Status.APPROVED)
+        self.assertEqual(original_operations[0][1], first_submitter.pk)
+        run_and_validate()
+
     def test_stock_count_recheck_uses_patch_and_approves_only_rechecked_impact(self):
         second_sku = self.new_sku(2)
         self.receive_lines(self.warehouse, [(self.sku, 5, "1.000"), (second_sku, 3, "2.000")])
@@ -828,6 +867,69 @@ class InventoryAdjustmentPhase5Tests(Phase5Base):
         self.assertEqual((line.observed_quantity, line.delta, line.cost_delta), (95, 5, Decimal("50.000")))
         self.assertEqual((balance.on_hand, balance.cost_amount), (95, Decimal("950.000")))
         self.assert_replay()
+
+    def test_manual_count_direction_flip_uses_historical_average_for_the_loss(self):
+        receipt = self.receive(quantity_value=1, price="80.000")
+        create_inventory_gift(self.user, {"reason": "Clear one unit", "lines": [{
+            "warehouse_id": self.warehouse.pk, "sku_id": self.sku.pk, "quantity": 1,
+        }]}, uuid4())
+        created = create_stock_count(self.user, {"reason": "Manual positive gain before correction", "lines": [{
+            "warehouse_id": self.warehouse.pk, "sku_id": self.sku.pk,
+            "observed_quantity": 1, "cost_mode": StockCountLine.CostMode.MANUAL, "manual_unit_cost": "100.000",
+        }]}, uuid4())
+        count = StockCount.objects.get(pk=created["stock_count_id"])
+        self.approve_count(count)
+        line = StockCountLine.objects.get(stock_count=count)
+        self.assertEqual((line.delta, line.cost_delta), (1, Decimal("100.000")))
+
+        preview = preview_cost_correction(self.user, self.correction_data(receipt, quantity=3))
+        result = submit_cost_correction(self.user, uuid4(), preview["preview_token"])
+        self.approve_correction(CostCorrection.objects.get(pk=result["cost_correction_id"]))
+
+        line.refresh_from_db()
+        balance = self.balance_for()
+        self.assertEqual((line.delta, line.cost_delta, line.effective_unit_cost), (-1, Decimal("-80.000"), Decimal("80.000")))
+        self.assertEqual((line.cost_mode, line.manual_unit_cost), (StockCountLine.CostMode.MANUAL, Decimal("100.000")))
+        self.assertEqual((balance.on_hand, balance.cost_amount), (1, Decimal("80.000")))
+        self.assert_replay()
+
+    def test_stale_commission_approval_is_not_carried_forward_by_cost_correction(self):
+        receipt = self.receive(quantity_value=10, price="10.000")
+        order = self.new_order(lines=[{
+            "sku_id": self.sku.pk, "warehouse_id": self.warehouse.pk,
+            "quantity": 2, "sale_price": "20.000",
+        }])
+        self.fulfill_onsite(order)
+        order.refresh_from_db()
+        review_commission(self.owner, order.pk, {"operation_key": str(uuid4()), "expected_version": order.version})
+        review = CommissionReview.objects.get(order=order)
+        first_earned_at = review.first_earned_at
+
+        order.refresh_from_db()
+        update_outbound_freight(self.user, order.pk, {
+            "operation_key": str(uuid4()), "expected_version": order.version,
+            "outbound_freights": [{"line_id": order.lines.get(active=True).pk, "amount": "10.000"}],
+        })
+        order.refresh_from_db()
+        stale_amount = review.approved_amount
+        stale_version = review.approved_amount_version
+        self.assertLess(stale_version, order.amount_version)
+        preview = preview_cost_correction(self.user, self.correction_data(receipt, purchase_price="11.000"))
+        result = submit_cost_correction(self.user, uuid4(), preview["preview_token"])
+        self.approve_correction(CostCorrection.objects.get(pk=result["cost_correction_id"]))
+
+        order.refresh_from_db()
+        review.refresh_from_db()
+        self.assertEqual((review.approved_amount, review.approved_amount_version), (stale_amount, stale_version))
+        self.assertEqual(review.first_earned_at, first_earned_at)
+        self.assertFalse(CommissionAdjustment.objects.filter(order=order, kind=CommissionAdjustment.Kind.COST_CORRECTION).exists())
+        re_review = review_commission(self.owner, order.pk, {"operation_key": str(uuid4()), "expected_version": order.version})
+        review.refresh_from_db()
+        self.assertEqual(re_review["delta"], "-1.200")
+        self.assertEqual(review.approved_amount, Decimal("0.800"))
+        self.assertEqual(review.approved_amount_version, order.amount_version)
+        self.assertEqual(review.first_earned_at, first_earned_at)
+        self.assertEqual(CommissionAdjustment.objects.filter(order=order, kind=CommissionAdjustment.Kind.COST_CORRECTION).count(), 0)
 
     def test_repeated_corrections_update_approved_commission_by_each_delta(self):
         receipt = self.receive(quantity_value=10, price="10.000")

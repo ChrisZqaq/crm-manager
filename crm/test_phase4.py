@@ -1,22 +1,25 @@
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
 from io import BytesIO
 import json
 import tempfile
-from threading import Barrier
+from threading import Barrier, Event, local
 from unittest.mock import patch
 from uuid import uuid4
 from zoneinfo import ZoneInfo
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group, Permission
+from django.core.files.base import ContentFile
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import close_old_connections, connection
+from django.db.models.query import QuerySet
 from django.test import Client, override_settings
 from django.utils import timezone
 from PIL import Image
 
+from . import fulfillment as fulfillment_service
 from .fulfillment import (
     deliver_on_site,
     receive_sales_order,
@@ -37,6 +40,7 @@ from .models import (
     PaymentAccount,
     PaymentRecord,
     ReceiptImage,
+    Receipt,
     SalesOrder,
     SalesOrderLine,
     Shipment,
@@ -300,6 +304,268 @@ class PaymentPhase4Tests(Phase4Base):
             call_command("cleanup_orphan_receipt_images")
         self.assertTrue(ReceiptImage.objects.filter(pk=images[0].pk).exists())
         self.assertFalse(ReceiptImage.objects.filter(pk=orphan.pk).exists())
+
+    def test_payment_image_binding_count_mismatch_rolls_back_payment_and_order(self):
+        order = self.new_order()
+        order.refresh_from_db()
+        image = self.add_payment_image()
+        before = (order.version, order.status, BusinessControl.objects.get(pk=1).last_sequence)
+        original_update = QuerySet.update
+
+        def miss_payment_binding(queryset, **kwargs):
+            if queryset.model is ReceiptImage and "payment" in kwargs:
+                return 0
+            return original_update(queryset, **kwargs)
+
+        with patch.object(QuerySet, "update", new=miss_payment_binding):
+            with self.assertRaises(OperationError) as raised:
+                register_payment(self.sales, order.pk, {
+                    "operation_key": str(uuid4()), "expected_version": order.version,
+                    "account_id": self.public_account.pk, "received_amount": f"{order.revenue_amount:.3f}",
+                    "image_ids": [image.pk],
+                })
+        self.assertEqual(raised.exception.code, "stale_image")
+        order.refresh_from_db()
+        self.assertEqual((order.version, order.status, BusinessControl.objects.get(pk=1).last_sequence), before)
+        self.assertFalse(PaymentRecord.objects.filter(order=order).exists())
+        self.assertIsNone(ReceiptImage.objects.get(pk=image.pk).payment_id)
+        self.assertFalse(BusinessOperation.objects.filter(action="payment_register").exists())
+
+    def test_purchase_receipt_binding_count_mismatch_rolls_back_and_cleanup_keeps_bound_image(self):
+        with tempfile.TemporaryDirectory() as media_root, override_settings(MEDIA_ROOT=media_root):
+            image = ReceiptImage.objects.create(
+                owner=self.user,
+                file=ContentFile(b"synthetic receipt image", name="receipt-binding.png"),
+                image_format="PNG",
+                size=68,
+            )
+            data = self.receipt_payload(self.sku, quantity_value=1, price="1.000")
+            data["image_ids"] = [image.pk]
+            preview = preview_receipt(self.user, data)
+            before = (Receipt.objects.count(), BusinessControl.objects.get(pk=1).last_sequence)
+            original_update = QuerySet.update
+
+            def miss_receipt_binding(queryset, **kwargs):
+                if queryset.model is ReceiptImage and "receipt" in kwargs:
+                    return 0
+                return original_update(queryset, **kwargs)
+
+            with patch.object(QuerySet, "update", new=miss_receipt_binding):
+                with self.assertRaises(OperationError) as raised:
+                    confirm_receipt(self.user, uuid4(), preview["preview_token"])
+            self.assertEqual(raised.exception.code, "stale_preview")
+            image.refresh_from_db()
+            self.assertIsNone(image.receipt_id)
+            self.assertEqual((Receipt.objects.count(), BusinessControl.objects.get(pk=1).last_sequence), before)
+
+            result = confirm_receipt(self.user, uuid4(), preview["preview_token"])
+            image.refresh_from_db()
+            image.created_at = timezone.now() - timedelta(hours=25)
+            image.save(update_fields=("created_at",))
+            from django.core.management import call_command
+
+            call_command("cleanup_orphan_receipt_images", verbosity=0)
+            image.refresh_from_db()
+            self.assertEqual(image.receipt_id, result["receipt_id"])
+            self.assertTrue(image.file.storage.exists(image.file.name))
+
+    def _make_race_image(self, created_at):
+        image = ReceiptImage.objects.create(
+            owner=self.sales,
+            file=ContentFile(b"synthetic image for lock race", name=f"race-{uuid4()}.png"),
+            image_format="PNG",
+            size=68,
+        )
+        ReceiptImage.objects.filter(pk=image.pk).update(created_at=created_at)
+        image.refresh_from_db()
+        return image
+
+    @staticmethod
+    def _worker_backend_pid():
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT pg_backend_pid()")
+            return cursor.fetchone()[0]
+
+    def test_postgres_payment_binding_wins_orphan_cleanup_race(self):
+        if connection.vendor != "postgresql":
+            self.skipTest("Real row-lock race requires PostgreSQL.")
+        order = self.new_order()
+        baseline = timezone.now()
+        image = None
+        binder_locked = Event()
+        cleanup_attempted = Event()
+        release_binder = Event()
+        state = local()
+        real_now = timezone.now
+        original_images = fulfillment_service._images_for_payment
+        original_first = QuerySet.first
+
+        def thread_now():
+            if getattr(state, "role", None) == "cleanup":
+                return baseline + timedelta(seconds=61)
+            if getattr(state, "role", None) == "bind":
+                return baseline
+            return real_now()
+
+        def hold_payment_lock(*args, **kwargs):
+            result = original_images(*args, **kwargs)
+            if getattr(state, "role", None) == "bind":
+                binder_locked.set()
+                if not release_binder.wait(10):
+                    raise TimeoutError("release binder lock timed out")
+            return result
+
+        def watch_cleanup_lock(queryset):
+            if getattr(state, "role", None) == "cleanup" and queryset.model is ReceiptImage and queryset.query.select_for_update:
+                cleanup_attempted.set()
+            return original_first(queryset)
+
+        def bind():
+            close_old_connections()
+            state.role = "bind"
+            try:
+                pid = self._worker_backend_pid()
+                result = register_payment(self.sales, order.pk, {
+                    "operation_key": str(uuid4()), "expected_version": order.version,
+                    "account_id": self.public_account.pk, "received_amount": f"{order.revenue_amount:.3f}",
+                    "image_ids": [image.pk],
+                })
+                return pid, result
+            finally:
+                close_old_connections()
+
+        def cleanup():
+            close_old_connections()
+            state.role = "cleanup"
+            try:
+                pid = self._worker_backend_pid()
+                from django.core.management import call_command
+
+                call_command("cleanup_orphan_receipt_images", verbosity=0)
+                return pid
+            finally:
+                close_old_connections()
+
+        with tempfile.TemporaryDirectory() as media_root, override_settings(MEDIA_ROOT=media_root):
+            image = self._make_race_image(baseline - timedelta(hours=24) + timedelta(seconds=30))
+            with ThreadPoolExecutor(max_workers=2) as pool, patch("django.utils.timezone.now", new=thread_now), \
+                    patch("crm.fulfillment._images_for_payment", new=hold_payment_lock), \
+                    patch.object(QuerySet, "first", new=watch_cleanup_lock):
+                bind_future = pool.submit(bind)
+                try:
+                    self.assertTrue(binder_locked.wait(5))
+                    cleanup_future = pool.submit(cleanup)
+                    self.assertTrue(cleanup_attempted.wait(5))
+                    with self.assertRaises(TimeoutError):
+                        cleanup_future.result(timeout=0.1)
+                finally:
+                    release_binder.set()
+                bind_pid, _ = bind_future.result(timeout=10)
+                cleanup_pid = cleanup_future.result(timeout=10)
+            image.refresh_from_db()
+            file_exists = image.file.storage.exists(image.file.name)
+
+        order.refresh_from_db()
+        self.assertNotEqual(bind_pid, cleanup_pid)
+        self.assertEqual(image.payment.order_id, order.pk)
+        self.assertTrue(file_exists)
+        self.assertEqual(order.status, SalesOrder.Status.READY_TO_SHIP)
+
+    def test_postgres_orphan_cleanup_wins_payment_binding_race(self):
+        if connection.vendor != "postgresql":
+            self.skipTest("Real row-lock race requires PostgreSQL.")
+        order = self.new_order()
+        order.refresh_from_db()
+        baseline = timezone.now()
+        image = None
+        cleanup_deleted = Event()
+        binder_attempted = Event()
+        release_cleanup = Event()
+        state = local()
+        real_now = timezone.now
+        original_delete = ReceiptImage.delete
+        original_images = fulfillment_service._images_for_payment
+
+        def thread_now():
+            if getattr(state, "role", None) in ("cleanup", "bind"):
+                return baseline
+            return real_now()
+
+        def hold_cleanup_delete(instance, *args, **kwargs):
+            image_id = instance.pk
+            result = original_delete(instance, *args, **kwargs)
+            if getattr(state, "role", None) == "cleanup" and image_id == image.pk:
+                cleanup_deleted.set()
+                if not release_cleanup.wait(10):
+                    raise TimeoutError("release cleanup transaction timed out")
+            return result
+
+        def observe_binding(*args, **kwargs):
+            if getattr(state, "role", None) == "bind":
+                binder_attempted.set()
+            return original_images(*args, **kwargs)
+
+        def cleanup():
+            close_old_connections()
+            state.role = "cleanup"
+            try:
+                pid = self._worker_backend_pid()
+                from django.core.management import call_command
+
+                call_command("cleanup_orphan_receipt_images", verbosity=0)
+                return pid
+            finally:
+                close_old_connections()
+
+        def bind():
+            close_old_connections()
+            state.role = "bind"
+            try:
+                pid = self._worker_backend_pid()
+                try:
+                    register_payment(self.sales, order.pk, {
+                        "operation_key": str(uuid4()), "expected_version": order.version,
+                        "account_id": self.public_account.pk, "received_amount": f"{order.revenue_amount:.3f}",
+                        "image_ids": [image.pk],
+                    })
+                except OperationError as exc:
+                    return pid, exc.code
+                return pid, "unexpected_success"
+            finally:
+                close_old_connections()
+
+        with tempfile.TemporaryDirectory() as media_root, override_settings(MEDIA_ROOT=media_root):
+            image = self._make_race_image(baseline - timedelta(hours=24, seconds=1))
+            order.refresh_from_db()
+            sequence_before = BusinessControl.objects.get(pk=1).last_sequence
+            version_before = order.version
+            with ThreadPoolExecutor(max_workers=2) as pool, patch("django.utils.timezone.now", new=thread_now), \
+                    patch.object(ReceiptImage, "delete", new=hold_cleanup_delete), \
+                    patch("crm.fulfillment._images_for_payment", new=observe_binding):
+                cleanup_future = pool.submit(cleanup)
+                bind_future = None
+                try:
+                    self.assertTrue(cleanup_deleted.wait(5))
+                    bind_future = pool.submit(bind)
+                    self.assertTrue(binder_attempted.wait(5))
+                    with self.assertRaises(TimeoutError):
+                        bind_future.result(timeout=0.1)
+                finally:
+                    release_cleanup.set()
+                cleanup_pid = cleanup_future.result(timeout=10)
+                bind_pid, error_code = bind_future.result(timeout=10)
+            file_exists = image.file.storage.exists(image.file.name)
+
+        order.refresh_from_db()
+        self.assertNotEqual(bind_pid, cleanup_pid)
+        self.assertEqual(error_code, "not_found")
+        self.assertFalse(ReceiptImage.objects.filter(pk=image.pk).exists())
+        self.assertFalse(file_exists)
+        self.assertFalse(PaymentRecord.objects.filter(order=order).exists())
+        self.assertEqual(order.status, SalesOrder.Status.AWAITING_PAYMENT)
+        self.assertEqual(order.version, version_before)
+        self.assertEqual(BusinessControl.objects.get(pk=1).last_sequence, sequence_before)
+        self.assertFalse(BusinessOperation.objects.filter(action="payment_register").exists())
 
 
 class FulfillmentPhase4Tests(Phase4Base):
@@ -926,6 +1192,48 @@ class D15PermissionBoundaryTests(Phase4Base):
         self.assertEqual(order.version, payload["expected_version"] + 1)
         self.assertEqual(BusinessControl.objects.get(pk=1).last_sequence, sequence)
         self.assertEqual(ReceiptImage.objects.filter(payment=payment).count(), 1)
+
+    def test_lost_change_all_scope_blocks_exact_amendment_replay_on_next_request(self):
+        _, _, order = self.preview_and_confirm(self.order_payload(), actor=self.sales_two)
+        actor = self.new_sales_user("amend-scope-revoked", "view_all_sales_orders", "change_all_sales_orders")
+        client = Client()
+        client.force_login(actor)
+        payload = self.amendment_payload(order)
+        payload["lines"][0]["quantity"] = 1
+        preview = client.post(
+            f"/api/v1/orders/{order.pk}/amend/preview",
+            data=json.dumps(payload), content_type="application/json",
+        )
+        self.assertEqual(preview.status_code, 200, preview.content)
+        operation_key = str(uuid4())
+        confirm_payload = {"operation_key": operation_key, "preview_token": preview.json()["preview_token"]}
+        url = f"/api/v1/orders/{order.pk}/amend"
+        first = client.post(url, data=json.dumps(confirm_payload), content_type="application/json")
+        self.assertEqual(first.status_code, 200, first.content)
+        replay = client.post(url, data=json.dumps(confirm_payload), content_type="application/json")
+        self.assertEqual(replay.status_code, 200, replay.content)
+        self.assertEqual(replay.json(), first.json())
+        order.refresh_from_db()
+        before = (
+            order.version,
+            order.last_sequence,
+            BusinessControl.objects.get(pk=1).last_sequence,
+            BusinessOperation.objects.filter(sales_order=order, action="sales_order_amend").count(),
+        )
+
+        actor.user_permissions.remove(Permission.objects.get(content_type__app_label="crm", codename="change_all_sales_orders"))
+        actor = User.objects.get(pk=actor.pk)
+        revoked_client = Client()
+        revoked_client.force_login(actor)
+        denied = revoked_client.post(url, data=json.dumps(confirm_payload), content_type="application/json")
+        self.assertEqual(denied.status_code, 404)
+        order.refresh_from_db()
+        self.assertEqual((
+            order.version,
+            order.last_sequence,
+            BusinessControl.objects.get(pk=1).last_sequence,
+            BusinessOperation.objects.filter(sales_order=order, action="sales_order_amend").count(),
+        ), before)
 
     def test_commission_fields_are_visible_to_owner_commission_viewers_and_admin_only(self):
         _, _, order = self.preview_and_confirm(self.order_payload(), actor=self.sales_two)
