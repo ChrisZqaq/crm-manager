@@ -1,5 +1,12 @@
 # 前端当前工作
 
+## UI-STYLE-EXPAND-1013 固定交付（2026-10-13）
+
+- 依据UI冻结范围 [HANDOFF](../ui/style-expand-1013/HANDOFF.md) 与负责人唯一应用写入窗口，基线 `4008485c0b2aa7704a4550ade1cba017c3d1e6f5`。本轮应用仅改 `crm/templates/crm/base.html`、`crm/static/crm/app.css`、`crm/templates/crm/receiving.html`、`templates/admin/base_site.html`、`crm/static/crm/admin.css`：扩展既有主题tokens/入口到销售订单、商品档案、收款核对、入库、限制、库存调整及Django Admin；入库明细表改为容器内横向滚动，保持字段和业务行为。未改API、数据库、权限、业务操作或登录样式，未推广其它CRM页。
+- 固定前完成20路由×2主题×2视口，共80种真实浏览器渲染矩阵，零失败；实测含页面/表面颜色、字体、输入/按钮尺寸、根溢出、登录排除、Admin中文导航/Logo/面包屑/分页/保存按钮/多选权限控件。`manage.py check`、`git diff --check`通过。详细测量及截图索引见[本轮证据](ui-style-expand-1013/EVIDENCE.md)。
+- 浏览器使用独立合成库、管理员和数据；未提交任何业务表单。合成站仅绑定`127.0.0.1:19041`。本地演示站与真实数据未触碰。隔离库/账号/站点及临时浏览器资源在固定提交前清理。
+- 应用固定提交：`60b82742e3a2a8ea05f4ae1bd30d3cf9806043a7`。交QA针对固定版检查视觉范围与既有登录/导航；UI可依据截图复核已批准样式。当前停止应用写入，不推送或部署。
+
 ## HTTP-COMPAT-RETRY-1013 固定交付（2026-10-13）
 
 - 依据负责人正式唯一应用写入窗口。派发基线 HEAD `9711123`／应用 `8a52ee7`；写入期间 HEAD 前进至 `36b5efb`，核对 `9711123..36b5efb` 仅有 `docs/` 变化、应用文件未变；应用固定提交 `e59e15e4dea2009bf041d06672b1b1f8a2f3cd2c`。

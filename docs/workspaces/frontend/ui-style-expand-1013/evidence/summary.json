@@ -1,0 +1,67 @@
+{
+  "tested": 80,
+  "failures": [],
+  "adminListProof": {
+    "search": "16px",
+    "searchHeight": 42,
+    "pagination": true,
+    "breadcrumbs": "首页 › 业务资料 › 商品",
+    "adminNav": "工作台\n销售订单\n库存查询\n商品档案\n客户\n收款核对\n提成\n报表\n采购入库\n限制记录\n库存调整\n管理后台\nU\nui-style-check\n退出登录",
+    "brand": true
+  },
+  "adminChangeProof": {
+    "saveButtons": [
+      {
+        "label": "保存",
+        "visible": true,
+        "height": 44
+      },
+      {
+        "label": "保存并增加另一个",
+        "visible": true,
+        "height": 44
+      },
+      {
+        "label": "保存并继续编辑",
+        "visible": true,
+        "height": 44
+      }
+    ],
+    "multis": [
+      {
+        "id": "id_groups",
+        "height": 106,
+        "font": "16px"
+      }
+    ],
+    "breadcrumbs": "首页 › 系统账户与权限 › 员工账号",
+    "menuToggle": {
+      "label": "打开导航",
+      "rect": {
+        "x": 10,
+        "y": 9,
+        "width": 44,
+        "height": 44
+      }
+    },
+    "breadRect": {
+      "x": 0,
+      "y": 0,
+      "right": 375,
+      "bottom": 96
+    }
+  },
+  "crmLogin": {
+    "body": "login-page",
+    "picker": false,
+    "bg": "rgb(242, 244, 250)",
+    "title": "登录 · 阿罗拉潮玩空间"
+  },
+  "adminLogin": {
+    "body": "app-body crm-admin login",
+    "picker": false,
+    "adminTheme": false,
+    "bg": "rgb(242, 244, 250)",
+    "title": "登录 | 阿罗拉潮玩空间 CRM"
+  }
+}
