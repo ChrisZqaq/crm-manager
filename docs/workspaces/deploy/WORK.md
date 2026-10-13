@@ -232,3 +232,15 @@ Nginx新增独立配置`/etc/nginx/sites-available/aluola-crm-iptest.conf`及启
 按负责人授权，先确认云端不存在`iptest-admin`，再通过Django用户管理器`create_superuser`创建独立账号；未更改既有`iptest-owner`或其他用户、组、权限。创建后数据库核对`is_active=True`、`is_staff=True`、`is_superuser=True`。新密码为随机强密码，仅保存在本机私有凭据文件[`admin-credentials.json`](/Users/chrisz/Documents/projects/aluolaCRM/.local/deploy-ip-test/admin-credentials.json)，权限600，父目录700；不在本文、聊天或Git写入密码。
 
 使用该凭据经现有HTTP测试入口完成真实浏览器式HTTP登录（登录后HTTP 200并取得session cookie），随后只读GET `/admin/` 返回200。响应含自定义`crm-admin`样式标记、中文品牌标题“阿罗拉潮玩空间 CRM”及“主导航”标签，确认根模板已实际渲染。没有提交任何业务表单或写入业务数据。HTTPS不可用；登录成功后首跳仍按当前版本行为，未变更应用代码。
+
+## LOGIN-HOME-1013 固定版本本机及云端更新（2026-10-13）
+
+**固定来源与制品**：仅从负责人固定提交`0399e4f6cb1e572e3b15628a1c5d036bb043911e`（相对`5218025891dce41959828d517d87fc48c437fa68`只改`config/settings.py`、`crm/tests.py`）打包；本轮差异无迁移、无依赖锁变化。完整制品包含`config/`、`crm/`、根`templates/`、`manage.py`、`pyproject.toml`及`uv.lock`，共83个Git跟踪文件；两个admin根模板均在。私有包`.local/release-login-home-1013/aluola-crm-app-0399e4f6cb1e572e3b15628a1c5d036bb043911e.tar` SHA256 `3d2811ebeaab0292211f59865fcbb566d5289a2f3e85d9f10bd9ac6fb2b77d4d`，文件600、目录700。云端暂存归档哈希一致；overlay没有delete，之后rsync checksum dry-run为0差异。
+
+**发布前恢复点**：两处CRM服务停机后确认目标DB无其他会话及事务，各自制作`pg_dump -Fc --create`私有归档。目录`.local/release-login-home-1013/`为700，文件均600。本机`aluola_crm_local_demo_preloginhome_20261013T104650+0800.dump` 260179 bytes、SHA256 `5183fd41463d41937950c01066cde6dcb7ddad640cc0c8af852659b905d7046c`，本机`pg_restore --list`通过；本机媒体`aluola_crm_local_demo_media_20261013T104650+0800.tar.gz` SHA256 `0e16c907c068e37100559198e796d3cbe70cfc23ddebb027203867e9ccd8044d`，`gzip -t`通过。云端`aluola_crm_dev_preloginhome_20261013T104659+0800.dump` 219241 bytes、SHA256 `2e5bcb6e290750799e2525e304e527d39f65b69f23a3577ba073d662a10fad63`，经云端`pg_restore --list`验证可读；云端私有媒体归档`aluola_crm_dev_private_media_20261013T104659+0800.tar.gz` 110 bytes、SHA256 `428328ce7d007407d52736e5aa1c895087b198af35a61f8a75bdfc2a80a33d8d`，压缩校验通过且仅有空目录根项。原10/12备份保留未覆盖。云端dump在新iptest-admin创建之后制作，包含该账号。
+
+**运行版本**：本机新固定副本为`.local/demo-runtime/app/releases/0399e4f6cb1e572e3b15628a1c5d036bb043911e/aluola-crm`，复用`demo_settings.py`、同一DB/media/static；Django `check`及`migrate --check`通过，未执行迁移。runserver最终PID 17692、工作目录为固定副本、只绑定127.0.0.1:8765；日志及PID文件在被Git忽略的demo运行目录。本机真实销售登录HTTP 200，默认跳转`/`，首页与`/catalog/`只读GET均200。
+
+云端overlay目标`/opt/aluola-crm-dev/app`，新版本`config/settings.py`哈希与制品一致；模板根目录完整，逐文件dry-run为0差异。Django `check`及`migrate --check`通过，无依赖安装/迁移。`aluola-crm-dev.service` active，MainPID 1639128、NRestarts 0。云端真实销售登录HTTP 200，默认跳转`/`，首页与`/catalog/`均200；既有私有`iptest-admin`真实HTTP登录后只读GET `/admin/` 为200，响应含`crm-admin`及中文品牌标题“阿罗拉潮玩空间 CRM”。测试只更新普通会话/登录时间元数据，没有提交业务表单或写入业务数据；账号、数据库及媒体原状保留。
+
+**边界**：未改`iptest-owner`、其他账号或权限；未触碰网络、Nginx、Hermes、tracker/Docker或数据库结构，不导入期初，不改动负责人/其他角色文档。真实HTTPS不可用，本轮按授权通过既有HTTP入口验证；两处服务当前保持运行。
