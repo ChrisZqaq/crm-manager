@@ -152,6 +152,27 @@ class CatalogTestCase(TestCase):
             302,
         )
 
+    def test_password_login_defaults_to_workbench_and_preserves_safe_next(self):
+        user = self.make_user(ROLE_SALES)
+        anonymous = Client().get("/")
+        self.assertEqual(anonymous.status_code, 302)
+
+        for login_url, redirect_to in (
+            ("/accounts/login/", "/"),
+            ("/accounts/login/?next=/catalog/", "/catalog/"),
+        ):
+            client = Client(enforce_csrf_checks=True)
+            self.assertEqual(client.get(login_url).status_code, 200)
+            token = client.cookies["csrftoken"].value
+            response = client.post(
+                login_url,
+                {"username": user.username, "password": "correct horse battery"},
+                HTTP_X_CSRFTOKEN=token,
+            )
+            self.assertEqual(response.status_code, 302)
+            self.assertEqual(response["Location"], redirect_to)
+            self.assertEqual(client.get(redirect_to).status_code, 200)
+
     def test_role_permission_change_takes_effect_on_the_next_request(self):
         user = self.make_user(ROLE_SALES)
         self.client.force_login(user)
