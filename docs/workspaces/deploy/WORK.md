@@ -226,3 +226,9 @@ Nginx新增独立配置`/etc/nginx/sites-available/aluola-crm-iptest.conf`及启
 ## RELEASE-HOME-UPDATE 公网可达性只读复核（2026-10-12）
 
 按负责人请求执行一次只读复核。云端`ss`显示18888在IPv4和IPv6 wildcard地址监听；Nginx及CRM unit均active，`nginx -t`成功，云端本机经18888访问登录页HTTP 200。UFW当前状态为active、默认deny incoming；22/80/443及18888规则均显示`ALLOW IN Anywhere`，18888的IPv4和IPv6均如此。该状态与本WORK 10月8日“允许当前登录IP”及后续“来源限制不变”的历史记录不一致，故不能确认原来源限制仍在，也不据此推测其变更时间；本次未改网络规则。开发机本轮对公网18888的无代理登录页探测连接超时（HTTP 000），对应时间后Nginx access log没有该探针请求；仅说明本次请求未到达日志中的Nginx。SSH连接来源与access log中最近一次公网来源的成功登录页请求来源不同；按要求仅记录比较结果，不记录来源地址。没有证据据此判定腾讯云安全组原因。未重启服务、未修改白名单或启用监控。
+
+## CLOUD-TEST-ADMIN 独立测试超级管理员（2026-10-13）
+
+按负责人授权，先确认云端不存在`iptest-admin`，再通过Django用户管理器`create_superuser`创建独立账号；未更改既有`iptest-owner`或其他用户、组、权限。创建后数据库核对`is_active=True`、`is_staff=True`、`is_superuser=True`。新密码为随机强密码，仅保存在本机私有凭据文件[`admin-credentials.json`](/Users/chrisz/Documents/projects/aluolaCRM/.local/deploy-ip-test/admin-credentials.json)，权限600，父目录700；不在本文、聊天或Git写入密码。
+
+使用该凭据经现有HTTP测试入口完成真实浏览器式HTTP登录（登录后HTTP 200并取得session cookie），随后只读GET `/admin/` 返回200。响应含自定义`crm-admin`样式标记、中文品牌标题“阿罗拉潮玩空间 CRM”及“主导航”标签，确认根模板已实际渲染。没有提交任何业务表单或写入业务数据。HTTPS不可用；登录成功后首跳仍按当前版本行为，未变更应用代码。
