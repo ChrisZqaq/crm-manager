@@ -244,3 +244,17 @@ Nginx新增独立配置`/etc/nginx/sites-available/aluola-crm-iptest.conf`及启
 云端overlay目标`/opt/aluola-crm-dev/app`，新版本`config/settings.py`哈希与制品一致；模板根目录完整，逐文件dry-run为0差异。Django `check`及`migrate --check`通过，无依赖安装/迁移。`aluola-crm-dev.service` active，MainPID 1639128、NRestarts 0。云端真实销售登录HTTP 200，默认跳转`/`，首页与`/catalog/`均200；既有私有`iptest-admin`真实HTTP登录后只读GET `/admin/` 为200，响应含`crm-admin`及中文品牌标题“阿罗拉潮玩空间 CRM”。测试只更新普通会话/登录时间元数据，没有提交业务表单或写入业务数据；账号、数据库及媒体原状保留。
 
 **边界**：未改`iptest-owner`、其他账号或权限；未触碰网络、Nginx、Hermes、tracker/Docker或数据库结构，不导入期初，不改动负责人/其他角色文档。真实HTTPS不可用，本轮按授权通过既有HTTP入口验证；两处服务当前保持运行。
+
+## RELEASE-AUDIT-DENSITY-1013 固定版本本机/云端更新（2026-10-13）
+
+**固定来源/完整制品**：从负责人固定提交`e59e15e4dea2009bf041d06672b1b1f8a2f3cd2c`打包；发布时应用路径无暂存或未提交偏差。本轮相对`0399e4f`有业务安全修复、三页UI与HTTP crypto/重试支持；无新增迁移、`pyproject.toml`或`uv.lock`变化。包含`config/`、`crm/`、仓库根`templates/`、`manage.py`、依赖清单/锁文件，共85个Git跟踪文件。确认根admin两个模板、`crm/static/crm/crypto-compat.js`、`crm/templates/crm/theme_picker.html`、`crm/static/crm/app.js`均在。制品`.local/release-audit-density-1013/aluola-crm-app-e59e15e4dea2009bf041d06672b1b1f8a2f3cd2c-full-templates.tar` SHA256 `c2e072b2e402d11ffc93250aa3f32c9990cfadfc69423d9a7c0e9212c96992e9`，目录700、文件600。远端暂存包同SHA；对`/opt/aluola-crm-dev/app` overlay无delete，checksum dry-run 0差异。
+
+**更新前恢复点**：本机和云端CRM均停写，分别确认目标库无其他会话/事务后各自制作完整`pg_dump -Fc --create`。`.local/release-audit-density-1013/`目录700，四个恢复文件均600。时间2026-10-13 21:50 CST。本机DB `aluola_crm_local_demo_pre_e59_20261013T215041+0800.dump` 260770 bytes，SHA256 `cce06ab087cd3645a50146a986b2e9b7346f3c68f4c3150f383006ced321dad6`，本机`pg_restore --list`通过；本机媒体`aluola_crm_local_demo_media_pre_e59_20261013T215041+0800.tar.gz` 3167463 bytes，SHA256 `72215b6625eb9e8dc4cc7faa37d9b7c4bb8ad85c74dc59297d50685e7070284a`，`gzip -t`通过。云DB `aluola_crm_dev_pre_e59_20261013T215041+0800.dump` 219383 bytes，SHA256 `f73446f72122f21c0a8d83e0143ef2120d2e42ddab88bed47e1c8888d3238865`，远端`pg_restore --list`通过；云私有媒体 `aluola_crm_dev_private_media_pre_e59_20261013T215041+0800.tar.gz` 110 bytes，SHA256 `428328ce7d007407d52736e5aa1c895087b198af35a61f8a75bdfc2a80a33d8d`，`gzip -t`通过（当时目录为空）。全库备份包含所有现有账号，包括`iptest-admin`、owner及销售账号；没有覆盖之前的恢复点。
+
+**固定运行副本及静态**：本机固定应用目录`.local/demo-runtime/app/releases/e59e15e4dea2009bf041d06672b1b1f8a2f3cd2c/aluola-crm`，复用同一`demo_settings.py`、数据库、媒体及静态根。Django `check`与`migrate --check`通过；`collectstatic --noinput`复制7个文件、127未变。runserver最终PID 42128、工作目录为上述固定副本，只监听127.0.0.1:8765。云端应用目录`/opt/aluola-crm-dev/app`；同样的Django检查通过、未迁移；`collectstatic --noinput`复制7个、127未变。CRM unit active，MainPID 1793819、NRestarts 0。云端应用与收集后的`crypto-compat.js` SHA均与固定源一致（`97c0cd34946574fba49f770fa6f2795acad7b0571a06731fedb9a5f5b87fec0d`）；主题模板部署SHA `b4ce5dbe9dee6619052e43b756076e57183a4872f7836adc9e1bfc9dcb20f1f0`与制品一致。
+
+**真实HTTP销售/管理员检查**：本机和云端各使用已有销售测试账号登录成功（HTTP 200、session存在、无`next`时默认落到`/`）；对`/`、`/customers/`、`/inventory/`、`/catalog/`只读GET均200；静态`/static/crm/crypto-compat.js`均200且含两个helper导出。页面HTML中兼容helper脚本位于app.js之前。云管理员私有账号经现有HTTP入口真实登录HTTP 200，之后只读GET `/admin/` 返回200并显示中文品牌。
+
+**Chrome非secure验证**：在真实Chrome直接访问公网HTTP IP（非localhost、地址栏Not Secure）并以已有`iptest-admin`会话只读访问商品页。页面的`window.isSecureContext=false`、`crypto.subtle`不可用、`crypto.randomUUID`不可用、`crypto.getRandomValues`可用；页面自然加载的head中`crypto-compat.js`早于`app.js`。浏览器实测`CrmCrypto.uuidV4()`输出符合UUIDv4形式，`sha256Hex('abc')`等于标准SHA-256。控制台没有helper/app初始化异常；唯一提示为HTTP不安全来源导致COOP响应头被浏览器忽略。未触发任何业务表单或写入操作。销售页面及Chrome管理员访问共更新常规登录/会话元数据，无业务数据写入。
+
+**边界**：保留数据库、媒体、所有账号/权限、owner及`iptest-admin`；没有真实期初导入、业务表单提交、schema迁移、依赖安装、网络/Nginx规则变更、NAS操作或Hermes/tracker/Docker操作。本轮仅更新两处测试环境，非正式切换。
