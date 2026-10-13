@@ -1,6 +1,7 @@
 {% extends 'crm/base.html' %}
 {% load static %}
 {% block title %}工作台 · 阿罗拉潮玩空间{% endblock %}
+{% block page_scope %}page-workbench{% endblock %}
 {% block topbar_title %}工作台{% endblock %}
 {% block content %}
 <section class="page-heading">
@@ -42,6 +43,8 @@
   <div class="card-head"><h2 id="workbench-trend-title">近 7 天已交付销售</h2><span id="workbench-trend-period" class="muted"></span></div>
   <div class="card-body"><div id="workbench-trend" class="workbench-trend" role="group" aria-label="近7天每日已交付销售额"></div><p id="workbench-trend-status" class="inline-status" role="status" aria-live="polite"></p><table id="workbench-trend-data" class="workbench-chart-data"><caption>近7天每日已交付销售额</caption><thead><tr><th scope="col">日期</th><th scope="col">金额</th></tr></thead><tbody></tbody></table></div>
 </section>{% endif %}
+
+{% include "crm/theme_picker.html" %}
 
 <script>
 (() => {

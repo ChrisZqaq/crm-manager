@@ -1,4 +1,23 @@
 (() => {
+  const themePicker = document.querySelector('.page-theme-picker');
+  if (themePicker) {
+    const key = 'aluola-crm-theme';
+    const choices = [...themePicker.querySelectorAll('[data-theme-choice]')];
+    const applyTheme = theme => {
+      const selected = theme === 'green' ? 'green' : 'cream';
+      document.body.dataset.theme = selected;
+      document.documentElement.dataset.theme = selected;
+      choices.forEach(button => button.setAttribute('aria-pressed', String(button.dataset.themeChoice === selected)));
+    };
+    applyTheme(localStorage.getItem(key));
+    themePicker.addEventListener('click', event => {
+      const choice = event.target.closest('[data-theme-choice]');
+      if (!choice) return;
+      applyTheme(choice.dataset.themeChoice);
+      localStorage.setItem(key, choice.dataset.themeChoice);
+    });
+  }
+
   const sidebar = document.getElementById('primary-navigation');
   const toggle = document.querySelector('[data-menu-toggle]');
   const scrim = document.querySelector('[data-menu-close]');

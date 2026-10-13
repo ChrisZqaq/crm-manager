@@ -1,6 +1,6 @@
 {% load static %}
 <!doctype html>
-<html lang="zh-Hans">
+<html lang="zh-Hans" class="{% if request.resolver_match.url_name == 'home' %}page-workbench{% elif request.resolver_match.url_name == 'customers' %}page-customers{% elif request.resolver_match.url_name == 'inventory' %}page-inventory{% endif %}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -9,7 +9,7 @@
   <link rel="stylesheet" href="{% static 'crm/app.css' %}">
   {% block extra_head %}{% endblock %}
 </head>
-<body class="app-body">
+<body class="app-body {% block page_scope %}{% endblock %}">
   <a class="skip-link" href="#main-content">跳到主要内容</a>
   <div class="app-frame">
     <aside class="sidebar" id="primary-navigation" aria-label="主导航">{% include "crm/sidebar_contents.html" %}</aside>

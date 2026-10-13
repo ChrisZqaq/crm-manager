@@ -1,17 +1,18 @@
 {% extends 'crm/base.html' %}
 {% load static %}
 {% block title %}客户 · 阿罗拉潮玩空间{% endblock %}
+{% block page_scope %}page-customers{% endblock %}
 {% block topbar_title %}客户{% endblock %}
 {% block content %}
 <section class="page-heading"><div><h1>客户</h1></div>{% if perms.crm.add_customer or request.user.is_superuser %}<button class="button-primary" type="button" id="new-customer">新建客户</button>{% endif %}</section>
 <form class="data-card filter-bar" id="customer-filters" role="search">
-  <div class="filter-field filter-search"><label for="customer-query">客户姓名、公司或联系方式</label><input id="customer-query" type="search" maxlength="120" autocomplete="off"></div>
+  <div class="filter-field filter-search"><label for="customer-query">客户姓名、公司或联系方式</label><input id="customer-query" type="search" maxlength="120" autocomplete="off" placeholder="输入关键词"></div>
   {% if perms.crm.view_all_customers or request.user.is_superuser %}<div class="filter-field"><label for="customer-owner">客户负责人</label><select id="customer-owner" name="owner_id"><option value="">全部</option></select></div>{% endif %}
   <label class="filter-check"><input id="include-archived" type="checkbox"> 包含已归档</label>
   <button class="button-primary" type="submit">查询</button><a class="button-link" href="{% url 'customers' %}">重置</a>
 </form>
 <p id="customer-status" role="status" aria-live="polite"></p>
-<div class="split-layout" id="customer-layout">
+<div class="customer-layout" id="customer-layout">
   <section class="data-card"><p id="customer-empty" class="empty-state">正在加载客户…</p><div class="table-scroll"><table><thead><tr><th>客户</th><th>联系方式</th><th>公司</th><th>发票抬头</th><th>负责人</th><th>状态</th><th>操作</th></tr></thead><tbody id="customers"></tbody></table></div>
     <div class="pagination"><span id="customer-page"></span><button id="customer-previous" type="button">上一页</button><button id="customer-next" type="button">下一页</button></div>
   </section>
@@ -32,6 +33,7 @@
     <div class="dialog-actions"><button type="button" data-dialog-close>取消</button><button class="button-primary" type="submit">保存客户</button></div>
   </form>
 </dialog>
+{% include "crm/theme_picker.html" %}
 <script>
 (() => {
   const csrf=()=>document.cookie.split('; ').find(value=>value.startsWith('csrftoken='))?.split('=')[1]||'';

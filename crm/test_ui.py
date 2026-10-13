@@ -71,6 +71,30 @@ class ApprovedWorkbenchAndPaymentUITests(TestCase):
         self.assertContains(product_admin_add, "新建商品")
         self.assertContains(product_admin_add, "IP")
 
+    def test_density_redesign_scope_and_preserved_inventory_controls(self):
+        self.client.force_login(self.orders)
+        customers = self.client.get("/customers/")
+        self.assertContains(customers, '<html lang="zh-Hans" class="page-customers">')
+        self.assertContains(customers, 'class="page-theme-picker"')
+        self.assertContains(customers, 'class="customer-layout" id="customer-layout"')
+        self.assertNotContains(customers, 'class="split-layout" id="customer-layout"')
+
+        self.client.force_login(self.admin)
+        workbench = self.client.get("/")
+        self.assertContains(workbench, '<html lang="zh-Hans" class="page-workbench">')
+        self.assertContains(workbench, 'data-theme-choice="green"')
+        summary_cards = workbench.content.count(b'<article class="data-card summary-card workbench-card')
+        status_cards = workbench.content.count(b'<article class="data-card status-card workbench-card')
+        self.assertEqual(summary_cards + status_cards, 8)
+
+        inventory = self.client.get("/inventory/")
+        self.assertContains(inventory, '<html lang="zh-Hans" class="page-inventory">')
+        self.assertContains(inventory, 'id="inventory-summary-card"')
+        self.assertContains(inventory, 'id="global-settings"')
+        self.assertContains(inventory, "库存金额")
+        self.assertNotContains(inventory, "当前筛选仓库×SKU记录")
+        self.assertNotContains(inventory, "全局低库存提醒</span>")
+
     def test_workbench_is_available_without_data_permissions_and_gates_requests(self):
         self.client.force_login(self.basic)
         response = self.client.get("/")

@@ -1,6 +1,7 @@
 {% extends 'crm/base.html' %}
 {% load static %}
 {% block title %}库存与成本 · 阿罗拉潮玩空间{% endblock %}
+{% block page_scope %}page-inventory{% endblock %}
 {% block topbar_title %}库存与成本{% endblock %}
 {% block content %}
 <section class="page-heading"><div><h1>库存查询</h1><p>可售量扣除订单占用、客户预留、囤货和破损；单位成本按SKU规格显示。</p></div><a class="button-link" href="{% url 'report-export' 'inventory' %}?{{ request.GET.urlencode }}">导出筛选结果</a></section>
@@ -13,8 +14,7 @@
     <div class="filter-field"><label for="inventory-stock-status">库存状态</label><select id="inventory-stock-status" name="low_stock"><option value="">全部</option><option value="true" {% if request.GET.low_stock == 'true' %}selected{% endif %}>低库存</option><option value="false" {% if request.GET.low_stock == 'false' %}selected{% endif %}>正常库存</option></select></div>
     <button class="button-primary" type="submit">筛选</button><a class="button-link" href="{% url 'inventory' %}">重置</a>
   </form>
-  <section class="summary-grid" aria-label="库存概览"><article class="data-card summary-card"><span class="summary-label">当前筛选仓库×SKU记录</span><strong>{{ total }}</strong><span class="summary-note">记录数，不是跨单位件数</span></article><article class="data-card summary-card"><span class="summary-label">全局低库存提醒</span><strong>{% if control.low_stock_enabled %}开启{% else %}关闭{% endif %}</strong><span class="summary-note">默认阈值 {{ control.default_threshold }}</span></article></section>
-  <section class="data-card"><div class="card-head"><h2>按单位统计</h2><span class="muted">当前授权筛选全集，不受分页影响</span></div><div class="card-body" id="inventory-summary" aria-live="polite"><p class="muted">正在汇总…</p></div><p id="inventory-summary-error" class="inline-status card-body" role="status" aria-live="polite"></p></section>
+  <section class="data-card" id="inventory-summary-card"><div class="card-head"><h2>按单位统计</h2><span class="muted">当前授权筛选全集，不受分页影响</span></div><div class="card-body" id="inventory-summary" aria-live="polite"><p class="muted">正在汇总…</p></div><p id="inventory-summary-error" class="inline-status card-body" role="status" aria-live="polite"></p></section>
 
   {% if perms.crm.manage_global_low_stock or request.user.is_superuser %}
   <form id="global-settings" data-api="/api/v1/settings/low-stock">
@@ -78,4 +78,5 @@
     }));
   </script>
 </div>
+{% include "crm/theme_picker.html" %}
 {% endblock %}
