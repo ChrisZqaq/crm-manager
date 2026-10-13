@@ -1,0 +1,88 @@
+{
+  "origin": "http://audit.invalid:18914",
+  "directOrigin": "http://127.0.0.1:18914",
+  "pages": {
+    "insecure": {
+      "secure": false,
+      "subtle": "undefined",
+      "randomUUID": "undefined",
+      "getRandomValues": "function",
+      "helper": "object"
+    },
+    "secure": {
+      "secure": true,
+      "subtle": "object",
+      "randomUUID": "function"
+    }
+  },
+  "flows": {
+    "customerCreate": {
+      "doubleSubmitOneRequest": true,
+      "retrySameKey": true,
+      "oneBusinessEffect": true
+    },
+    "customerUpdate": {
+      "retrySameKey": true,
+      "oneBusinessEffect": true
+    },
+    "customerTransfer": {
+      "doubleClickOneRequest": true,
+      "retrySameKey": true,
+      "oneBusinessEffect": true
+    },
+    "holdCreate": {
+      "doubleSubmitOneRequest": true,
+      "retrySameKey": true,
+      "changedInputNewKey": true,
+      "oneEffectPerAcceptedOperation": true
+    },
+    "holdRelease": {
+      "doubleSubmitOneRequest": true,
+      "retrySameKey": true,
+      "oneBusinessEffect": true
+    },
+    "openingConfirm": {
+      "doubleClickOneRequest": true,
+      "retrySamePreviewSameKey": true,
+      "changedPreviewNewKey": true,
+      "oneTimeBusinessEffect": true,
+      "noFalseUnconfirmedMessage": true
+    },
+    "adjustmentAfterRefresh": {
+      "droppedResponseKeyStoredUnderOpaqueDigest": true,
+      "refreshReusesSameKey": true,
+      "oneBusinessEffect": true,
+      "successClearsStorage": true
+    }
+  },
+  "uuidFallback": {
+    "samples": 32,
+    "allV4VariantValid": true
+  },
+  "uuidNativeV4": true,
+  "sameSignatureHashAcrossContexts": true,
+  "syntheticBackendCounts": {
+    "/api/v1/customers": 1,
+    "/api/v1/customers/10": 1,
+    "/api/v1/customers/10/transfer": 1,
+    "/api/v1/holds": 2,
+    "/api/v1/holds/100/release": 1,
+    "/api/v1/opening/confirm": 1,
+    "/api/v1/splits": 1
+  },
+  "openingCommits": 1,
+  "operationKeys": {
+    "customerCreateRetrySame": true,
+    "customerUpdateRetrySame": true,
+    "customerTransferRetrySame": true,
+    "holdCreateRetrySame": true,
+    "holdChangedInputDifferent": true,
+    "holdReleaseRetrySame": true,
+    "openingRetrySamePreview": true,
+    "openingNewPreviewDifferent": true
+  },
+  "adminHead": {
+    "helperLoadedBeforeInlineAction": true,
+    "insecureContext": false
+  }
+}

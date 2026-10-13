@@ -64,7 +64,7 @@
     if (globalForm) globalForm.addEventListener('submit', async event => {
       event.preventDefault();
       try {
-        await sendJson(globalForm.dataset.api, 'PATCH', {enabled: document.getElementById('global-enabled').checked, threshold: Number(document.getElementById('global-threshold').value), operation_key: crypto.randomUUID()});
+        await sendJson(globalForm.dataset.api, 'PATCH', {enabled: document.getElementById('global-enabled').checked, threshold: Number(document.getElementById('global-threshold').value), operation_key: CrmCrypto.uuidV4()});
         status.textContent = '全局低库存设置已保存。';
       } catch (error) { status.textContent = error.message; }
     });
@@ -72,7 +72,7 @@
       event.preventDefault();
       const threshold = form.querySelector('.sku-threshold').value;
       try {
-        await sendJson(`/api/v1/skus/${form.dataset.sku}/low-stock`, 'PATCH', {enabled: form.querySelector('.sku-enabled').checked, threshold: threshold === '' ? null : Number(threshold), operation_key: crypto.randomUUID()});
+        await sendJson(`/api/v1/skus/${form.dataset.sku}/low-stock`, 'PATCH', {enabled: form.querySelector('.sku-enabled').checked, threshold: threshold === '' ? null : Number(threshold), operation_key: CrmCrypto.uuidV4()});
         status.textContent = 'SKU低库存设置已保存。';
       } catch (error) { status.textContent = error.message; }
     }));

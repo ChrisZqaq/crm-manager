@@ -38,6 +38,7 @@
     }
     const initial=JSON.parse(document.getElementById('customer-initial').textContent||'null');
     const addresses=document.getElementById('addresses'),status=document.getElementById('status');let regions=[];
+    let customerBusy=false,customerOperation=null,transferOperation=null;
     for(const field of ['name','contact','company','note1','note2','invoice_title','invoice_credit_code','invoice_email'])document.getElementById(field).value=initial?.[field]||'';
     document.getElementById('aliases').value=(initial?.aliases||[]).join('\n');
     function addAddress(value={}) {
@@ -58,13 +59,22 @@
     document.getElementById('add-address').addEventListener('click',()=>addAddress());
     document.getElementById('customer-form').addEventListener('submit',async event=>{
       event.preventDefault();
+      if(customerBusy)return;
       const addressRows=[...addresses.querySelectorAll('.address')].map(card=>({...(card.dataset.id?{id:Number(card.dataset.id)}:{}),recipient:card.querySelector('[data-field="recipient"]').value,phone:card.querySelector('[data-field="phone"]').value,province:card.querySelector('[data-field="province"]').value,city:card.querySelector('[data-field="city"]').value,detail:card.querySelector('[data-field="detail"]').value}));
-      const data={name:document.getElementById('name').value,contact:document.getElementById('contact').value,company:document.getElementById('company').value,aliases:document.getElementById('aliases').value.split(/[\n;；]/).map(x=>x.trim()).filter(Boolean),note1:document.getElementById('note1').value,note2:document.getElementById('note2').value,invoice_title:document.getElementById('invoice_title').value,invoice_credit_code:document.getElementById('invoice_credit_code').value,invoice_email:document.getElementById('invoice_email').value,addresses:addressRows,operation_key:crypto.randomUUID()};
+      const data={name:document.getElementById('name').value,contact:document.getElementById('contact').value,company:document.getElementById('company').value,aliases:document.getElementById('aliases').value.split(/[\n;；]/).map(x=>x.trim()).filter(Boolean),note1:document.getElementById('note1').value,note2:document.getElementById('note2').value,invoice_title:document.getElementById('invoice_title').value,invoice_credit_code:document.getElementById('invoice_credit_code').value,invoice_email:document.getElementById('invoice_email').value,addresses:addressRows};
       const owner=document.getElementById('owner_id');if(owner&&!initial)data.owner_id=owner.value;
-      if(initial){data.expected_version=initial.version;try{await api(`/api/v1/customers/${initial.id}`,'PATCH',data);location.href='/customers/';}catch(error){status.textContent=error.message;}}
-      else {try{await api('/api/v1/customers','POST',data);location.href='/customers/';}catch(error){status.textContent=error.message;}}
+      const url=initial?`/api/v1/customers/${initial.id}`:'/api/v1/customers',method=initial?'PATCH':'POST';
+      if(initial)data.expected_version=initial.version;
+      const signature=`${method}:${url}:${JSON.stringify(data)}`;
+      if(customerOperation?.signature!==signature)customerOperation={signature,key:CrmCrypto.uuidV4()};
+      data.operation_key=customerOperation.key;
+      const form=document.getElementById('customer-form'),controls=Array.from(form.elements),wasDisabled=controls.map(control=>control.disabled);
+      customerBusy=true;controls.forEach(control=>{control.disabled=true;});
+      try{await api(url,method,data);location.href='/customers/';}
+      catch(error){status.textContent=error.message;}
+      finally{customerBusy=false;controls.forEach((control,index)=>{control.disabled=wasDisabled[index];});}
     });
-    const transfer=document.getElementById('transfer');if(transfer)transfer.addEventListener('click',async()=>{const current=document.getElementById('owner_id').value;try{await api(`/api/v1/customers/${initial.id}/transfer`,'POST',{owner_id:current,expected_version:initial.version,operation_key:crypto.randomUUID()});location.reload();}catch(error){status.textContent=error.message;}});
+    const transfer=document.getElementById('transfer');if(transfer)transfer.addEventListener('click',async()=>{if(customerBusy)return;const current=document.getElementById('owner_id').value,url=`/api/v1/customers/${initial.id}/transfer`,body={owner_id:current,expected_version:initial.version},signature=`${url}:${JSON.stringify(body)}`;if(transferOperation?.signature!==signature)transferOperation={signature,key:CrmCrypto.uuidV4()};body.operation_key=transferOperation.key;const disabled=transfer.disabled;transfer.disabled=true;customerBusy=true;try{await api(url,'POST',body);location.reload();}catch(error){status.textContent=error.message;}finally{customerBusy=false;transfer.disabled=disabled;}});
     start();
   </script>
 </div>

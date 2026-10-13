@@ -39,10 +39,12 @@
       const resultBox = document.getElementById('result');
       const status = document.getElementById('status');
       const confirm = document.getElementById('confirm');
+      let openingBusy=false,confirmOperation=null;
       form.addEventListener('submit', async event => {
-        event.preventDefault(); previewToken = null; confirm.hidden = true;
+        event.preventDefault();if(openingBusy)return;openingBusy=true;previewToken = null;confirmOperation=null;confirm.hidden = true;
+        const controls=[...form.elements,confirm],wasDisabled=controls.map(control=>control.disabled);controls.forEach(control=>{control.disabled=true;});
         const file = document.getElementById('file').files[0];
-        if (!file) return;
+        if (!file){openingBusy=false;controls.forEach((control,index)=>{control.disabled=wasDisabled[index];});return;}
         const formData = new FormData(); formData.append('file', file); formData.append('mappings', document.getElementById('mappings').value);
         try {
           const response = await fetch('/api/v1/opening/preview', {method: 'POST', credentials: 'same-origin', headers: {'X-CSRFToken': csrfToken()}, body: formData});
@@ -52,15 +54,19 @@
           confirm.hidden = !previewToken;
           status.textContent = result.ready ? '请核对整批摘要后确认。' : '需要处理预览中列出的映射或条码确认，再重新预览。';
         } catch (error) { resultBox.textContent = error.message; status.textContent = '校验未通过。'; }
+        finally { openingBusy=false;controls.forEach((control,index)=>{control.disabled=wasDisabled[index];});confirm.disabled=!previewToken; }
       });
       confirm.addEventListener('click', async () => {
-        if (!previewToken) return;
+        if (!previewToken||openingBusy)return;openingBusy=true;
+        if(confirmOperation?.previewToken!==previewToken)confirmOperation={previewToken,key:CrmCrypto.uuidV4()};
+        const controls=[...form.elements,confirm],wasDisabled=controls.map(control=>control.disabled);controls.forEach(control=>{control.disabled=true;});
         try {
-          const response = await fetch('/api/v1/opening/confirm', {method: 'POST', credentials: 'same-origin', headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrfToken()}, body: JSON.stringify({preview_token: previewToken, operation_key: crypto.randomUUID()})});
+          const response = await fetch('/api/v1/opening/confirm', {method: 'POST', credentials: 'same-origin', headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrfToken()}, body: JSON.stringify({preview_token: previewToken, operation_key: confirmOperation.key})});
           const result = await readResponse(response);
-          resultBox.textContent = JSON.stringify(result, null, 2); previewToken = null; confirm.hidden = true;
+          resultBox.textContent = JSON.stringify(result, null, 2); previewToken = null;confirmOperation=null; confirm.hidden = true;
           status.textContent = '整批期初已确认，导入口已关闭。';
-        } catch (error) { resultBox.textContent = error.message; status.textContent = '期初未确认，请重新预览。'; }
+        } catch (error) { resultBox.textContent = error.message; status.textContent = '未收到成功回执，批次可能已提交。请用同一预览重试，或刷新核对期初状态。'; }
+        finally { openingBusy=false;controls.forEach((control,index)=>{control.disabled=wasDisabled[index];});confirm.disabled=!previewToken; }
       });
     }
   </script>

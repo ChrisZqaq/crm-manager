@@ -105,7 +105,7 @@
         const response = await fetch('/api/v1/receipts/preview', {method: 'POST', credentials: 'same-origin', headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrfToken()}, body: JSON.stringify(data)});
         const result = await readResponse(response);
         previewToken = result.preview_token;
-        operationKey = crypto.randomUUID();
+        operationKey = CrmCrypto.uuidV4();
         resultBox.textContent = JSON.stringify(result, null, 2);
         document.getElementById('confirm').hidden = !previewToken;
         status.textContent = '请核对仓库、供应商、数量、价格、运费与限制数量。';

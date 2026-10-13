@@ -42,21 +42,33 @@
     }
     const status = document.getElementById('status');
     const create = document.getElementById('hold-create');
+    let createSubmitting=false,createOperation=null;
+    function nextOperation(previous,url,body){const signature=`${url}:${JSON.stringify(body)}`;return previous?.signature===signature?previous:{signature,key:CrmCrypto.uuidV4()};}
     if (create) create.addEventListener('submit', async event => {
       event.preventDefault();
+      if(createSubmitting)return;
       const option = document.getElementById('balance').selectedOptions[0];
+      const url='/api/v1/holds',body={warehouse_id:option.dataset.warehouse,sku_id:option.dataset.sku,type:document.getElementById('type').value,quantity:document.getElementById('quantity').value,reason:document.getElementById('reason').value};
+      createOperation=nextOperation(createOperation,url,body);body.operation_key=createOperation.key;
+      const controls=Array.from(create.elements),wasDisabled=controls.map(control=>control.disabled);createSubmitting=true;controls.forEach(control=>{control.disabled=true;});
       try {
-        await send('/api/v1/holds', {warehouse_id: option.dataset.warehouse, sku_id: option.dataset.sku, type: document.getElementById('type').value, quantity: document.getElementById('quantity').value, reason: document.getElementById('reason').value, operation_key: crypto.randomUUID()});
+        await send(url, body);
         location.reload();
       } catch (error) { status.textContent = error.message; }
+      finally { createSubmitting=false;controls.forEach((control,index)=>{control.disabled=wasDisabled[index];}); }
     });
-    document.querySelectorAll('.release').forEach(form => form.addEventListener('submit', async event => {
+    document.querySelectorAll('.release').forEach(form => {let submitting=false,operation=null;form.addEventListener('submit', async event => {
       event.preventDefault();
+      if(submitting)return;
+      const url=`/api/v1/holds/${form.dataset.id}/release`,body={quantity:form.querySelector('.release-quantity').value,expected_version:form.dataset.version};
+      operation=nextOperation(operation,url,body);body.operation_key=operation.key;
+      const controls=Array.from(form.elements),wasDisabled=controls.map(control=>control.disabled);submitting=true;controls.forEach(control=>{control.disabled=true;});
       try {
-        await send(`/api/v1/holds/${form.dataset.id}/release`, {quantity: form.querySelector('.release-quantity').value, expected_version: form.dataset.version, operation_key: crypto.randomUUID()});
+        await send(url,body);
         location.reload();
       } catch (error) { status.textContent = error.message; }
-    }));
+      finally { submitting=false;controls.forEach((control,index)=>{control.disabled=wasDisabled[index];}); }
+      });});
   </script>
 </div>
 {% endblock %}

@@ -155,11 +155,10 @@
     controls.forEach(element => { element.disabled = true; });
     try {
       const signature = operationKeySignature(currentUserId, scope, keyBody);
-      const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(signature));
-      const storageKey = 'crm-operation:' + Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
+      const storageKey = 'crm-operation:' + await CrmCrypto.sha256Hex(signature);
       let key = operationKeys.get(signature) || sessionStorage.getItem(storageKey);
       if (!key) {
-        key = crypto.randomUUID();
+        key = CrmCrypto.uuidV4();
         operationKeys.set(signature, key);
         sessionStorage.setItem(storageKey, key);
       }

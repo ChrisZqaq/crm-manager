@@ -141,7 +141,7 @@
     if(initial.payment?.received_at){const localTime=beijingDateTime(initial.payment.received_at);if(localTime)document.getElementById('payment-received-at').textContent=localTime.replace('T',' ');}
     async function postJson(url,data){const response=await fetch(url,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-CSRFToken':csrfToken()},body:JSON.stringify(data)});const result=await response.json();if(!response.ok)throw new Error(result.error?.message||'请求失败');return result;}
     const operationKeys=new Map();
-    function actionData(action,extra={}){const data={expected_version:initial.version,...extra},signature=`${action}:${JSON.stringify(data)}`;if(!operationKeys.has(signature))operationKeys.set(signature,crypto.randomUUID());return {...data,operation_key:operationKeys.get(signature)};}
+    function actionData(action,extra={}){const data={expected_version:initial.version,...extra},signature=`${action}:${JSON.stringify(data)}`;if(!operationKeys.has(signature))operationKeys.set(signature,CrmCrypto.uuidV4());return {...data,operation_key:operationKeys.get(signature)};}
     function freightRows(tableId){const table=document.getElementById(tableId);if(!table)return;for(const line of initial.lines){const row=document.createElement('tr'),sku=document.createElement('td'),warehouse=document.createElement('td'),freight=document.createElement('td'),input=document.createElement('input');sku.textContent=line.sku_code;warehouse.textContent=line.warehouse;input.type='number';input.min='0';input.step='0.001';input.dataset.lineId=line.line_id;input.value=line.outbound_freight;freight.appendChild(input);row.append(sku,warehouse,freight);table.appendChild(row);}}
     function freightPayload(tableId){return [...document.querySelectorAll(`#${tableId} input[data-line-id]`)].filter(input=>input.value!=='').map(input=>({line_id:Number(input.dataset.lineId),amount:input.value}));}
     async function runForm(formId,callback){const form=document.getElementById(formId);if(!form)return;let submitting=false;form.addEventListener('submit',async event=>{event.preventDefault();if(submitting)return;submitting=true;const controls=[...form.elements].map(control=>[control,control.disabled]);for(const [control] of controls)control.disabled=true;status.textContent='正在提交…';status.setAttribute('role','status');try{await callback();location.reload();}catch(error){status.textContent=error.message;status.setAttribute('role','alert');submitting=false;for(const [control,disabled] of controls)control.disabled=disabled;}});}
@@ -174,7 +174,7 @@
         confirmCancel.disabled=true;
         cancelBack.disabled=true;
         cancel.disabled=true;
-        if(!cancelOperationKey)cancelOperationKey=crypto.randomUUID();
+        if(!cancelOperationKey)cancelOperationKey=CrmCrypto.uuidV4();
         try{
           await postJson(`/api/v1/orders/${initial.id}/cancel`,{expected_version:initial.version,operation_key:cancelOperationKey});
           location.reload();
