@@ -263,3 +263,6 @@ UI-HOME-REFINE三项收口：长增速+1729.90%desktop3行/mobile2行；老板�
 RELEASE-ROOT-TEMPLATES已关闭：同5218025/c29重导83文件完整制品，根template hash/loader双方与Git源匹配，QA复核包hash和本机新接口/静态。RELEASE-CLOUD-ACCESS待核：当前无代理公网18888 connect timeout/请求未到nginx，unit/内网200；用户实际访问/Tencent规则待核，禁止推断根因或扩大来源。只读UFW18888 ALLOW IN Anywhere与历史来源记录不一致，不能证明云层IP限制，须保留事实。部署后真实管理员会话无凭据未测（不改账号），独立合成后台证据不代替该事实。
 
 2026-10-13 RELEASE-CLOUD-ACCESS已关闭：用户开通18888后root直连及QA真实sales公网登录/新接口/静态/隔离烟测通过。公网连接阻断解除，不推断之前安全组根因。此前UFW实际来源范围/云层规则未独立审阅事实保留；正式网络访问政策按用户配置，不宣称已仅限指定IP。管理员真实登录未测及正式上线待办未关闭。
+
+
+2026-10-14 HERMES-UNIT-DRIFT已关闭：系统级原hermes.service不存在，但ubuntu用户级hermes-gateway.service为active/running，MainPID10639/comm hermes与原生Python路径存在。部署工程师仅核unit/PID/路径元信息，未读参数/env/配置/消息、未修改其它服务；不再以系统级旧名称缺失推断Hermes停止。具体发布与只读识别记录见部署WORK。
