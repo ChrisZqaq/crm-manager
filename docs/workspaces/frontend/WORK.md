@@ -1,5 +1,13 @@
 # 前端当前工作
 
+## UI-STYLE-EXPAND-1013 两类最小返工固定交付（2026-10-14）
+
+- 负责人唯一CSS写入窗口，基线HEAD `abcf6311d779596508ee255fba22d3a8bae758ae`、应用 `60b82742e3a2a8ea05f4ae1bd30d3cf9806043a7`。只改 `crm/static/crm/app.css`、`crm/static/crm/admin.css`，固定应用提交 `d7334df08474d1f3867997251743b6dd45343f09`。
+- 订单地址 `.order-address-fields` 增加局部 `align-items:start`，桌面recipient/province/city从62px回到42px，contact/detail textarea仍82px；Admin将五个Django原生颜色变量映射到既有米/绿tokens，首页caption/链接18px、表格td16px、th保留15px、分页背景跟随surface。没有改变DOM、布局列数、内容、导航或业务行为。
+- 定向复核8组合：订单地址与Admin首页/商品列表页，1280×900和390×844，米色与柔和绿。浏览器以临时CSS-only页面套用修改后的CRM CSS和Django Admin原生 `base.css`/`changelists.css`；订单四组合单行控件均42px、textarea均82px；Admin四组合caption/链接18px、td16px、th15px、`--body-bg/--body-fg/--body-quiet-color/--hairline-color`为目标tokens、分页和奇偶行底色跟随主题；各组合根页面均无横向溢出。临时页面/服务/浏览器标签已清理，没有触碰业务服务、数据库、8765或云端。
+- `.venv/bin/python manage.py check`及目标CSS `git diff --check`通过。全仓差异检查会被已有未提交 `docs/workspaces/qa/WORK.md:702` 的末尾空行提示阻断；该QA文件由QA维护，本轮未修改。
+- 固定后应用停写，交QA/UI对固定版及实际Admin消费者独立定向复核；不推送、不部署。
+
 ## UI-STYLE-EXPAND-1013 固定交付（2026-10-13）
 
 - 依据UI冻结范围 [HANDOFF](../ui/style-expand-1013/HANDOFF.md) 与负责人唯一应用写入窗口，基线 `4008485c0b2aa7704a4550ade1cba017c3d1e6f5`。本轮应用仅改 `crm/templates/crm/base.html`、`crm/static/crm/app.css`、`crm/templates/crm/receiving.html`、`templates/admin/base_site.html`、`crm/static/crm/admin.css`：扩展既有主题tokens/入口到销售订单、商品档案、收款核对、入库、限制、库存调整及Django Admin；入库明细表改为容器内横向滚动，保持字段和业务行为。未改API、数据库、权限、业务操作或登录样式，未推广其它CRM页。
