@@ -457,11 +457,19 @@ body.page-workbench tbody tr:hover, body.page-customers tbody tr:hover, body.pag
 .page-workbench .workbench-sales-card .workbench-card-body { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 .page-workbench .workbench-sales-card .workbench-side { padding-left: 12px; text-align: left; }
 .page-workbench .workbench-sales-card .workbench-measure > strong, .page-workbench .workbench-sales-card #today-growth { white-space: nowrap; overflow-wrap: normal; }
+.page-workbench .workbench-sales-card .workbench-measure > strong, .page-workbench .workbench-sales-card #today-growth { overflow-x: auto; overscroll-behavior-inline: contain; scrollbar-width: thin; }
+.page-workbench .workbench-sales-card .workbench-measure > strong:focus-visible, .page-workbench .workbench-sales-card #today-growth:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.page-workbench .workbench-metric-scroll-hint { color: var(--muted); font-size: 11px; line-height: 1.2; }
+.page-workbench .workbench-metric-scroll-hint[hidden] { display: none; }
 .page-workbench .workbench-side { justify-items: stretch; align-content: center; padding-left: 12px; text-align: left; }
 .page-workbench .workbench-side .status-preview { gap: 7px; font-size: 15px; }
 .page-workbench .status-grid .workbench-side .status-preview li { grid-template-columns: minmax(0, 1fr) max-content; gap: 6px; font-size: 15px; }
 .page-workbench .workbench-card-status { font-size: 13px; }
 .page-workbench .workbench-summary #customer-ranking { border-left: 1px solid var(--line); padding-left: 12px; }
+.page-workbench .workbench-summary .workbench-side:has(#customer-ranking) { gap: 3px; }
+.page-workbench .workbench-summary .customer-ranking-label { font-size: 14px; line-height: 1.25; white-space: nowrap; }
+.page-workbench .workbench-summary #customer-ranking { min-height: 0; gap: 2px; }
+.page-workbench .workbench-summary #customer-ranking li { line-height: 1.25; }
 .page-workbench #customer-ranking li { font-size: 15px; }
 .page-workbench .workbench-trend-svg { height: 260px; }
 .page-workbench .workbench-trend .chart-tick, .page-workbench .workbench-trend .chart-date { font-size: 14px; }

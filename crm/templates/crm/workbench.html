@@ -9,8 +9,8 @@
   {% if perms.crm.add_salesorder %}<div class="page-actions"><a class="button-primary" href="{% url 'order-new' %}">新建订单</a></div>{% endif %}
 </section>
 <section class="summary-grid workbench-summary" aria-label="业务摘要">
-  <article class="data-card summary-card workbench-card workbench-sales-card"><div class="card-head"><h2>今日销售额</h2></div><div class="workbench-card-body"><div class="workbench-measure"><span class="workbench-measure-label">销售额</span><strong id="today-sales">—</strong></div><div class="workbench-side"><span class="workbench-measure-label">增速</span><strong id="today-growth" aria-live="polite">—</strong></div></div><p class="workbench-card-status" id="today-sales-status" role="status" aria-live="polite"></p></article>
-  <article class="data-card summary-card workbench-card"><div class="card-head"><h2>客户</h2>{% if perms.crm.view_customer %}<a href="{% url 'customers' %}">全部</a>{% endif %}</div><div class="workbench-card-body"><div class="workbench-measure"><div class="workbench-measure-value"><strong id="customer-total">—</strong><span>位</span></div>{% if perms.crm.view_customer %}<span class="customer-summary-new">今日新增 <strong id="customer-created-today">—</strong></span>{% endif %}</div><div class="workbench-side">{% if perms.crm.view_salesorder %}<span class="workbench-measure-label">本月购买 Top3</span><ol id="customer-ranking" class="status-preview" aria-label="本月客户购买金额排行" aria-live="polite"><li class="muted">加载中…</li></ol>{% else %}<span class="muted">当前账号无权查看此数据</span>{% endif %}</div></div><p class="workbench-card-status" id="customer-total-status" role="status" aria-live="polite"></p></article>
+  <article class="data-card summary-card workbench-card workbench-sales-card"><div class="card-head"><h2>今日销售额</h2></div><div class="workbench-card-body"><div class="workbench-measure"><span class="workbench-measure-label">销售额</span><strong id="today-sales" aria-describedby="today-sales-scroll-hint">—</strong><span class="workbench-metric-scroll-hint" id="today-sales-scroll-hint" hidden>可用左右方向键查看完整值</span></div><div class="workbench-side"><span class="workbench-measure-label">增速</span><strong id="today-growth" aria-live="polite" aria-describedby="today-growth-scroll-hint">—</strong><span class="workbench-metric-scroll-hint" id="today-growth-scroll-hint" hidden>可用左右方向键查看完整值</span></div></div><p class="workbench-card-status" id="today-sales-status" role="status" aria-live="polite"></p></article>
+  <article class="data-card summary-card workbench-card"><div class="card-head"><h2>客户</h2>{% if perms.crm.view_customer %}<a href="{% url 'customers' %}">全部</a>{% endif %}</div><div class="workbench-card-body"><div class="workbench-measure"><div class="workbench-measure-value"><strong id="customer-total">—</strong><span>位</span></div>{% if perms.crm.view_customer %}<span class="customer-summary-new">今日新增 <strong id="customer-created-today">—</strong></span>{% endif %}</div><div class="workbench-side">{% if perms.crm.view_salesorder %}<span class="workbench-measure-label customer-ranking-label">本月购买 Top3</span><ol id="customer-ranking" class="status-preview" aria-label="本月客户购买金额排行" aria-live="polite"><li class="muted">加载中…</li></ol>{% else %}<span class="muted">当前账号无权查看此数据</span>{% endif %}</div></div><p class="workbench-card-status" id="customer-total-status" role="status" aria-live="polite"></p></article>
   <article class="data-card summary-card workbench-card"><div class="card-head"><h2>在售商品组合</h2>{% if perms.crm.view_brand and perms.crm.view_product and perms.crm.view_sku %}<a href="{% url 'catalog-search' %}">全部</a>{% endif %}</div><div class="workbench-card-body"><div class="workbench-measure"><div class="workbench-measure-value"><strong id="product-total">—</strong><span>类</span></div></div><div class="workbench-side">{% if perms.crm.view_inventorybalance %}<ul id="product-preview" class="status-preview" aria-label="有库存IP与语言组合"><li class="muted">加载中…</li></ul>{% else %}<span class="muted">当前账号无权查看此数据</span>{% endif %}</div></div><p class="workbench-card-status" id="product-total-status" role="status" aria-live="polite"></p></article>
   <article class="data-card summary-card workbench-card"><div class="card-head"><h2>低库存提醒</h2>{% if perms.crm.view_inventorybalance %}<a href="{% url 'inventory' %}?low_stock=true">全部</a>{% endif %}</div><div class="workbench-card-body"><div class="workbench-measure"><div class="workbench-measure-value"><strong id="low-stock-total">—</strong><span>条</span></div></div><div class="workbench-side">{% if perms.crm.view_inventorybalance %}<ul id="low-stock-preview" class="status-preview" aria-label="低库存记录"><li class="muted">加载中…</li></ul>{% else %}<span class="muted">当前账号无权查看此数据</span>{% endif %}</div></div><p class="workbench-card-status" id="low-stock-status" role="status" aria-live="polite"></p></article>
 </section>
@@ -62,11 +62,16 @@
   };
   const set = (id, value) => { const element = document.getElementById(id); if (element) element.textContent = value; };
   const fitMetric = element => {
-    if(!element)return;element.style.fontSize='';const base=parseFloat(getComputedStyle(element).fontSize),width=element.clientWidth;
-    if(!width)return;const range=document.createRange();range.selectNodeContents(element);const measured=range.getBoundingClientRect().width;
+    if(!element)return false;element.style.fontSize='';const base=parseFloat(getComputedStyle(element).fontSize),width=element.clientWidth;
+    if(!width)return false;const range=document.createRange();range.selectNodeContents(element);const measured=range.getBoundingClientRect().width;
     if(measured>width-4)element.style.fontSize=`${Math.max(14,base*(width-4)/measured)}px`;
     range.selectNodeContents(element);const rendered=range.getBoundingClientRect().width,current=parseFloat(getComputedStyle(element).fontSize);
     if(rendered>width-3)element.style.fontSize=`${Math.max(14,current*(width-4)/rendered)}px`;
+    const overflowing=element.scrollWidth>element.clientWidth;if(overflowing)element.tabIndex=0;else element.removeAttribute('tabindex');
+    const hint=document.getElementById(`${element.id}-scroll-hint`);if(hint){hint.hidden=!overflowing;if(overflowing)element.setAttribute('aria-describedby',hint.id);else element.removeAttribute('aria-describedby');}
+    if(overflowing&&!element.dataset.scrollKeysBound){element.addEventListener('keydown',event=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();const end=element.scrollWidth-element.clientWidth;const step=Math.max(24,element.clientWidth*.8);element.scrollLeft=event.key==='Home'?0:event.key==='End'?end:Math.max(0,Math.min(end,element.scrollLeft+(event.key==='ArrowRight'?step:-step)));});element.dataset.scrollKeysBound='true';}
+    if(element.dataset.fullTitle)element.title=overflowing?`${element.dataset.fullTitle}；可横向滚动查看完整值`:element.dataset.fullTitle;
+    return overflowing;
   };
   const fitMetrics = () => { fitMetric(document.getElementById('today-sales')); fitMetric(document.getElementById('today-growth')); };
   window.addEventListener('resize',fitMetrics);
@@ -75,7 +80,7 @@
     if (typeof amount !== 'string' || !/^\d+(?:\.\d{1,3})?$/.test(amount) || !Number.isFinite(value)) throw new Error('金额数据格式无效。');
     const full = `¥${amount}`;
     element.textContent = value >= 10000 ? `¥${new Intl.NumberFormat('zh-CN', {maximumFractionDigits: 1}).format(value / 10000)}万` : `¥${new Intl.NumberFormat('zh-CN', {maximumFractionDigits: 3}).format(value)}`;
-    element.title = `完整金额：${full}`;
+    element.dataset.fullTitle = `完整金额：${full}`;
     element.setAttribute('aria-label', `完整金额：${full}`);
     fitMetric(element);
   };
@@ -136,8 +141,8 @@
       const rate=summary.growth_percent;
       const fullRate=rate===null?'':`${Number(rate)>0?'+':''}${rate}%`;
       growth.textContent=rate===null?'—':`${Number(rate)>0?'+':''}${rate.replace(/\.0+$/,'')}%`;
+      growth.dataset.fullTitle=rate===null?'':`服务端增速：${fullRate}`;
       fitMetric(growth);
-      growth.title=rate===null?'':`服务端增速：${fullRate}`;
       if(rate!==null) growth.setAttribute('aria-label',`增速 ${fullRate}`);
       growth.style.color=rate===null?'':Number(rate)>0?'var(--danger)':Number(rate)<0?'var(--success)':'';
       status.textContent='';
