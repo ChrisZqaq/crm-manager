@@ -1,0 +1,73 @@
+{
+  "mobile": {
+    "customerLine": 112,
+    "hints": [
+      {
+        "display": "none"
+      },
+      {
+        "display": "none"
+      }
+    ],
+    "rankings": "1.QA客户甲¥9002.QA客户乙¥8003.QA客户丙¥700",
+    "root": [
+      375,
+      375
+    ],
+    "values": [
+      {
+        "client": 159,
+        "font": "30px",
+        "id": "today-sales",
+        "scroll": 159,
+        "tabindex": null,
+        "text": "¥12.4万",
+        "title": "完整金额：¥123556.780"
+      },
+      {
+        "client": 146,
+        "font": "22.0547px",
+        "id": "today-growth",
+        "scroll": 146,
+        "tabindex": null,
+        "text": "+99981.63%",
+        "title": "服务端增速：+99981.63%"
+      }
+    ]
+  },
+  "desktop": {
+    "customerLine": 112,
+    "hints": [
+      {
+        "display": "none"
+      },
+      {
+        "display": "none"
+      }
+    ],
+    "root": [
+      1265,
+      1265
+    ],
+    "values": [
+      {
+        "client": 107,
+        "font": "26.4473px",
+        "id": "today-sales",
+        "scroll": 107,
+        "tabindex": null,
+        "text": "¥12.4万",
+        "title": "完整金额：¥123556.780"
+      },
+      {
+        "client": 94,
+        "font": "14px",
+        "id": "today-growth",
+        "scroll": 94,
+        "tabindex": null,
+        "text": "+99981.63%",
+        "title": "服务端增速：+99981.63%"
+      }
+    ]
+  }
+}

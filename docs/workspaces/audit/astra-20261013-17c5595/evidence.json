@@ -1,0 +1,69 @@
+{
+  "baseline": "17c5595f0a899eff78b6b28ce250baeab34312b4",
+  "owner": "independent-astra-audit-20261013",
+  "database": "audit_astra_1013_3e3c4376",
+  "commission": {
+    "initial": {
+      "amount_version": 1,
+      "approved_version": 1,
+      "estimate": "2.000",
+      "approved": "2.000",
+      "state": "approved"
+    },
+    "freight_pending": {
+      "amount_version": 2,
+      "approved_version": 1,
+      "estimate": "1.000",
+      "approved": "2.000",
+      "state": "needs_review"
+    },
+    "correction_approved": {
+      "amount_version": 3,
+      "approved_version": 3,
+      "estimate": "0.800",
+      "approved": "0.800",
+      "state": "approved"
+    }
+  },
+  "amend_replay": {
+    "http_status": 200,
+    "business_operation_delta": 0,
+    "change_all_permission": false
+  },
+  "stock_count_reviser_self_approval": {
+    "revision_http_status": 200,
+    "approval_http_status": 200,
+    "initial_quantity": 8,
+    "final_quantity": 7,
+    "reviser_is_owner": false
+  },
+  "image_cleanup_race": {
+    "connections": 2,
+    "clock": "expiry boundary +2s controlled",
+    "registration_status": "ready_to_ship",
+    "payment_images": 0,
+    "file_exists": false
+  },
+  "selected_regressions": {
+    "count": 25,
+    "passed": 25,
+    "duration_seconds": 11.179
+  },
+  "browser_context": {
+    "browser": "local Google Chrome headless via Playwright, all routes fulfilled locally",
+    "http_nonlocal": {
+      "secure": false,
+      "randomUUID": "undefined",
+      "result": "crypto.randomUUID is not a function"
+    },
+    "localhost": {
+      "secure": true,
+      "randomUUID": "function"
+    },
+    "https": {
+      "secure": true,
+      "randomUUID": "function"
+    }
+  },
+  "ui_candidate": "18dad2d per coordinator; no new visual acceptance claimed"
+}

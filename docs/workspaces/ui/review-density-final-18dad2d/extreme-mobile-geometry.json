@@ -1,0 +1,79 @@
+{
+  "cards": [
+    {
+      "height": 182,
+      "line": 112,
+      "title": "今日销售额"
+    },
+    {
+      "height": 182,
+      "line": 112,
+      "title": "客户"
+    },
+    {
+      "height": 182,
+      "line": 112,
+      "title": "在售商品组合"
+    },
+    {
+      "height": 182,
+      "line": 112,
+      "title": "低库存提醒"
+    },
+    {
+      "height": 182,
+      "line": 112,
+      "title": "待收款订单"
+    },
+    {
+      "height": 182,
+      "line": 112,
+      "title": "待出库订单"
+    },
+    {
+      "height": 182,
+      "line": 112,
+      "title": "待确认收款"
+    },
+    {
+      "height": 182,
+      "line": 112,
+      "title": "待确认收货"
+    }
+  ],
+  "customerCount": 3,
+  "root": [
+    375,
+    375
+  ],
+  "values": [
+    {
+      "align": "center",
+      "aria": "完整金额：¥99999999999999999.999",
+      "client": 159,
+      "font": "14px",
+      "id": "today-sales",
+      "left": 13,
+      "scroll": 172,
+      "tabindex": "0",
+      "text": "¥10,000,000,000,000万",
+      "title": "完整金额：¥99999999999999999.999；可横向滚动查看完整值"
+    },
+    {
+      "align": "left",
+      "aria": "增速 +9999999999999999999800.00%",
+      "client": 146,
+      "font": "14px",
+      "id": "today-growth",
+      "left": 81,
+      "scroll": 227,
+      "tabindex": "0",
+      "text": "+9999999999999999999800%",
+      "title": "服务端增速：+9999999999999999999800.00%；可横向滚动查看完整值"
+    }
+  ],
+  "viewport": [
+    390,
+    844
+  ]
+}

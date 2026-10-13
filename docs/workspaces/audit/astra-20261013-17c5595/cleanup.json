@@ -1,0 +1,9 @@
+{
+  "database": "audit_astra_1013_3e3c4376",
+  "owner_verified": true,
+  "connections_before_drop": 0,
+  "database_absent": true,
+  "private_directory_absent": true,
+  "service_started": false,
+  "other_resources_touched": false
+}

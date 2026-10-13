@@ -1,0 +1,69 @@
+{
+  "task": "UI-DENSITY-1013 final two-point QA",
+  "date": "2026-10-13",
+  "fixed_app_sha": "18dad2d6e176599fc48dbeca410be41151287748",
+  "checkout": "/Users/chrisz/Documents/projects/aluolaCRM",
+  "app_tree_matches_fixed_sha": true,
+  "environment": {
+    "database": "qa_density_final_18dad_20261013_x1",
+    "database_owner": "crm_dev",
+    "service": "http://127.0.0.1:18792/",
+    "synthetic_user": "qa_density_ui",
+    "browser": "Codex IAB",
+    "screenshots": "captured in this session only; no PNG files saved"
+  },
+  "synthetic_data": {
+    "customers": 3,
+    "completed_orders_and_lines": 5,
+    "customer_ranking": [
+      {"name": "QA客户甲", "amount": "900.000"},
+      {"name": "QA客户乙", "amount": "800.000"},
+      {"name": "QA客户丙", "amount": "700.000"}
+    ],
+    "normal_today": "123556.780",
+    "normal_yesterday": "123.456",
+    "extreme_today": "99999999999999999.999",
+    "extreme_yesterday": "0.001"
+  },
+  "normal_control": {
+    "1280x900": {
+      "root": {"innerWidth": 1280, "clientWidth": 1265, "scrollWidth": 1265},
+      "sales": {"text": "¥12.4万", "clientWidth": 107, "scrollWidth": 107, "tabIndex": -1, "hintVisible": false, "title": "完整金额：¥123556.780", "ariaLabel": "完整金额：¥123556.780"},
+      "growth": {"text": "+99981.63%", "clientWidth": 94, "scrollWidth": 94, "tabIndex": -1, "hintVisible": false, "title": "服务端增速：+99981.63%", "ariaLabel": "增速 +99981.63%"},
+      "customer": {"top3Rows": 3, "dividerHeight": 112, "borderLeftWidth": "1px"}
+    },
+    "390x844": {
+      "root": {"innerWidth": 390, "clientWidth": 375, "scrollWidth": 375},
+      "sales": {"text": "¥12.4万", "clientWidth": 159, "scrollWidth": 159, "tabIndex": -1, "hintVisible": false, "title": "完整金额：¥123556.780", "ariaLabel": "完整金额：¥123556.780"},
+      "growth": {"text": "+99981.63%", "clientWidth": 146, "scrollWidth": 146, "tabIndex": -1, "hintVisible": false, "title": "服务端增速：+99981.63%", "ariaLabel": "增速 +99981.63%"},
+      "customer": {"top3Rows": 3, "dividerHeight": 112, "borderLeftWidth": "1px"}
+    }
+  },
+  "extreme_boundary": {
+    "1280x900": {
+      "root": {"innerWidth": 1280, "clientWidth": 1265, "scrollWidth": 1265},
+      "sales": {"clientWidth": 107, "scrollWidth": 172, "textWidth": 171.61, "tabIndex": 0, "hintVisible": true, "endScrollLeft": 64.5, "homeScrollLeft": 0, "titleAndAriaContainFullValue": true},
+      "growth": {"clientWidth": 94, "scrollWidth": 227, "textWidth": 227.08, "tabIndex": 0, "hintVisible": true, "endScrollLeft": 133, "homeScrollLeft": 0, "titleAndAriaContainFullValue": true},
+      "customer": {"top3Rows": 3, "dividerHeight": 112}
+    },
+    "390x844": {
+      "root": {"innerWidth": 390, "clientWidth": 375, "scrollWidth": 375},
+      "sales": {"clientWidth": 159, "scrollWidth": 172, "textWidth": 171.61, "tabIndex": 0, "hintVisible": true, "arrowRightScrollLeft": 13, "arrowLeftScrollLeft": 0, "endScrollLeft": 13, "homeScrollLeft": 0, "titleAndAriaContainFullValue": true},
+      "growth": {"clientWidth": 146, "scrollWidth": 227, "textWidth": 227.08, "tabIndex": 0, "hintVisible": true, "arrowRightScrollLeft": 81, "arrowLeftScrollLeft": 0, "endScrollLeft": 81, "homeScrollLeft": 0, "titleAndAriaContainFullValue": true},
+      "customer": {"top3Rows": 3, "dividerHeight": 112}
+    },
+    "expected_amount_title_aria": "完整金额：¥99999999999999999.999",
+    "expected_growth_title_aria": "服务端增速：+9999999999999999999800.00%",
+    "result": "targeted QA passes: each metric scrolls within its box and the page root does not overflow"
+  },
+  "ui_review": {
+    "status": "independent visual and keyboard review passed",
+    "viewports": ["1280x900", "390x844"],
+    "normal_control": "123556.780 / 123.456; both widths show no scroll hint or extra tabindex",
+    "extreme_boundary": "local keyboard scrolling, full title/ARIA, no overlap or root overflow",
+    "evidence_report": "../ui/review-density-final-18dad2d/REPORT.md",
+    "evidence_images": "../ui/review-density-final-18dad2d/"
+  },
+  "qa_status": "QA and UI review passed for the two scoped issues. QA server and isolated database were cleaned after UI release confirmation. This is not system-wide acceptance or deployment approval.",
+  "shared_postgres_note": "The pre-existing local PostgreSQL cluster logged a smart shutdown at 2026-10-13 13:30 Asia/Shanghai; initiator/reason unknown. It was restarted with the original PGDATA, binary, socket-only settings, and port. The existing QA database and owner were verified after restart. Port 8765 was not touched."
+}

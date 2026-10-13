@@ -1,6 +1,6 @@
 # 当前开发计划与交付状态
 
-更新：2026-10-13。**本机8765与云IP18888现运行应用0399e4f：默认登录工作台修复已独立QA及负责人审查，通过必要私有备份后两处更新、真实销售登录及只读工作台/商品页烟测完成。云端新增独立iptest-admin超级管理员获用户明确授权并真实后台登录验证；老板账号保持原样。前序UI-HOME-REFINE已完成；新UI密度/配色三页原型获用户直接批准，最终18dad2d已独立QA/UI通过；2026-10-13用户要求继续，已恢复中断会话。QA/UI已完成18dad2d两点独立实看并清理18792/隔离库，正式交接后端唯一应用写入窗口。Astra实证风险待串行修复，暂不部署新版；运行副本保持0399e4f。真实期初/正式业务切换/NAS未执行，定时任务已删除。**
+更新：2026-10-13。**本机8765与云IP18888现运行应用0399e4f：默认登录工作台修复已独立QA及负责人审查，通过必要私有备份后两处更新、真实销售登录及只读工作台/商品页烟测完成。云端新增独立iptest-admin超级管理员获用户明确授权并真实后台登录验证；老板账号保持原样。前序UI-HOME-REFINE已完成；新UI密度/配色三页原型获用户直接批准，最终18dad2d已独立QA/UI通过；2026-10-13用户要求继续，已恢复中断会话。QA/UI已完成18dad2d两点独立实看并清理18792/隔离库，后端8a52ee7独立QA14项全过，现交接前端HTTP兼容/旧页重试唯一写入窗口。Astra实证风险待串行修复，暂不部署新版；运行副本保持0399e4f。真实期初/正式业务切换/NAS未执行，定时任务已删除。**
 
 只在此记录当前安排和简短阶段结果；历史命令、返工和限制证据见[完整历史](../archive/DEVELOPMENT_PLAN_HISTORY.md)。会话ID只维护在[协作表](COORDINATION.md)。
 
@@ -13,7 +13,8 @@
 | CLOUD-TEST-ADMIN-1013 | 已完成：iptest-admin独立超级管理员 | 用户明确授权；老板账号保持现状，私有凭据交付；云公网真实登录及/admin/中文品牌首页200通过，无业务表单或公网来源变更，证据0553dc6 |
 | LOGIN-HOME-1013 | 0399e4f已验收、两测试环境更新完成 | 默认登录到工作台/，合法next保留、外部next拒绝、匿名权限不变；合成PG及真实CSRF/session验证通过，旧文案断言过时单列；账号/业务不变 |
 | INITIAL-DATA-PREP-1013 | 固定0399e4f隔离系统preview通过：ready=true，尚未入账 | 独立临时库识别15商品/1仓/15库存行，无映射缺口或条码警告；仅preview未confirm，临时进程/库/目录已清理，用户原件保留；正式目标/上线快照时点/期间业务衔接仍待用户确认 |
-| ASTRA-AUDIT-1013 | 固定17c5595独立只读深入审查，隔离组合探针已清理 | 已证实采购纠错恢复失效提成审核、盘点修改者自审、图片绑定/清理竞争；另撤权amend重放、非secure HTTP crypto.randomUUID/subtle兼容风险。报告已收口，后端唯一应用写入：修A1/A2/A3/A5、动态核实并修A6快照边界、已确认盘亏方向计价及B2语言预取；固定后独立QA，前端HTTP兼容/旧页重试随后串行，禁止提前部署/正式切换 |
+| HTTP-COMPAT-RETRY-1013 | 前端唯一应用写入窗口；基线HEAD9711123/应用8a52ee7 | 标准UUIDv4/getRandomValues及SHA256安全上下文兼容，保摘要隐私/刷新重试；旧customer_form/holds/opening同输入同键+inflight/丢响应恢复，固定后独立定向QA及负责人审查，不改UI/业务/运行版 |
+| ASTRA-AUDIT-1013 | 固定17c5595独立只读深入审查，隔离组合探针已清理 | 已证实采购纠错恢复失效提成审核、盘点修改者自审、图片绑定/清理竞争；另撤权amend重放、非secure HTTP crypto.randomUUID/subtle兼容风险。报告已收口，最终后端8a52ee7已完成独立QA14项全部通过，应用停写；凭证双连接/权限/快照/计价/查询数实证已收口：A1/A2/A3/A5、A6快照/客户范围、已确认盘亏方向计价及B2语言预取；换客户fallback身份QA动态复现后已补正为实际payload客户ID；独立QA覆盖全部尚未完成批修，不视自测为独立通过，前端HTTP兼容/旧页重试随后串行，禁止提前部署/正式切换 |
 | UI-DENSITY-1013 | 原型已获用户直接批准；18dad2d独立QA/UI通过，应用停写待业务修复集成后发布 | 基线HEAD47614f1/应用0399e4f，冻结原型SHA b7d493a3711110e2391ea928e557540eec2e7144564994a66665815aee7d1db2；仅工作台/客户/库存三页密度与米/绿主题，范围见UI HANDOFF；固定后定向QA/UI→负责人审查→两测试环境更新，独立确认存储异常阻断手机菜单、长数换行/右区对齐/分隔线长度及SKU筛选重叠；集中修并纳入单位统计密度，固定后仅变化点复测 |
 | UI-HOME-REFINE | 最终c29ca9a已验收/发行5218025已推送；全应用停写 | 本机新版可试用；已通过范围不重跑 |
 | RELEASE-HOME-UPDATE | 两处已部署，QA本机及云公网真实销售烟测通过 | 2026-10-13用户放行18888后最终验证关闭，不再反复测试 |
@@ -65,13 +66,12 @@
 
 ## 本机演示（供用户试用）
 
-- 入口：http://127.0.0.1:8765/accounts/login/ ，仅本机访问。
-- 独立持久化库aluola_crm_local_demo；演示配置/媒体/日志在忽略目录.local/demo-runtime，迁移至0013；默认开发库不被覆盖。
-- demo-owner/demo-sales/demo-warehouse，口令不保存在Git。DEMO-0001合成12盒初始可售，成本1200.000/均价100.000；用户试用操作可能改变当前数量，不能按初始值判断最新库存。
-- 最新恢复/导航重启由负责人保持exec session69745；进程是否存活必须现场验证，文档不能证明服务一直在线。原PostgreSQL55439不要随意停止。
-- 重启（项目根）：`PYTHONPATH=.local/demo-runtime DJANGO_SETTINGS_MODULE=demo_settings .venv/bin/python manage.py runserver 127.0.0.1:8765 --noreload`。
-- 本地HTTP检查需绕过系统代理，例如curl --noproxy '*'；模板缓存时只重启自己服务，保留数据。
-- 用户期初样例曾仅隔离试导入验证，验证库删除；当前演示库未导入真实期初。未提交期初模板保留不动。
+- 入口：http://127.0.0.1:8765/accounts/login/ ，仅本机访问；运行版0399e4f与开发checkout隔离。候选验收不表示已更新演示。
+- 独立持久化库aluola_crm_local_demo，迁移0014；配置/媒体/日志在忽略目录.local/demo-runtime。真实期初未入账；已存在合成库存与用户试用操作不得覆盖。
+- demo-owner/demo-sales/demo-warehouse，口令不保存在Git。最新库存以页面/流水为准，不能按旧初始样例数字判断。
+- 进程是否存活须现场验证，不依赖历史PID/exec session。共享PostgreSQL为原.local/postgresql集群、socket .local/postgres-socket、端口标识55439、listen_addresses空；TCP无监听属正常。不要随意停止共享PG、重建集群或改连接方式。
+- 重启仅在确认8765原服务已停止后，从固定发布目录启动，不能从共享项目根运行候选代码。当前工作目录为 `.local/demo-runtime/app/releases/0399e4f6cb1e572e3b15628a1c5d036bb043911e/aluola-crm`，使用绝对路径 `.venv/bin/python`，环境 `PYTHONPATH=/Users/chrisz/Documents/projects/aluolaCRM/.local/demo-runtime`、`DJANGO_SETTINGS_MODULE=demo_settings`，执行 `manage.py runserver --noreload 127.0.0.1:8765`。路径均以项目根 `/Users/chrisz/Documents/projects/aluolaCRM` 为基准，下一发布由部署记录更新目录。
+- 本地HTTP诊断需绕过系统代理，如 `curl --noproxy '*'`。只重启本任务服务，保留库、媒体和账号。2026-10-13共享PG曾收到smart shutdown，发起者未知；QA核对原集群身份后按原参数恢复，未重建或改库。
 
 ## 上线7剩余条件
 
