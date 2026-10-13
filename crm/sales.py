@@ -532,7 +532,7 @@ def _invoice_fallback_customer_id(payload, order):
     if order and payload["requires_invoice"] and any(
         payload[name] is None for name in ("invoice_title", "invoice_credit_code", "invoice_email")
     ):
-        return order.customer_id
+        return payload["customer_id"]
     return None
 
 

@@ -395,6 +395,15 @@ UV_PROJECT_ENVIRONMENT=/Users/chrisz/.cache/aluola-crm-uiquery1-venv CRM_DB_NAME
 
 应用提交固定后停止应用写入；等待 QA 对固定版独立定向验证及负责人验收。该自测不代替独立 QA/UI 验收。
 
+## ASTRA-A6-TARGET-CUSTOMER-FIX｜目标客户回退身份修正（2026-10-13）
+
+依据：负责人授予的唯一最小修复窗口；应用基线 `956be9c15c931b7bcd9fe9d8684e9894603de2b4`。只改发票回退标记的客户ID来源和对应Phase3回归，其他批修、UI与数据均未改。
+
+- `_invoice_fallback_customer_id` 现在返回请求中的 `payload.customer_id`，即 `_order_references` 实际读取并用于发票字段回退的目标客户；确认和幂等重放按同一个目标客户检查当前可见范围。
+- 新增覆盖：旧客户已转交、当前销售切换到可见新客户并省略发票字段时，预览/确认/可见范围内重放成功；新客户转交后，确认和既有成功操作的重放均返回当前范围拒绝。保留旧客户转交后不能回退旧资料、历史快照只改数量不写回客户档案的既有用例。
+- 在隔离基库 `aluola_crm_a6_customer_source_20261013`（角色 `crm_dev`）运行4项A6定向测试，通过；测试库由Django删除，复查基库与测试库均不存在、活动连接为0。语法编译、`git diff --check`及Django系统检查通过；未使用`--keepdb`，无模型/迁移变更。
+- 本次修复固定提交后停止应用写入，交 QA 按固定SHA独立复验。后端自测不代替QA验收。
+
 ## UI-HOME-REFINE-CUSTOMER-COUNT｜后端固定交付（2026-10-12）
 
 依据：负责人正式开放的唯一后端写入窗口及 `docs/specs/API_CONTRACT.md`“UI-HOME-REFINE今日新增客户”。起始应用基线 `0f835cb`；起始HEAD `0d5eed8` 后仅开发计划与部署WORK文档更新，`crm`无差异；本轮只写入 `crm/views.py` 与 `crm/test_phase3.py`。

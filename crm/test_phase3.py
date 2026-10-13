@@ -615,6 +615,100 @@ class CustomerPhase3Tests(Phase3Base):
 
 
 class SalesOrderPhase3Tests(Phase3Base):
+    def test_changed_customer_invoice_fallback_uses_target_scope_for_confirm_and_replay(self):
+        old_customer = self.create_customer(invoice_title="Old customer invoice")
+        _, _, order = self.preview_and_confirm(self.order_payload(
+            customer_id=old_customer.pk,
+            lines=[{"sku_id": self.sku.pk, "warehouse_id": self.warehouse.pk, "quantity": 1, "sale_price": "5.000"}],
+        ))
+        transfer_customer(self.owner, old_customer.pk, {
+            "owner_id": self.sales_two.pk,
+            "expected_version": old_customer.version,
+            "operation_key": str(uuid4()),
+        })
+        target = self.create_customer(
+            name="Visible Target Customer",
+            contact="target: visible customer",
+            invoice_title="Visible target invoice",
+            invoice_credit_code="Visible target code",
+            invoice_email="target@example.test",
+        )
+
+        payload = self.amendment_payload(order)
+        payload.update({"customer_id": target.pk, "requires_invoice": True})
+        client = Client()
+        client.force_login(self.sales)
+        preview = client.post(
+            f"/api/v1/orders/{order.pk}/amend/preview",
+            data=json.dumps(payload), content_type="application/json",
+        )
+        self.assertEqual(preview.status_code, 200, preview.content)
+        self.assertEqual(preview.json()["invoice_title"], "Visible target invoice")
+        self.assertEqual(preview.json()["invoice_credit_code"], "Visible target code")
+
+        operation_key = str(uuid4())
+        confirm_payload = {"operation_key": operation_key, "preview_token": preview.json()["preview_token"]}
+        url = f"/api/v1/orders/{order.pk}/amend"
+        confirmed = client.post(url, data=json.dumps(confirm_payload), content_type="application/json")
+        self.assertEqual(confirmed.status_code, 200, confirmed.content)
+        order.refresh_from_db()
+        target.refresh_from_db()
+        self.assertEqual((order.customer_id, order.invoice_title, order.invoice_credit_code, order.invoice_email), (
+            target.pk, "Visible target invoice", "Visible target code", "target@example.test",
+        ))
+        replay = client.post(url, data=json.dumps(confirm_payload), content_type="application/json")
+        self.assertEqual(replay.status_code, 200, replay.content)
+        self.assertEqual(replay.json(), confirmed.json())
+
+        transfer_customer(self.owner, target.pk, {
+            "owner_id": self.sales_two.pk,
+            "expected_version": target.version,
+            "operation_key": str(uuid4()),
+        })
+        order.refresh_from_db()
+        before = (order.version, order.customer_id, order.last_sequence, BusinessControl.objects.get(pk=1).last_sequence)
+        denied_replay = client.post(url, data=json.dumps(confirm_payload), content_type="application/json")
+        self.assertEqual(denied_replay.status_code, 404, denied_replay.content)
+        order.refresh_from_db()
+        self.assertEqual((order.version, order.customer_id, order.last_sequence, BusinessControl.objects.get(pk=1).last_sequence), before)
+
+    def test_confirm_rejects_when_selected_invoice_fallback_customer_is_transferred(self):
+        old_customer = self.create_customer(invoice_title="Still visible old invoice")
+        _, _, order = self.preview_and_confirm(self.order_payload(
+            customer_id=old_customer.pk,
+            lines=[{"sku_id": self.sku.pk, "warehouse_id": self.warehouse.pk, "quantity": 1, "sale_price": "5.000"}],
+        ))
+        target = self.create_customer(
+            name="Revocable Target Customer",
+            contact="target: revocable customer",
+            invoice_title="Target invoice",
+        )
+        payload = self.amendment_payload(order)
+        payload.update({"customer_id": target.pk, "requires_invoice": True})
+        client = Client()
+        client.force_login(self.sales)
+        preview = client.post(
+            f"/api/v1/orders/{order.pk}/amend/preview",
+            data=json.dumps(payload), content_type="application/json",
+        )
+        self.assertEqual(preview.status_code, 200, preview.content)
+
+        transfer_customer(self.owner, target.pk, {
+            "owner_id": self.sales_two.pk,
+            "expected_version": target.version,
+            "operation_key": str(uuid4()),
+        })
+        order.refresh_from_db()
+        before = (order.version, order.customer_id, order.last_sequence, BusinessControl.objects.get(pk=1).last_sequence)
+        denied = client.post(
+            f"/api/v1/orders/{order.pk}/amend",
+            data=json.dumps({"operation_key": str(uuid4()), "preview_token": preview.json()["preview_token"]}),
+            content_type="application/json",
+        )
+        self.assertEqual(denied.status_code, 404, denied.content)
+        order.refresh_from_db()
+        self.assertEqual((order.version, order.customer_id, order.last_sequence, BusinessControl.objects.get(pk=1).last_sequence), before)
+
     def test_invoice_fallback_requires_current_customer_visibility(self):
         customer = self.create_customer(
             invoice_title="Current invoice title",
