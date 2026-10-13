@@ -389,6 +389,7 @@ UV_PROJECT_ENVIRONMENT=/Users/chrisz/.cache/aluola-crm-uiquery1-venv CRM_DB_NAME
 - 使用新建前确认不存在的隔离基库 `aluola_crm_astra_fix_20261013`；实际测试库为 `test_aluola_crm_astra_fix_20261013`，所有者 `crm_dev`。测试结束后 Django 已删除测试库；复查基库和测试库均不存在且活动连接为0。PostgreSQL socket 服务保持运行。
 - 所有修改文件 `py_compile` 与 `git diff --check` 通过；Django 系统检查通过。未增加模型、迁移、日志或依赖。
 - 未连接或改动默认开发库、演示库、云库、8765 服务、用户期初模板或其他角色文件；未部署。
+- 应用固定提交：`956be9c15c931b7bcd9fe9d8684e9894603de2b4`；之后停止应用源码写入。
 
 ### 交接
 
