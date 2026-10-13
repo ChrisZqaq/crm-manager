@@ -17,7 +17,7 @@
       <select id="supplier" required><option value="">请选择</option>{% for item in suppliers %}<option value="{{ item.id }}">{{ item.name }}</option>{% endfor %}</select>
     </label>
     <h2>入库明细</h2>
-    <table>
+      <div class="table-scroll" id="receipt-lines-scroll"><table>
       <thead><tr><th>SKU</th><th>实收数量</th><th>采购单价</th><th>分摊运费</th><th>客户预留</th><th>破损</th><th>低库存阈值（留空继承）</th><th></th></tr></thead>
       <tbody id="lines">
         <tr class="line">
@@ -31,7 +31,7 @@
           <td><button class="remove" type="button">删除行</button></td>
         </tr>
       </tbody>
-    </table>
+      </table></div>
     <button id="add-line" type="button">添加SKU</button>
     <p><label>入库凭证（JPEG/PNG/WebP，最多20张，每张10MB）<input id="images" type="file" accept="image/jpeg,image/png,image/webp" multiple></label></p>
     <p id="image-status" role="status"></p>

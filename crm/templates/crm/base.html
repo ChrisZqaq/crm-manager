@@ -1,6 +1,6 @@
 {% load static %}
 <!doctype html>
-<html lang="zh-Hans" class="{% if request.resolver_match.url_name == 'home' %}page-workbench{% elif request.resolver_match.url_name == 'customers' %}page-customers{% elif request.resolver_match.url_name == 'inventory' %}page-inventory{% endif %}">
+<html lang="zh-Hans" class="{% if request.resolver_match.url_name == 'home' %}page-workbench{% elif request.resolver_match.url_name == 'customers' %}page-customers{% elif request.resolver_match.url_name == 'inventory' %}page-inventory{% elif request.resolver_match.url_name == 'orders' or request.resolver_match.url_name == 'order-new' or request.resolver_match.url_name == 'order-detail' or request.resolver_match.url_name == 'order-edit' or request.resolver_match.url_name == 'catalog-search' or request.resolver_match.url_name == 'catalog-product-new' or request.resolver_match.url_name == 'receiving' or request.resolver_match.url_name == 'holds' or request.resolver_match.url_name == 'adjustments' or request.resolver_match.url_name == 'report-page' and report_name == 'payments' %}page-expanded{% endif %}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -10,7 +10,7 @@
   <script src="{% static 'crm/crypto-compat.js' %}"></script>
   {% block extra_head %}{% endblock %}
 </head>
-<body class="app-body {% block page_scope %}{% endblock %}">
+<body class="app-body {% if request.resolver_match.url_name == 'orders' or request.resolver_match.url_name == 'order-new' or request.resolver_match.url_name == 'order-detail' or request.resolver_match.url_name == 'order-edit' or request.resolver_match.url_name == 'catalog-search' or request.resolver_match.url_name == 'catalog-product-new' or request.resolver_match.url_name == 'receiving' or request.resolver_match.url_name == 'holds' or request.resolver_match.url_name == 'adjustments' or request.resolver_match.url_name == 'report-page' and report_name == 'payments' %}page-expanded{% endif %} {% block page_scope %}{% endblock %}">
   <a class="skip-link" href="#main-content">跳到主要内容</a>
   <div class="app-frame">
     <aside class="sidebar" id="primary-navigation" aria-label="主导航">{% include "crm/sidebar_contents.html" %}</aside>
@@ -21,6 +21,7 @@
       </button>
       <main class="main-content" id="main-content" tabindex="-1">
         {% block content %}{% endblock %}
+        {% if request.resolver_match.url_name == 'orders' or request.resolver_match.url_name == 'order-new' or request.resolver_match.url_name == 'order-detail' or request.resolver_match.url_name == 'order-edit' or request.resolver_match.url_name == 'catalog-search' or request.resolver_match.url_name == 'catalog-product-new' or request.resolver_match.url_name == 'receiving' or request.resolver_match.url_name == 'holds' or request.resolver_match.url_name == 'adjustments' or request.resolver_match.url_name == 'report-page' and report_name == 'payments' %}{% include "crm/theme_picker.html" %}{% endif %}
       </main>
     </div>
   </div>

@@ -4,7 +4,7 @@
 {% block title %}{{ title|default:'管理后台' }} | 阿罗拉潮玩空间 CRM{% endblock %}
 {% block dark-mode-vars %}{% endblock %}
 {% block extrahead %}{{ block.super }}<script src="{% static 'crm/crypto-compat.js' %}"></script>{% endblock %}
-{% block bodyclass %}app-body crm-admin{% endblock %}
+{% block bodyclass %}app-body crm-admin{% if request.user.is_authenticated %} crm-admin-theme{% endif %}{% endblock %}
 {% block branding %}{% endblock %}
 {% block usertools %}{% endblock %}
 {% block header %}
@@ -18,4 +18,4 @@
 {% endblock %}
 {% block nav-sidebar %}{% endblock %}
 {% block responsive %}{{ block.super }}<link rel="stylesheet" href="{% static 'crm/app.css' %}"><link rel="stylesheet" href="{% static 'crm/admin.css' %}">{% endblock %}
-{% block extrabody %}{{ block.super }}<script src="{% static 'crm/app.js' %}" defer></script>{% endblock %}
+{% block extrabody %}{{ block.super }}{% if request.user.is_authenticated %}{% include "crm/theme_picker.html" %}{% endif %}<script src="{% static 'crm/app.js' %}" defer></script>{% endblock %}

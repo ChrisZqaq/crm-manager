@@ -408,9 +408,10 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
   .workbench-trend-svg { height: 240px; }
 }
 
-/* Density redesign is limited to the three approved pages. */
+/* Approved density and theme tokens for the existing pages and scoped expansion. */
 html.page-workbench, html.page-customers, html.page-inventory,
-body.page-workbench, body.page-customers, body.page-inventory {
+body.page-workbench, body.page-customers, body.page-inventory,
+html.page-expanded, body.page-expanded {
   --canvas: #F4F1E9;
   --surface: #FFFDF7;
   --ink: #2D2D3F;
@@ -420,7 +421,8 @@ body.page-workbench, body.page-customers, body.page-inventory {
   font-size: 16px;
 }
 html.page-workbench[data-theme="green"], html.page-customers[data-theme="green"], html.page-inventory[data-theme="green"],
-body.page-workbench[data-theme="green"], body.page-customers[data-theme="green"], body.page-inventory[data-theme="green"] {
+body.page-workbench[data-theme="green"], body.page-customers[data-theme="green"], body.page-inventory[data-theme="green"],
+html.page-expanded[data-theme="green"], body.page-expanded[data-theme="green"] {
   --canvas: #E9F0E5;
   --surface: #F7FAF2;
   --ink: #28362E;
@@ -429,17 +431,31 @@ body.page-workbench[data-theme="green"], body.page-customers[data-theme="green"]
   --soft-indigo: #E8EFE4;
 }
 body.page-workbench .main-content, body.page-customers .main-content, body.page-inventory .main-content { width: min(100%, 1600px); }
+body.page-expanded .main-content { width: min(100%, 1600px); }
 body.page-workbench h1, body.page-customers h1, body.page-inventory h1 { font-size: 28px; }
+body.page-expanded h1 { font-size: 28px; }
 body.page-workbench h2, body.page-customers h2, body.page-inventory h2 { font-size: 18px; }
+body.page-expanded h2 { font-size: 18px; }
+body.page-expanded label, body.page-expanded th, body.page-expanded small, body.page-expanded .muted, body.page-expanded .help-text { font-size: 15px; }
 body.page-workbench input, body.page-workbench select, body.page-workbench textarea,
 body.page-customers input, body.page-customers select, body.page-customers textarea,
 body.page-inventory input, body.page-inventory select, body.page-inventory textarea { min-height: 42px; background: var(--surface); color: var(--ink); font-size: 16px; }
+body.page-expanded input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="reset"]), body.page-expanded select:not([multiple]) { min-height: 42px; background: var(--surface); color: var(--ink); font-size: 16px; }
+body.page-expanded textarea, body.page-expanded select[multiple] { background: var(--surface); color: var(--ink); font-size: 16px; }
 body.page-workbench button, body.page-customers button, body.page-inventory button,
 body.page-workbench .button-primary, body.page-workbench .button-link,
 body.page-customers .button-primary, body.page-customers .button-link,
 body.page-inventory .button-primary, body.page-inventory .button-link { min-height: 44px; }
+body.page-expanded button, body.page-expanded .button-primary, body.page-expanded .button-link { min-height: 44px; }
 body.page-workbench th, body.page-customers th, body.page-inventory th { background: color-mix(in srgb, var(--canvas) 70%, var(--surface)); }
+body.page-expanded th { background: color-mix(in srgb, var(--canvas) 70%, var(--surface)); color: var(--muted); font-size: 15px; }
+body.page-expanded table { background: var(--surface); color: var(--ink); font-size: 16px; }
+body.page-expanded #receipt-lines-scroll { min-width: 0; }
 body.page-workbench tbody tr:hover, body.page-customers tbody tr:hover, body.page-inventory tbody tr:hover { background: color-mix(in srgb, var(--surface) 70%, var(--canvas)); }
+body.page-expanded tbody tr:hover { background: color-mix(in srgb, var(--surface) 70%, var(--canvas)); }
+@media (max-width: 760px) {
+  body.page-expanded h1 { font-size: 22px; }
+}
 
 /* Workbench: matched two-row grid breakpoints and centered metric columns. */
 .page-workbench .workbench-summary, .page-workbench .status-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
