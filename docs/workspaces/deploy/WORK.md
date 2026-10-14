@@ -272,3 +272,56 @@ Nginx新增独立配置`/etc/nginx/sites-available/aluola-crm-iptest.conf`及启
 **真实浏览器UI**：使用Chrome访问云端既有HTTP测试入口，实际选择运营页“柔和绿”与Admin独立主题入口“柔和绿”，画面背景/表格绿色样式应用；Admin页面`body`含`crm-admin-theme`。只读DevTools计算样本为Admin表格`td` 16px、首页`caption` 18px；桌面订单`#recipient`高/最小高42px、16px字号，`#contact`、`#detail`、`#remarks`均为2行、82px高/最小高、无inline height。订单表单未提交，表单未写入业务数据。公共入口为HTTP且Chrome显示Not Secure；未验证HTTPS。
 
 **限制与未改项**：一次Chrome页面请求短暂显示HTTP 502，重载成功，之后本机`curl --noproxy '*'`访问云端登录页200；Nginx/CRM服务随后均正常，未更改Nginx、UFW、安全组或端口。Chrome控制台记录HTTP不可信来源导致COOP头被忽略，以及Admin静态`RelatedObjectLookups.js`的一次`unload`权限策略Violation；未修改响应头/静态库，业务页仍可只读操作。一次只读复核确认系统级没有匹配Hermes的unit/unit file；Hermes实际以ubuntu用户级`hermes-gateway.service`运行（active/running，MainPID 10639，unit文件存在于`/home/ubuntu/.config/systemd/user/hermes-gateway.service`），匹配进程comm为`hermes`，可执行文件为存在的`/home/ubuntu/.local/share/uv/python/cpython-3.11.15-linux-x86_64-gnu/bin/python3.11`。这表明此前仅查找`hermes.service`名称不完整；无需据此推断故障。`soyoung-new.service`、Docker service/socket为inactive，containerd active。本轮没有操作Hermes、tracker、Docker或PostgreSQL，也未读取Hermes配置、环境变量、参数、日志或消息。未运行全套自动化测试或移动视口复核；交付版本的独立QA/UI通过证据由负责人维护。
+
+## INITIAL-DATA-PREP-BUSINESS-DB 独立云端业务库准备方案（2026-10-14；待负责人核对授权执行）
+
+**范围状态**：用户已确认选定文件、15 SKU范围及业务截止时点，并授权“云端独立业务库、保留测试库”；截止值仅记录在本机私有manifest。盘点到该时点间未入表的出入货差异尚未确认，所以当前只准备环境，不包含正式preview/confirm、导入或员工切换。来源依据为负责人转达的本轮用户决定；不从旧测试数据复制库存、订单、客户、账号或凭证。固定应用只复用已验收d733提交与服务器现有Python/锁依赖，不改应用或依赖。
+
+**只读现场基线**：云端PostgreSQL `14.24 (Ubuntu 14.24-0ubuntu0.22.04.1)`与`aluola-crm-dev.service`均active，现有测试数据库`aluola_crm_dev`保留，测试入口继续为IP:18888；根盘50 GiB、可用22 GiB，MemAvailable约1.0 GiB（单次观察值）。只读精确查询确认候选数据库`aluola_crm_business`和候选登录角色`aluola_crm_business_app`当前均不存在。应用的数据库设置读取`CRM_DB_NAME`、`CRM_DB_USER`、`CRM_DB_PASSWORD`、`CRM_DB_HOST`、`CRM_DB_PORT`。现场数据库监听仍限本机。
+
+**资源命名与配置**：在现有PG14 cluster中新建独立数据库`aluola_crm_business`，不改/不清`aluola_crm_dev`；专用登录角色`aluola_crm_business_app`仅拥有该数据库及其业务schema，不授予SUPERUSER、CREATEDB、CREATEROLE、REPLICATION或BYPASSRLS，也不授予测试库表权限。连接配置放云端`/opt/aluola-crm-dev/app/.local/config/business.env`（crmdev所有者、600），内含`CRM_DB_NAME=aluola_crm_business`、`CRM_DB_USER=aluola_crm_business_app`、随机`CRM_DB_PASSWORD`、`CRM_DB_HOST=127.0.0.1`、`CRM_DB_PORT=5432`及业务环境独立`DJANGO_SECRET_KEY`；不回显或进Git。使用已固定应用目录`/opt/aluola-crm-dev/app`与既有`.venv`、同一settings入口。业务私有媒体目录独立为`/opt/aluola-crm-dev/app/.local/private-media-business`（700），日志落独立私有`.../.local/logs-business`（700），不复用测试目录。账户和权限不克隆；进入业务preview前需由业务负责人指定唯一初始管理/导入操作身份，通过现有角色权限最小化创建，凭据仅交付至私有凭据文件/批准的密码库。
+
+**访问和运行方式**：18888继续服务现有合成测试库。preview界面若需浏览器访问，临时运行同一代码/venv、单worker、只绑定`127.0.0.1:18766`并仅通过SSH本地端口转发访问；运行时单独读取`business.env`，不增加Nginx站点、UFW/安全组规则、域名或公网监听，不设开机启动，preview结束即停止。执行数据库schema初始化时使用固定d733的`manage.py migrate --noinput`，仅对新库；先核实实际`current_database()`与连接角色，再检查`showmigrations`/`migrate --check`，严禁对测试库误运行。数据专员经隔离业务库真实会话反复执行系统preview；切换到confirm前关闭其写会话并交接。最终一次性confirm由用户指定的老板/管理员身份单独执行，期初专员与部署工程师不同时写库；部署工程师只负责资源/恢复点及运行边界，不替代数据核对或业务确认。完成确认后停止临时18766进程，员工切换另有负责人安排及授权。
+
+**恢复点及先后顺序**：授权准备后，任何DB/媒体写入之前先对现有测试`aluola_crm_dev`及其私有media制作当时点的私有DB dump＋媒体归档，验证`pg_restore --list`、`gzip -t`/SHA，文件600、目录700；这仅用于测试环境恢复且不覆盖旧恢复点。新业务库和media目录创建完成、首次迁移之前制作一组空库/空媒体基线；迁移完成、业务文件preview/confirm之前再制作一组完整业务库/schema＋media恢复点并验证。各恢复点存本机私有`.local/initial-business-db-20261014/`，远端暂存只在必要时用700目录/600文件，核验哈希后清理远端暂存。业务写入后的恢复必须由负责人安排，不能用迁移反向代替恢复。
+
+**执行门槛**：准备阶段仍逐一复核两个候选名称不存在、现有服务/库与目录权限、剩余资源、`migrate --check`以及测试库备份完整性；发现已有目标资源、空间/连接异常或需改公共监听/现有测试配置则停止并上报。首次preview交由期初数据专员独占业务写入窗口，使用用户确认文件，核对15 SKU及文件哈希并保存preview结果；不写业务库存。任何confirm继续等待未入表期间出入货差异的明确答案、全部校验无阻断、老板/管理员复核具体预览并明确执行窗口。NAS、HTTPS、正式公网入口、旧测试服务/数据库改造及员工切换均不属于此准备方案。
+
+### INITIAL-BUSINESS-DB-1014 云端业务库准备完成（2026-10-14）
+
+按负责人正式授权完成独立库准备；依据固定提交`d7334df08474d1f3867997251743b6dd45343f09`。运行前逐85个受管文件将云端`/opt/aluola-crm-dev/app`与固定提交blob散列核对，全部一致。目标DB及角色再次精确查询确认不存在后创建；只在新库执行SQL ACL设置与Django迁移。此前一次准备脚本误将`psql`空查询的标题行判成目标已存在并安全中止、无资源创建；修正为空结果模式后重新精确检查再执行。
+
+**隔离资源与身份**：新库`aluola_crm_business`的owner/login为`aluola_crm_business_app`；role有LOGIN，无SUPERUSER/CREATEDB/CREATEROLE/REPLICATION/BYPASSRLS，业务库ACL仅授该role connect/temp及public schema usage/create。专用凭据在云端`/opt/aluola-crm-dev/app/.local/config/business.env`，mode600、owner crmdev；业务独立settings在同目录`business_settings.py`（600），媒体`/opt/aluola-crm-dev/app/.local/private-media-business`与日志`.../.local/logs-business`为700。Django实际连接核验为`aluola_crm_business/aluola_crm_business_app`，MEDIA_ROOT及业务日志路径均落入该独立目录。技术actor `initial-opening-import`为单一普通活跃用户（staff=false、superuser=false、无组），有效权限精确为`crm.confirm_opening`；随机密码只存云端私有`opening-actor.json`（600），未输出/传送/提交。该actor不是员工账号，也未克隆测试用户。
+
+**迁移与空账状态**：固定d733来源、现有venv和Python，没有增加依赖；`manage.py check`通过，`migrate --noinput`只应用于新库，CRM最新迁移`0014_user_revision_1009`，后续`migrate --check`通过。`BusinessControl`仅1行（sequence 0、opening_completed=false、opening_enabled=true）；语言种子为简中/日文/英文/韩文共4项。除上述种子外CRM各业务模型均为0行：Product、SKU、Warehouse、InventoryBalance、Customer、SalesOrder、Receipt、OpeningBatch等均空；数据库唯一账号就是该技术actor。尚未读取或上传期初工作簿，未preview、confirm或写入任何期初库存。
+
+**恢复点与保留验证**：私有本机目录`.local/initial-business-db-20261014/`为700，文件600。既有测试库在线`pg_dump -Fc -Z0 --create`一致性备份239021 bytes，SHA256 `5f91b865269494bc1c46e7d128fe37b2b79258700e6a2eb4fad378f376040f29`；测试私有媒体归档124 bytes、0文件，SHA256 `420e5d77364b2a4161cb328e2e864169a5d8badb9263c217aa204d92afba8dc3`。新库迁移前空库恢复点1417 bytes，SHA256 `baf4109f36bfee77c1e0e8f150c912c4cc62f78be09ece551bfdfa7d8863125e`；迁移＋最小actor后、文件preview前业务库恢复点235957 bytes，SHA256 `77a856c1d20622b9d81ce8c8a43a633ce17c49d2e64d70f5efb0ef1690cf8af0`；两份新库空媒体归档均131 bytes、0文件，SHA256 `a71dfaf6e5912c41b43672722881b439cf667484cdf8aa1d7511a00d28275a71`。本机无`pg_restore`命令，因此DB归档暂存至700远端临时目录，由云端同版`pg_restore --list`核验并与本地SHA一致后清理；三份媒体归档`gzip -t`通过。私有manifest含用户确认的准确库存截止值及当前仍禁止confirm的差异状态。
+
+**测试环境及边界**：原`aluola-crm-dev.service`保持active（MainPID 1913598、NRestarts 0），`/accounts/login/`仍HTTP 200；PostgreSQL active。没有启动18766监听、web进程或新unit，没有SSH tunnel；未改18888、Nginx、UFW、sshd、PostgreSQL全局配置、Hermes、tracker/Docker、NAS。确认仍暂停，因未入表期间的出入货差异待用户回答；后续由部署工程师交接释放写入窗口，再由期初专员独占preview。preview结束后须按授权禁用actor并撤销其权限但保留用户行供业务操作外键审计；禁止删除。员工账号/权限切换另待负责人安排。
+
+### INITIAL-BUSINESS-DB-1014 期初专员preview后确认前恢复点（2026-10-14）
+
+负责人转达用户已确认准确时点之后无出入货；专员报告固定文件在业务库preview ready且对账通过，业务表仍空、序号0，并已关闭连接、停用actor和撤权。按本次唯一准备窗口先复核d733远端85个受管文件散列全部匹配，再以Django连接确认`aluola_crm_business/aluola_crm_business_app`；其他DB会话0、媒体文件0，用户表仅现有导入actor行、actor确为inactive且无组/权限，BusinessControl仍为sequence 0、opening_completed=false、opening_enabled=true，CRM业务模型仍0行。随后只将actor恢复为active并赋予唯一`crm.confirm_opening`直接权限；仍为非staff、非superuser、无组，私有随机凭据与数据库密码hash只读匹配校验通过。
+
+新确认前一致恢复点保存在`.local/initial-business-db-20261014/`（目录700，文件600）：`aluola_crm_business_pre_confirm_20261014.dump` 236576 bytes，SHA256 `c7f739bf1c4d7abf43d508e30fa3721dc7c27ffe68a026a68f0e60662ce3279b`；`aluola_crm_business_empty_media_pre_confirm_20261014.tar.gz` 131 bytes、0文件，SHA256 `a71dfaf6e5912c41b43672722881b439cf667484cdf8aa1d7511a00d28275a71`。DB归档由云端`pg_restore --list`通过且远端/本地SHA一致，媒体`gzip -t`通过。准确截止值仍只在私有manifest中。
+
+目标库没有活跃会话/写入者后释放窗口给负责人。CRM/PostgreSQL保持active，18888登录页200，未启web/新unit/SSH tunnel，未改其他库、测试数据/账号、入口、Nginx/UFW/sshd/PG全局/Hermes/tracker/Docker/NAS；没有读取或上传表格、preview或confirm。actor保持临时active以供获批私有执行器使用；confirm须等待负责人单独派发执行窗口。员工切换未授权。
+
+### INITIAL-BUSINESS-DB-1014 期初confirm成功后的业务库/媒体备份（2026-10-14）
+
+负责人通知专员已成功confirm，并授权只对新业务库做确认后恢复点。本轮只执行在线`pg_dump -Fc -Z0 --create`与业务私有media归档；未停服务或持有/恢复数据。复核连接身份`aluola_crm_business/aluola_crm_business_app`，结束时目标库其他session为0，actor已inactive且无组/权限；`BusinessControl`为sequence 1、opening_completed=true、opening_enabled=false。没有修改角色/用户或任何字段，确认前恢复点仍保留。
+
+新增本机私有文件于`.local/initial-business-db-20261014/`：`aluola_crm_business_post_confirm_20261014.dump` 250559 bytes，SHA256 `435297025db613fa053a4171fbb6329a0c6b115e3c8162bab9eb96ebd184778a`；云端业务私有媒体归档`aluola_crm_business_private_media_post_confirm_20261014.tar.gz` 131 bytes、0文件，SHA256 `a71dfaf6e5912c41b43672722881b439cf667484cdf8aa1d7511a00d28275a71`。目录700、文件600；DB归档云端`pg_restore --list`通过且远端与本地SHA相同，媒体`gzip -t`通过。验证没有进行恢复演练；数据对账以QA独立报告为准，不由备份结果替代。
+
+读取式复核结束后业务库连接已关闭；没有再做业务写入。未查询或更改测试库/入口，未操作Nginx/UFW/sshd、Hermes、tracker/Docker、NAS；未调用confirm、未读取期初原表或检查业务明细。到此释放确认后恢复点给负责人/QA。
+
+
+## FORMAL-ACCOUNTS-1014 正式账号交付（2026-10-14）
+
+依据负责人派发及已确认的用户名单，在固定应用 `d7334df08474d1f3867997251743b6dd45343f09` 上，通过现有 Django User 与固定角色组创建9个账号：管理员1、老板1、仓管／财务1、销售6。创建前复核固定源码文件散列、连接身份为独立业务库专用应用角色、用户名无冲突、角色组权限与代码默认值一致；仅见既有导入actor。
+
+按指定配置，管理员为staff及superuser；其余账号均为普通非staff、非superuser。老板仅属老板组，仓管／财务仅属既有组合组，销售仅属销售组；无直接额外权限、无单独财务组。WeCom参考标识只留在本机私密交接文件，没有写入数据库。导入actor保持停用且无权限。
+
+逐一认证9个账号并以Django Client只读GET：全部首页200，管理员Admin首页200，老板销售报表200，仓管／财务收货页200，6个销售订单页200且收货页403。老板的员工管理Admin入口被拒绝；依负责人指示保持普通非staff配置，作为现有功能限制上报，不扩权。前后CRM库存/期初/业务操作/控制记录聚合计数与全字段指纹相同，BusinessControl仍为序号1、期初完成、入口关闭。没有调用confirm或业务写接口。
+
+初始凭据交接表保存在本机忽略目录 `.local/formal-accounts-20261014/credentials.csv`（目录700、文件600）；用户名、显示名、密码及WeCom标识不复制到此记录。云端本轮名单、预检指纹和临时执行脚本已清理。没有改应用源码、测试库/数据或18888服务，也未改Nginx、UFW、sshd、PostgreSQL全局配置、Hermes、tracker/Docker或NAS。
