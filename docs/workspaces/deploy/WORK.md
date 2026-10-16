@@ -368,3 +368,14 @@ Nginx新增独立配置`/etc/nginx/sites-available/aluola-crm-iptest.conf`及启
 按显式授权做的聚合SKU预检：本机demo有2个SKU的待删除旧字段非空，但以商品、包类型、售卖单位、条码和别名分组未发现仅靠旧规格区分的重复组；云测试库1个SKU、业务库15个SKU均无非空旧字段，也无此类组。没有推断或生成别名；本机两个SKU原旧字段值会随迁移删除。业务库控制值与期初后状态一致，没有新增业务操作/销售/收货记录。
 
 后续部署仅在QA及负责人明确放行后进行：逐环境核对固定SHA完整包、目标DB身份/0014、停写状态和最新备份；本机用原demo配置，云测试继续使用既有`18888`入口与原服务，业务库只在隔离`business.env`/`business_settings`下执行一次性migrate，不启动web或新增入口。迁移后核对0015、Django检查，以及库存余额、成本、流水和BusinessControl全字段指纹相同；SKU逐行比较除三列外的所有字段和数量不变。SSH策略、Nginx/UFW、安全组、Hermes和其他服务不在本任务范围。
+
+
+## CATALOG-SPECS-REMOVE-1016 固定版本部署结果（2026-10-16）
+
+依据用户明确部署授权、固定应用提交 `71cf9f6b7719fcb8358f49fe815b3e1f58e84b41` 和独立QA 35/35通过结论执行。先停止旧 `aluola-crm-dev.service`；没有改 unit、Nginx/UFW/SSH/安全组、端口或域名。构建包仅从固定Git提交生成，86个运行文件的tar.gz SHA256 `a996c81cfab5bf3a7eb292d28d40a6eec26141bbf46bb3163f11907a2cb95af2`；新增文档空白模板 `ec97314` 未进入包。云端 `/opt/aluola-crm-dev/app` 与本机新独立release逐一核对86个固定文件SHA，均为0不匹配；本机保留旧release与`.local`运行配置/媒体。
+
+停机后为云端两库/媒体重新制作当前恢复点；数据库dump的远端`pg_restore --list`、媒体`gzip -t`和远/本机SHA均通过，暂存文件已清理。当前恢复点SHA256：`aluola_crm_dev_current.dump` `2b6eed46d2892736be682b8dc2c69b1414cacf595df65216d46ea1175b8d3403`；`aluola_crm_business_current.dump` `4b8cc47cf782fc43fdf2db4f55f3cab3fdbcf3bee96f570b6e8d7d9ffca1edae`；测试媒体`private-media-dev_current.tar.gz` `420e5d77364b2a4161cb328e2e864169a5d8badb9263c217aa204d92afba8dc3`；业务媒体`private-media-business_current.tar.gz` `a71dfaf6e5912c41b43672722881b439cf667484cdf8aa1d7511a00d28275a71`。本机迁移前dump及媒体恢复点仍保留，文件600、父目录700。
+
+三个目标均先核对连接身份与0014计划，再仅执行CRM 0015。云测试用`aluola_crm_dev/crmdev`，业务库用`business.env + business_settings`及`aluola_crm_business/aluola_crm_business_app`，未启动业务Web；本机用既有PostgreSQL 17与demo配置连接`aluola_crm_local_demo/crm_dev`。三处迁移成功，`migrate --check`及Django `check`均通过，SKU三列已不存在。逐行流式生成迁移前快照与现库的行指纹（不落盘解出的字段值），CRM及auth账号/权限共43张表逐表相等：本机423行、云测试356行、云业务434行。指纹排除三项按批准删除的SKU列、`auth_user.last_login`、会变化的`django_session`及`django_migrations`；其他SKU字段、商品、库存余额、成本/流水、期初控制、用户密码及组权限均逐表哈希匹配。一次测试管理员登录自然更新last_login，未改密码/角色/staff/active。媒体方面，业务与测试目录仍为0文件，本机demo四个媒体文件与迁移前快照逐文件相同。
+
+运行状态与只读验证：云`aluola-crm-dev.service`已按原配置恢复active，仍仅Gunicorn 127.0.0.1:18765，原Nginx 18888保持监听；公网测试入口真实CSRF登录成功，首页、商品列表/新增页、库存、Admin和`/api/v1/skus`均200，非法Host为400。本机在固定新release启动8765，demo凭据真实登录成功；首页、商品列表、库存及SKU API为200。该demo账号无商品新增权限，新增页403；Admin最终重定向登录页，未冒称本机Admin访问通过。业务库无18766监听/网页；未新增业务交易、confirm或账号变更。后续由负责人做限定只读复核与公共状态收口；未提交或推送Git。
