@@ -325,3 +325,46 @@ Nginx新增独立配置`/etc/nginx/sites-available/aluola-crm-iptest.conf`及启
 逐一认证9个账号并以Django Client只读GET：全部首页200，管理员Admin首页200，老板销售报表200，仓管／财务收货页200，6个销售订单页200且收货页403。老板的员工管理Admin入口被拒绝；依负责人指示保持普通非staff配置，作为现有功能限制上报，不扩权。前后CRM库存/期初/业务操作/控制记录聚合计数与全字段指纹相同，BusinessControl仍为序号1、期初完成、入口关闭。没有调用confirm或业务写接口。
 
 初始凭据交接表保存在本机忽略目录 `.local/formal-accounts-20261014/credentials.csv`（目录700、文件600）；用户名、显示名、密码及WeCom标识不复制到此记录。云端本轮名单、预检指纹和临时执行脚本已清理。没有改应用源码、测试库/数据或18888服务，也未改Nginx、UFW、sshd、PostgreSQL全局配置、Hermes、tracker/Docker或NAS。
+
+
+## BUSINESS-PRIVATE-ACCESS-1015 本机验收入口阻断（2026-10-15）
+
+依据负责人派发，复核云端固定d733应用85个运行源码/依赖文件散列全部匹配；业务库连接身份正确、账号总数10、本人管理员标志正确，BusinessControl仍为序号1／期初完成／入口关闭；现有18888及开发服务均active，18766空闲。为本次账号状态制作业务库后备恢复点：`.local/initial-business-db-20261014/aluola_crm_business_post_accounts_20261015.dump`，252316 bytes，SHA256 `fe17b29764204cf4a3936ff40d0a6ec6d1486dc96dc292d96ea1360014e37768`，目录700、文件600；云端`pg_restore --list`列出496行，远端及本机SHA一致。未做恢复。
+
+按派发建立了仅供业务入口使用的私密Django settings overlay（Host限localhost/127.0.0.1，CSRF来源限本机8766，Session/CSRF Cookie独立）和手动启动的systemd/Gunicorn单worker服务，仅绑定云端127.0.0.1:18766。云端登录页GET为200、非允许Host为400；原测试登录页仍200，开发服务仍active。
+
+本机SSH隧道绑定127.0.0.1:8766成功，但首个HTTP转发通道被现有sshd拒绝，返回`administratively prohibited`。因此未能完成真实登录、CSRF/session Cookie、首页/catalog/inventory/Admin及业务指纹后验。按派发立即停止隧道、停止并移除本次systemd unit和私密settings overlay、清除云端临时校验/快照；确认云端18766监听已消失、18888登录页仍200、开发服务active，本机8766监听已消失。没有改sshd、Nginx、UFW、安全组或其他服务，也没有开放公网或尝试绕过。后备恢复点保留。继续接通需先由负责人/用户处理SSH端口转发策略；处理前无可用本机入口。
+
+
+### BUSINESS-PRIVATE-ACCESS-1015 SSH拒绝来源只读诊断（2026-10-15）
+
+依据负责人追加请求，仅检查实际`ssh tx`连接上下文、有效`sshd -T -C`、相关配置源行及实际认证密钥行的转发选项；没有读取或输出公钥内容/指纹，没有改配置、服务、authorized_keys或网络。`UseDNS=no`，有效TCP转发选项中`AllowTcpForwarding=no`；`DisableForwarding=no`、`PermitOpen/PermitListen=any`、`GatewayPorts=no`。匹配的authorized_keys行没有转发限制前缀。拒绝来源唯一为`/etc/ssh/sshd_config.d/00-codex-hardening.conf:8`的全局`AllowTcpForwarding no`（由`/etc/ssh/sshd_config:12`通配Include载入）；没有Match限制块。
+
+最小候选为独立drop-in，仅对`ssh tx`现有登录用户设`AllowTcpForwarding local`并用`PermitOpen 127.0.0.1:18766`锁定目标，再以`Match all`复位。建议先用真实SSH连接上下文运行`sshd -T -C`验证该用户仅获local＋指定目标、其他用户继续no；然后`sshd -t`并reload ssh.service。只读检查确认CanReload=yes，ExecReload执行`sshd -t`后向sshd master发送HUP；reload不会触碰Hermes或关闭现有SSH会话，新配置用于后续连接。回退为删除drop-in、再`sshd -t`及reload。建议已私信负责人，未执行任何SSH变更/重载；BUSINESS入口仍因该阻断未接通，原测试入口/开发服务继续active。
+
+
+## CATALOG-SPECS-REMOVE-1016 云端迁移前数据库与媒体恢复点（2026-10-16）
+
+负责人指定仅为云端独立业务库及测试库制作最新迁移前恢复点。只读核对两目标为`aluola_crm_business`（专用业务角色）与`aluola_crm_dev`（owner为crmdev），PostgreSQL可用，原开发服务active；媒体根目录各自为业务/测试隔离路径，均为700且备份时文件数为0。
+
+恢复文件存于本机忽略目录`.local/migration-prep-CATALOG-SPECS-REMOVE-1016/`（700；文件600），包含：
+
+- `aluola_crm_business_pre_migration_20261016.dump`：252316 bytes，SHA256 `6f6f0d7551f60a98f4228daa8b16ca2e790d4b5ab13c4f50c6f76df0a2c8dcae`；远端`pg_restore --list` 496行。
+- `private-media-business_pre_migration_20261016.tar.gz`：203 bytes，SHA256 `f86597727024f95134e31e32ba95dd9cbdf1c312e877a1a621e377d519662851`；gzip校验通过，0个媒体文件。
+- `aluola_crm_dev_pre_migration_20261016.dump`：238724 bytes，SHA256 `6a177535e752bf28fceacbf01c599ed619f87007a13836493166b764f77aa8e5`；远端`pg_restore --list` 495行。
+- `private-media-dev_pre_migration_20261016.tar.gz`：197 bytes，SHA256 `399625d6e8f3d21174e580992948d4d3931877ffa9a0475890476c8802693043`；gzip校验通过，0个媒体文件。
+
+四个文件的远端/本机SHA256均匹配，远端暂存目录已清理。未恢复、未迁移、未更新运行源码或重启/修改服务；测试入口、数据库和其它服务保持原状。此恢复点未做恢复演练，下一步等待固定版本独立QA和负责人部署派发。
+
+
+## CATALOG-SPECS-REMOVE-1016 三环境只读迁移准备（2026-10-16）
+
+固定候选为`71cf9f6b7719fcb8358f49fe815b3e1f58e84b41`，独立QA进行中；本轮不部署、不迁移、不生成/传输发布包。只读确认其CRM迁移0015仅删除SKU三项旧规格列；候选完整运行包应从该固定SHA构建，包含`config/`、`crm/`、仓库根`templates/`（2个文件）、`manage.py`、`pyproject.toml`、`uv.lock`，共86个文件，并显式检查0015迁移在包内。依赖锁无变更；不打入`.local`、日志、媒体或演示数据库。
+
+本机demo数据库仍为0014，连接身份/库为`aluola_crm_local_demo`；PG17 socket服务active，8765当时无监听，数据库无其他会话。现做本机迁移前恢复点保存在`.local/migration-prep-CATALOG-SPECS-REMOVE-1016/`（700；所有文件600）：`aluola_crm_local_demo_pre_migration_20261016.dump` 262545 bytes、SHA256 `ce18cce9fe8db93eb9337ef8fcb87767bb0b6601b69a103d515d1ff38b26f4b6`，本机`pg_restore --list` 495行；`private-media-demo_pre_migration_20261016.tar.gz` 3166961 bytes、4个文件、SHA256 `4597aa8908844c1ef6656bfb1269c967e45e7a622e77dbc9884b7187e47882fa`，gzip校验通过。
+
+两份云端恢复点沿用本文件前面的同日记录：`aluola_crm_dev`与`aluola_crm_business`数据库及各自媒体均有dump/archive，远端`pg_restore --list`、gzip及远/本机SHA校验通过。独立业务库通过指定业务连接身份只读检查，仍为0014、SKU15、期初已完成/入口关闭、业务操作1、客户/销售单/收货均0且无其他DB会话；云测试库仍为0014。两份云端备份只在停写后确认备份以来没有DB/媒体变化时复用，否则迁移窗口内重新制作保留owner/ACL的当前恢复点。
+
+按显式授权做的聚合SKU预检：本机demo有2个SKU的待删除旧字段非空，但以商品、包类型、售卖单位、条码和别名分组未发现仅靠旧规格区分的重复组；云测试库1个SKU、业务库15个SKU均无非空旧字段，也无此类组。没有推断或生成别名；本机两个SKU原旧字段值会随迁移删除。业务库控制值与期初后状态一致，没有新增业务操作/销售/收货记录。
+
+后续部署仅在QA及负责人明确放行后进行：逐环境核对固定SHA完整包、目标DB身份/0014、停写状态和最新备份；本机用原demo配置，云测试继续使用既有`18888`入口与原服务，业务库只在隔离`business.env`/`business_settings`下执行一次性migrate，不启动web或新增入口。迁移后核对0015、Django检查，以及库存余额、成本、流水和BusinessControl全字段指纹相同；SKU逐行比较除三列外的所有字段和数量不变。SSH策略、Nginx/UFW、安全组、Hermes和其他服务不在本任务范围。
