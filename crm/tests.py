@@ -533,51 +533,49 @@ class CatalogTestCase(TestCase):
         self.assertNotIn(inactive_on_mixed.pk, {sku["id"] for sku in order_skus})
         self.assertNotIn(inactive_only.pk, {sku["id"] for sku in order_skus})
 
-    def test_sku_inner_box_spec_stays_separate_in_search_catalog_and_api(self):
-        twenty_boxes = SKU.objects.create(
-            product=self.product,
-            code="SEA0006",
-            unit="盒",
-            box_spec="20中盒/箱",
-            inner_box_spec="18包/中盒",
-            pack_spec="4张/包",
+    def test_sku_aliases_distinguish_cartons_without_packaging_specs(self):
+        regular = SKU.objects.create(
+            product=self.product, code="SEA0006", unit="箱",
+            pack_type=SKU.PackType.SLIM, aliases=["原箱"],
         )
-        forty_boxes = SKU.objects.create(
-            product=self.product,
-            code="SEA0007",
-            unit="盒",
-            box_spec="40中盒/箱",
-            inner_box_spec="18包/中盒",
-            pack_spec="4张/包",
+        large = SKU.objects.create(
+            product=self.product, code="SEA0007", unit="箱",
+            pack_type=SKU.PackType.SLIM, aliases=["大箱", "40盒装"],
         )
-
-        self.assertEqual(
-            {item["code"] for item in search_skus({"q": "18包/中盒"})},
-            {twenty_boxes.code, forty_boxes.code},
-        )
-
+        self.assertEqual([item["id"] for item in search_skus({"q": "40盒装"})], [large.pk])
+        self.assertEqual([item["id"] for item in search_skus({"q": "原箱"})], [regular.pk])
         self.client.force_login(self.make_user(ROLE_SALES))
-        products = self.client.get("/api/v1/products").json()["items"]
-        product = next(item for item in products if item["id"] == self.product.pk)
-        embedded_skus = {item["code"]: item for item in product["skus"]}
-        skus = self.client.get("/api/v1/skus").json()["items"]
-        api_skus = {item["code"]: item for item in skus}
+        product = next(item for item in self.client.get("/api/v1/products").json()["items"] if item["id"] == self.product.pk)
+        sku_rows = product["skus"] + self.client.get("/api/v1/skus").json()["items"]
+        for item in sku_rows:
+            self.assertTrue({"box_spec", "inner_box_spec", "pack_spec"}.isdisjoint(item))
+        self.assertEqual(next(item for item in sku_rows if item["id"] == large.pk)["aliases"], ["大箱", "40盒装"])
+        page = self.client.get("/catalog/")
+        self.assertEqual(page.status_code, 200)
+        for field in ("box_spec", "inner_box_spec", "pack_spec"):
+            self.assertNotContains(page, field)
 
-        for sku, box_spec in ((twenty_boxes, "20中盒/箱"), (forty_boxes, "40中盒/箱")):
-            with self.subTest(code=sku.code):
-                for item in (embedded_skus[sku.code], api_skus[sku.code]):
-                    self.assertEqual(item["box_spec"], box_spec)
-                    self.assertEqual(item["inner_box_spec"], "18包/中盒")
-                    self.assertEqual(item["pack_spec"], "4张/包")
-
-        catalog = self.client.get("/catalog/")
-        self.assertEqual(catalog.status_code, 200)
-        catalog_items = {item["code"]: item for item in catalog.context["items"]}
-        self.assertEqual(catalog_items[twenty_boxes.code]["box_spec"], "20中盒/箱")
-        self.assertEqual(catalog_items[forty_boxes.code]["box_spec"], "40中盒/箱")
-        self.assertContains(catalog, "sku.box_spec")
-        self.assertContains(catalog, "sku.inner_box_spec")
-        self.assertContains(catalog, "sku.pack_spec")
+    def test_catalog_creation_rejects_removed_packaging_fields(self):
+        self.client.force_login(self.make_user(ROLE_WAREHOUSE))
+        base = {"product_id": self.product.pk, "code": "SEA0006", "unit": "箱", "aliases": ["大箱"]}
+        for field in ("box_spec", "inner_box_spec", "pack_spec"):
+            with self.subTest(field=field):
+                response = self.client.post("/api/v1/skus", data=json.dumps({**base, field: "obsolete", "operation_key": str(uuid4())}), content_type="application/json")
+                self.assertEqual(response.status_code, 400)
+                nested = {
+                    "brand_id": self.brand.pk, "type": Product.Type.BOOSTER,
+                    "name": "移除规格校验", "language_id": self.product.language_id,
+                    "skus": [{"code": "SEA0006", "unit": "箱", field: "obsolete"}],
+                    "operation_key": str(uuid4()),
+                }
+                response = self.client.post("/api/v1/products", data=json.dumps(nested), content_type="application/json")
+                self.assertEqual(response.status_code, 400)
+        self.assertFalse(Product.objects.filter(name="移除规格校验").exists())
+        self.assertFalse(SKU.objects.filter(code="SEA0006").exists())
+        page = self.client.get("/catalog/new/")
+        self.assertEqual(page.status_code, 200)
+        for field in ("box_spec", "inner_box_spec", "pack_spec", "data-box", "data-inner", "data-pack>"):
+            self.assertNotContains(page, field)
 
     def test_product_admin_add_edit_series_choice_and_alias_search(self):
         admin_user = User.objects.create_superuser(
@@ -630,16 +628,14 @@ class CatalogTestCase(TestCase):
         page = self.client.get(add_url)
         self.assertEqual(page.status_code, 200)
         self.assertContains(page, 'name="aliases"')
-        self.assertContains(page, 'name="inner_box_spec"')
+        for field in ("box_spec", "inner_box_spec", "pack_spec"):
+            self.assertNotContains(page, f'name="{field}"')
         self.assertContains(page, "瘦包")
         self.assertNotContains(page, ">slim<")
 
         create_data = {
             "product": self.product.pk,
             "code": "SEA0002",
-            "box_spec": "20中盒/箱",
-            "inner_box_spec": "18包/中盒",
-            "pack_spec": "4张/包",
             "pack_type": SKU.PackType.SLIM,
             "unit": "盒",
             "barcode": "0099887766",
@@ -651,7 +647,6 @@ class CatalogTestCase(TestCase):
         self.assertEqual(response.status_code, 302)
         sku = SKU.objects.get(code="SEA0002")
         self.assertEqual(sku.aliases, ["整盒", "特别版"])
-        self.assertEqual(sku.inner_box_spec, "18包/中盒")
         SKU.objects.create(
             product=self.product,
             code="SEA0003",
@@ -669,24 +664,18 @@ class CatalogTestCase(TestCase):
         self.assertEqual(page.status_code, 200)
         form = page.context["adminform"].form
         self.assertEqual(form["aliases"].value(), "整盒\n特别版")
-        self.assertEqual(form["inner_box_spec"].value(), "18包/中盒")
         self.assertIn("瘦包", form["pack_type"].as_widget())
         self.assertNotIn(">slim<", form["pack_type"].as_widget())
         create_data["aliases"] = "整盒\n限定"
-        create_data["inner_box_spec"] = "20包/中盒"
         response = self.client.post(change_url, create_data)
         self.assertEqual(response.status_code, 302)
         sku.refresh_from_db()
         self.assertEqual(sku.aliases, ["整盒", "限定"])
-        self.assertEqual(sku.inner_box_spec, "20包/中盒")
         self.assertEqual(search_skus({"q": "限定"})[0]["id"], sku.pk)
 
         blank_data = {
             **create_data,
             "code": "SEA0008",
-            "box_spec": "",
-            "inner_box_spec": "",
-            "pack_spec": "",
             "pack_type": "",
             "unit": "盒",
             "barcode": "",
@@ -694,7 +683,7 @@ class CatalogTestCase(TestCase):
         }
         response = self.client.post(add_url, blank_data)
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(SKU.objects.get(code="SEA0008").inner_box_spec, "")
+        self.assertEqual(SKU.objects.get(code="SEA0008").unit, "盒")
 
     def test_sku_numbers_are_stable_and_barcode_duplicates_need_confirmation(self):
         changed = SKU.objects.get(pk=self.sku.pk)
@@ -712,8 +701,6 @@ class CatalogTestCase(TestCase):
         data = {
             "product": self.product.pk,
             "code": "SEA0002",
-            "box_spec": "",
-            "pack_spec": "",
             "pack_type": "",
             "unit": "盒",
             "barcode": self.sku.barcode,

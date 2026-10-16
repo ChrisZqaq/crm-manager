@@ -55,7 +55,7 @@ PRODUCT_SHEET = "商品档案"
 STOCK_SHEET = "期初库存"
 PRODUCT_HEADERS = (
     "商品内部编号", "IP品牌", "商品类型", "系列", "产品名", "产品别名", "语言版本", "官方编号",
-    "箱规格", "盒规格", "包规格", "包类型", "售卖单位", "包装条码", "规格别名",
+    "包类型", "售卖单位", "包装条码", "规格别名",
 )
 STOCK_HEADERS = (
     "仓库名", "仓库地址", "商品内部编号", "实际在库数量", "单位成本", "客户预留数量",
@@ -216,7 +216,7 @@ def _parse_workbook(content):
     for row in product_rows:
         v = row["values"]
         row_number = row["row_number"]
-        code, brand, type_label, series, name, aliases, language, official, box_spec, inner_box_spec, pack_spec, pack_type, unit, barcode, sku_aliases = v
+        code, brand, type_label, series, name, aliases, language, official, pack_type, unit, barcode, sku_aliases = v
         checks = (
             (code, "商品内部编号"), (brand, "IP品牌"), (type_label, "商品类型"), (name, "产品名"), (unit, "售卖单位"),
         )
@@ -230,7 +230,7 @@ def _parse_workbook(content):
             if code in seen_codes:
                 _row_error(errors, PRODUCT_SHEET, row_number, "商品内部编号", "编号在工作簿中重复。")
             seen_codes.add(code)
-        if barcode and row["cells"].get(13, ("", ""))[1] != "text":
+        if barcode and row["cells"].get(PRODUCT_HEADERS.index("包装条码"), ("", ""))[1] != "text":
             _row_error(errors, PRODUCT_SHEET, row_number, "包装条码", "条码必须以文本保存以保留前导零。")
         if type_label not in PRODUCT_TYPES:
             _row_error(errors, PRODUCT_SHEET, row_number, "商品类型", "请选择补充包、周边或礼盒·预组。")
@@ -256,9 +256,6 @@ def _parse_workbook(content):
                 "product_aliases": shared,
                 "language": language,
                 "official_code": official,
-                "box_spec": box_spec,
-                "inner_box_spec": inner_box_spec,
-                "pack_spec": pack_spec,
                 "pack_type": PACK_TYPES.get(pack_type, ""),
                 "unit": unit,
                 "barcode": barcode,
@@ -474,8 +471,8 @@ def _resolve_opening(rows, mappings, *, lock=False):
             if not product_id or existing.product_id != product_id:
                 errors.append({"sheet": PRODUCT_SHEET, "row": item["row_number"], "field": "商品内部编号", "message": "现有编号关联的产品与工作簿映射不一致。"})
                 continue
-            expected = (item["box_spec"], item["inner_box_spec"], item["pack_spec"], item["pack_type"], item["unit"], item["barcode"], item["sku_aliases"])
-            actual = (existing.box_spec, existing.inner_box_spec, existing.pack_spec, existing.pack_type, existing.unit, existing.barcode, existing.aliases)
+            expected = (item["pack_type"], item["unit"], item["barcode"], item["sku_aliases"])
+            actual = (existing.pack_type, existing.unit, existing.barcode, existing.aliases)
             if not existing.is_active or actual != expected:
                 errors.append({"sheet": PRODUCT_SHEET, "row": item["row_number"], "field": "商品内部编号", "message": "现有SKU资料与工作簿不一致，请先核对商品档案。"})
             sku_bindings[item["code"]] = {"id": existing.pk, "create": False}
@@ -581,7 +578,7 @@ def _resolve_opening(rows, mappings, *, lock=False):
     dependencies = {
         "brands": [[item.pk, item.name, item.sku_prefix, item.is_active] for item in brands_by_name.values()],
         "products": [[item.pk, item.brand_id, item.type, item.series, item.name, item.language.name if item.language_id else "", item.official_code, item.aliases, item.is_active] for matches in identity_matches.values() for item in matches],
-        "skus": [[item.pk, item.code, item.product_id, item.box_spec, item.inner_box_spec, item.pack_spec, item.pack_type, item.unit, item.barcode, item.aliases, item.is_active] for item in existing_skus.values()],
+        "skus": [[item.pk, item.code, item.product_id, item.pack_type, item.unit, item.barcode, item.aliases, item.is_active] for item in existing_skus.values()],
         "warehouses": [[item.pk, item.name, item.address, item.is_active] for group in name_matches.values() for item in group],
         "existing_barcodes": [[item.pk, item.code, item.barcode] for item in barcode_records],
         "balance_count": InventoryBalance.objects.count(),
@@ -719,9 +716,6 @@ def confirm_opening(actor, operation_key, preview_token, request_id=""):
                     sku = SKU(
                         product=product,
                         code=item["code"],
-                        box_spec=item["box_spec"],
-                        inner_box_spec=item["inner_box_spec"],
-                        pack_spec=item["pack_spec"],
                         pack_type=item["pack_type"],
                         unit=item["unit"],
                         barcode=item["barcode"],
@@ -758,7 +752,7 @@ def confirm_opening(actor, operation_key, preview_token, request_id=""):
                 "products": [
                     {key: item[key] for key in (
                         "brand_name", "brand_prefix", "type", "series", "name", "product_aliases", "language", "official_code",
-                        "code", "box_spec", "inner_box_spec", "pack_spec", "pack_type", "unit", "barcode", "sku_aliases",
+                        "code", "pack_type", "unit", "barcode", "sku_aliases",
                     )}
                     for item in resolved["products"]
                 ],

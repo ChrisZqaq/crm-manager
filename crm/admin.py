@@ -26,8 +26,8 @@ class NoAdminHistory:
     field_labels = {
         "name": "名称", "sku_prefix": "SKU前缀", "type": "商品类型", "series": "系列",
         "language": "语言", "official_code": "官方编号", "code": "SKU编号", "unit": "售卖单位",
-        "barcode": "包装条码", "pack_type": "包装类型", "box_spec": "箱规格",
-        "inner_box_spec": "内盒规格", "pack_spec": "包规格", "address": "地址",
+        "barcode": "包装条码", "pack_type": "包装类型",
+        "address": "地址",
         "is_active": "启用", "is_staff": "可登录后台", "is_superuser": "超级管理员",
         "groups": "角色", "permissions": "权限", "changed_at": "变更时间",
         "actor": "操作人", "target_user": "员工", "role_name": "角色名称",

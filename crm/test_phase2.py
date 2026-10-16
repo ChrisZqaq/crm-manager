@@ -59,7 +59,7 @@ from .permissions import ROLE_OWNER, ROLE_SALES, ROLE_WAREHOUSE
 
 PRODUCT_HEADERS = (
     "商品内部编号", "IP品牌", "商品类型", "系列", "产品名", "产品别名", "语言版本", "官方编号",
-    "箱规格", "盒规格", "包规格", "包类型", "售卖单位", "包装条码", "规格别名",
+    "包类型", "售卖单位", "包装条码", "规格别名",
 )
 STOCK_HEADERS = (
     "仓库名", "仓库地址", "商品内部编号", "实际在库数量", "单位成本", "客户预留数量",
@@ -128,7 +128,7 @@ def opening_workbook(product_rows, stock_rows):
 
 
 def product_row(code="TST-0001", *, brand="Synthetic IP", name="Sample Booster", aliases="A；B", barcode="00001234"):
-    return [code, brand, "补充包", "Set 1", name, aliases, "简中", "", "20盒/箱", "18包/中盒", "5张/包", "瘦包", "盒", barcode, "标准版"]
+    return [code, brand, "补充包", "Set 1", name, aliases, "简中", "", "瘦包", "盒", barcode, "标准版"]
 
 
 def stock_row(code="TST-0001", *, warehouse="Synthetic Warehouse", address="Synthetic address", quantity=10, cost="100.000", reserved=0, hoarded=0, hoard_reason="", damaged=0, note=""):
@@ -156,9 +156,6 @@ class Phase2Base(TransactionTestCase):
         self.sku = SKU.objects.create(
             product=self.product,
             code="TST-0001",
-            box_spec="20盒/箱",
-            inner_box_spec="18包/中盒",
-            pack_spec="5张/包",
             pack_type=SKU.PackType.SLIM,
             unit="盒",
             barcode="00001234",
@@ -222,9 +219,6 @@ class SKUUnitHistoryPhase2Tests(Phase2Base):
         return {
             "product": sku.product_id,
             "code": sku.code,
-            "box_spec": sku.box_spec,
-            "inner_box_spec": sku.inner_box_spec,
-            "pack_spec": sku.pack_spec,
             "pack_type": sku.pack_type,
             "unit": unit,
             "barcode": sku.barcode,
@@ -515,6 +509,18 @@ class OpeningPhase2Tests(Phase2Base):
                 "operation_key": uuid4(),
             })
         self.assertEqual(closed.exception.code, "opening_closed")
+
+    def test_opening_rejects_old_packaging_columns_without_writing(self):
+        old_headers = PRODUCT_HEADERS[:8] + ("箱规格", "盒规格", "包规格") + PRODUCT_HEADERS[8:]
+        row = product_row()
+        old_row = row[:8] + ["20盒/箱", "18包/盒", "5张/包"] + row[8:]
+        with patch("crm.test_phase2.PRODUCT_HEADERS", old_headers):
+            content = opening_workbook([old_row], [stock_row()])
+        with self.assertRaises(OperationError) as error:
+            preview_opening(self.user, content, "old-template.xlsx")
+        self.assertTrue(any(item["field"] == "表头" for item in error.exception.fields["rows"]))
+        self.assertEqual(OpeningBatch.objects.count(), 0)
+        self.assertEqual(SKU.objects.count(), 0)
 
     def test_opening_rejects_unknown_language_at_product_row(self):
         row = product_row(code="TST-9999", name="Unknown Language Booster")

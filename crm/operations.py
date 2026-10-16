@@ -870,7 +870,7 @@ def _catalog_sku_input(data, field):
     if not isinstance(data, dict):
         raise OperationError("SKU资料格式无效。", fields={field: "每行须为对象。"})
     allowed = {
-        "code", "box_spec", "inner_box_spec", "pack_spec", "pack_type", "unit",
+        "code", "pack_type", "unit",
         "barcode", "aliases", "confirm_duplicate_barcode",
     }
     unknown = set(data) - allowed
@@ -882,9 +882,6 @@ def _catalog_sku_input(data, field):
         raise OperationError("重复条码确认格式无效。", fields={f"{field}.confirm_duplicate_barcode": "请输入布尔值。"})
     return {
         "code": _catalog_text(data.get("code"), f"{field}.code", required=True),
-        "box_spec": _catalog_text(data.get("box_spec"), f"{field}.box_spec"),
-        "inner_box_spec": _catalog_text(data.get("inner_box_spec"), f"{field}.inner_box_spec"),
-        "pack_spec": _catalog_text(data.get("pack_spec"), f"{field}.pack_spec"),
         "pack_type": _catalog_text(data.get("pack_type"), f"{field}.pack_type"),
         "unit": _catalog_text(data.get("unit"), f"{field}.unit", required=True),
         "barcode": _catalog_text(data.get("barcode"), f"{field}.barcode"),
@@ -1031,7 +1028,7 @@ def create_catalog_sku(actor, data, operation_key, request_id=""):
     _require(actor, "add_sku")
     if not isinstance(data, dict):
         raise OperationError("SKU资料格式无效。")
-    allowed = {"product_id", "code", "box_spec", "inner_box_spec", "pack_spec", "pack_type", "unit", "barcode", "aliases", "confirm_duplicate_barcode"}
+    allowed = {"product_id", "code", "pack_type", "unit", "barcode", "aliases", "confirm_duplicate_barcode"}
     unknown = set(data) - allowed
     if unknown:
         name = next(iter(sorted(unknown)))
