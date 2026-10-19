@@ -95,5 +95,6 @@ urlpatterns = [
     path("api/v1/orders/<int:order_id>/receive", views.order_receive_api, name="api-order-receive"),
     path("api/v1/orders/<int:order_id>/freight", views.order_freight_api, name="api-order-freight"),
     path("api/v1/orders/<int:order_id>/review-commission", views.order_commission_review_api, name="api-order-commission-review"),
+    path("api/v1/orders/<int:order_id>/commission-adjustment-confirm", views.order_commission_adjustment_confirm_api, name="api-order-commission-adjustment-confirm"),
     path("api/v1/commission-adjustments/<int:adjustment_id>/complete", views.commission_adjustment_complete_api, name="api-commission-adjustment-complete"),
 ]

@@ -310,6 +310,8 @@ class InventoryReplay:
     def _order_input(self, operation):
         order_id = operation.sales_order_id or int(operation.payload.get("order_id"))
         payload = operation.payload
+        cost_basis = payload.get("cost_basis", "order_snapshot")
+        actual_outflow_cost = cost_basis == "actual_outflow"
         old_active = {line_id: line for line_id, line in self.result.order_lines.items() if line["order_id"] == order_id and line["active"]}
         old_totals = {}
         for line in old_active.values():
@@ -323,7 +325,9 @@ class InventoryReplay:
             qty = int(item["quantity"])
             old = self.result.order_lines.get(line_id)
             same = bool(old and old["order_id"] == order_id and (old["warehouse_id"], old["sku_id"]) == key and old["active"])
-            if recalculate or not same or qty > old["quantity"]:
+            if actual_outflow_cost:
+                unit_cost = cost = None
+            elif recalculate or not same or qty > old["quantity"]:
                 balance = self.result.balance(key)
                 if balance["on_hand"] <= 0:
                     _fail("历史订单成本缺少当时的库存数量。", fields={"order_id": str(order_id), "line_id": str(line_id)})
@@ -336,12 +340,16 @@ class InventoryReplay:
                 _fail("订单成本操作缺少稳定的上游订单行。", fields={"order_id": str(order_id), "line_id": str(line_id)})
             price = Decimal(item["sale_price"])
             revenue = amount(price * qty, "revenue_amount")
-            cost = amount(unit_cost * qty, "order_cost_amount")
+            if not actual_outflow_cost:
+                cost = amount(unit_cost * qty, "order_cost_amount")
+            line_number = item.get("line_number") or self.db_order_lines[line_id].line_number
             planned[line_id] = {
                 "line_id": line_id, "order_id": order_id, "warehouse_id": key[0], "sku_id": key[1],
+                "line_number": line_number,
                 "quantity": qty, "unit_price": price, "revenue_amount": revenue,
                 "unit_cost_snapshot": unit_cost, "order_cost_amount": cost,
-                "cost_mode": item["cost_mode"], "outbound_freight": old["outbound_freight"] if same else ZERO,
+                "cost_mode": "actual_outflow" if actual_outflow_cost else item["cost_mode"],
+                "outbound_freight": old["outbound_freight"] if same else ZERO,
                 "active": True,
             }
         new_totals = {}
@@ -362,7 +370,7 @@ class InventoryReplay:
                     operation, event_kind, f"warehouse:{stock_key[0]}:sku:{stock_key[1]}",
                     stock_key, ("sales_order", order_id), occupied=delta,
                 )
-        self.result.orders.setdefault(order_id, {})
+        self.result.orders.setdefault(order_id, {})["cost_basis"] = cost_basis
 
     def _order_cancel(self, operation):
         order_id = operation.sales_order_id or int(operation.payload["order_id"])
@@ -388,6 +396,7 @@ class InventoryReplay:
         self._apply_freight_rows(operation)
         total_cost = ZERO
         total_quantity = 0
+        deductions = {}
         rows = [move for move in self.moves_by_operation.get(operation.pk, []) if move.event_kind == "order_outbound"]
         if not rows:
             _fail("实际交付操作缺少固定出库数量流水。", fields={"operation_id": str(operation.pk)})
@@ -406,6 +415,28 @@ class InventoryReplay:
                                   on_hand=-outgoing, occupied=-outgoing, cost=-cost)
             total_cost += cost
             total_quantity += outgoing
+            deductions[key] = cost
+        if self.result.orders.get(order_id, {}).get("cost_basis") == "actual_outflow":
+            grouped = {}
+            for line in self.result.order_lines.values():
+                if line["order_id"] == order_id and line["active"]:
+                    grouped.setdefault((line["warehouse_id"], line["sku_id"]), []).append(line)
+            for key, rows in grouped.items():
+                rows.sort(key=lambda line: (line["line_number"], line["line_id"]))
+                quantity_total = sum(line["quantity"] for line in rows)
+                remaining = deductions[key]
+                for index, line in enumerate(rows):
+                    if index == len(rows) - 1:
+                        line_cost = remaining
+                    else:
+                        with localcontext() as context:
+                            context.prec = 50
+                            line_cost = amount(deductions[key] * line["quantity"] / quantity_total, "order_cost_amount")
+                        line_cost = min(line_cost, remaining)
+                    remaining -= line_cost
+                    line["unit_cost_snapshot"] = None
+                    line["order_cost_amount"] = line_cost
+                    line["cost_mode"] = "actual_outflow"
         self.result.fulfillment_costs[operation.pk] = {"cost": amount(total_cost, "actual_inventory_cost"), "quantity": total_quantity}
 
     def _split(self, operation):
@@ -515,10 +546,13 @@ class InventoryReplay:
         for order_id, state in self.result.orders.items():
             lines = [line for line in self.result.order_lines.values() if line["order_id"] == order_id and line["active"]]
             revenue = amount(sum((line["revenue_amount"] for line in lines), ZERO), "revenue_amount")
-            cost = amount(sum((line["order_cost_amount"] for line in lines), ZERO), "cost_amount")
             freight = amount(sum((line["outbound_freight"] for line in lines), ZERO), "outbound_freight")
-            margin = amount(revenue - cost - freight, "margin_amount", nonnegative=False)
-            commission = amount(margin * Decimal("0.10"), "commission_estimate", nonnegative=False)
+            if state.get("cost_basis") == "actual_outflow" and any(line["order_cost_amount"] is None for line in lines):
+                cost = margin = commission = None
+            else:
+                cost = amount(sum((line["order_cost_amount"] or ZERO for line in lines), ZERO), "cost_amount")
+                margin = amount(revenue - cost - freight, "margin_amount", nonnegative=False)
+                commission = amount(margin * Decimal("0.10"), "commission_estimate", nonnegative=False)
             state.update({"revenue_amount": revenue, "cost_amount": cost, "margin_amount": margin,
                           "commission_estimate": commission, "freight_amount": freight})
 
@@ -580,6 +614,7 @@ def validate_baseline(result, replay):
             continue
         actual = {
             "line_id": row.pk, "order_id": row.order_id, "warehouse_id": row.warehouse_id, "sku_id": row.sku_id,
+            "line_number": row.line_number,
             "quantity": row.quantity, "unit_price": row.unit_price, "revenue_amount": row.revenue_amount,
             "unit_cost_snapshot": row.unit_cost_snapshot, "order_cost_amount": row.order_cost_amount,
             "outbound_freight": row.outbound_freight, "cost_mode": row.cost_mode, "active": row.active,

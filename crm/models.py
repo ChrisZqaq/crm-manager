@@ -644,11 +644,16 @@ class SalesOrder(models.Model):
         SHIPMENT = "shipment", "快递"
         ON_SITE = "on_site", "现场"
 
+    class CostBasis(models.TextChoices):
+        ORDER_SNAPSHOT = "order_snapshot", "下单成本快照"
+        ACTUAL_OUTFLOW = "actual_outflow", "出库实际成本"
+
     salesperson = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="sales_orders")
     customer = models.ForeignKey(Customer, null=True, blank=True, on_delete=models.PROTECT, related_name="sales_orders")
     channel = models.ForeignKey(Channel, on_delete=models.PROTECT, related_name="sales_orders")
     status = models.CharField(max_length=24, choices=Status.choices, default=Status.AWAITING_PAYMENT)
     delivery_mode = models.CharField(max_length=16, choices=DeliveryMode.choices)
+    cost_basis = models.CharField(max_length=20, choices=CostBasis.choices, default=CostBasis.ORDER_SNAPSHOT)
     customer_name_snapshot = models.CharField(max_length=200, blank=True)
     recipient_snapshot = models.CharField(max_length=120, blank=True)
     contact_snapshot = models.TextField(blank=True)
@@ -661,9 +666,9 @@ class SalesOrder(models.Model):
     invoice_email = models.CharField(max_length=254, blank=True)
     remarks = models.TextField(blank=True)
     revenue_amount = models.DecimalField(max_digits=20, decimal_places=3, default=0)
-    cost_amount = models.DecimalField(max_digits=20, decimal_places=3, default=0)
-    margin_amount = models.DecimalField(max_digits=20, decimal_places=3, default=0)
-    commission_estimate = models.DecimalField(max_digits=20, decimal_places=3, default=0)
+    cost_amount = models.DecimalField(max_digits=20, decimal_places=3, null=True, blank=True, default=0)
+    margin_amount = models.DecimalField(max_digits=20, decimal_places=3, null=True, blank=True, default=0)
+    commission_estimate = models.DecimalField(max_digits=20, decimal_places=3, null=True, blank=True, default=0)
     version = models.PositiveIntegerField(default=1)
     payment_version = models.PositiveIntegerField(default=1)
     amount_version = models.PositiveIntegerField(default=1)
@@ -688,6 +693,7 @@ class SalesOrder(models.Model):
         constraints = [
             models.CheckConstraint(condition=Q(status__in=("awaiting_payment", "ready_to_ship", "shipped", "completed", "cancelled")), name="crm_order_phase4_status"),
             models.CheckConstraint(condition=Q(delivery_mode__in=("shipment", "on_site")), name="crm_order_delivery_mode"),
+              models.CheckConstraint(condition=Q(cost_basis__in=("order_snapshot", "actual_outflow")), name="crm_order_cost_basis_valid"),
             models.CheckConstraint(condition=Q(revenue_amount__gte=0, cost_amount__gte=0), name="crm_order_totals_nonnegative"),
         ]
 
@@ -700,8 +706,8 @@ class SalesOrderLine(models.Model):
     quantity = models.PositiveBigIntegerField()
     unit_price = models.DecimalField(max_digits=20, decimal_places=3)
     revenue_amount = models.DecimalField(max_digits=20, decimal_places=3)
-    unit_cost_snapshot = models.DecimalField(max_digits=20, decimal_places=3)
-    order_cost_amount = models.DecimalField(max_digits=20, decimal_places=3)
+    unit_cost_snapshot = models.DecimalField(max_digits=20, decimal_places=3, null=True, blank=True)
+    order_cost_amount = models.DecimalField(max_digits=20, decimal_places=3, null=True, blank=True)
     outbound_freight = models.DecimalField(max_digits=20, decimal_places=3, default=0)
     cost_mode = models.CharField(max_length=24, default="average_snapshot")
     active = models.BooleanField(default=True)

@@ -500,3 +500,44 @@ UV_PROJECT_ENVIRONMENT=/Users/chrisz/.cache/aluola-crm-uiquery1-venv CRM_DB_NAME
 ### 交付状态
 
 本轮为代码与页面的只读实现核对，无应用改动、测试或视觉截图。未发现指定后端操作缺失；主要落点是订单详情的三类不可执行按钮和库存调整的就近入口/长页密度。下一步由负责人整合各角色证据，UI按候选方案出具体原型并获批后，再安排单一应用写入者；历史数据重建仍因其他语义缺口暂停，本报告不授权导入。
+
+## COST-AT-OUTFLOW-1019｜后端最小技术合同（只读）
+
+依据：负责人任务及已更新的 `docs/project/COST_COMMISSION_REVISION_20261019.md`；目标仍是运行应用 71cf9f6 / schema 0015。本轮只读代码图、服务/API、回放和报表；未改应用、数据库、公共文档或权限，未运行测试。新决定已替代旧成本规则，以下旧实现仅作改动定位。
+
+### 最小涉及面
+
+| 部位 | 当前实现 | 最小收口 |
+| --- | --- | --- |
+| 模型与迁移 | `SalesOrder.cost_amount/margin_amount/commission_estimate` 和 `SalesOrderLine.unit_cost_snapshot/order_cost_amount` 都表示下单快照；新订单提交时非空。`InventoryMovement.cost_delta` 与履约操作结果已保存实际出库成本。 | 加一个订单成本口径标识（旧快照/实际出库）；旧记录默认旧口径并保留原值，新订单提交时成本/毛利/提成尚未形成，相关金额及行快照可空。出库后复用订单成本/毛利/提成总额字段保存实际结果；SKU/仓库维度成本从该订单的 `order_outbound` 库存流水汇总，不再加一套成本账表。 |
+| 下单及接口 | `sales._plan_order` 固定均价、算毛利/提成；`_order_preview_result` 和 `views._sales_order_data` 返回快照及金额；确认时持久化并占货。`operations.inventory_rows.average_cost` 已返回所选仓-SKU的当前三位成本均价。 | 下单仍校验可售并事务占货，但均价只作为可变参考，不固化为销售成本；预览向销售显示当前仓-SKU成本，不返回正式毛利/提成。保持订单、收款、凭证及服务端校验。 |
+| 实际履约与运费 | `_fulfill_inventory` 已在锁定余额下精确算实际扣减并返回金额；`_perform_fulfillment` 仅把它写进履约操作结果。`_apply_freight` 仍以订单时快照重算毛利/提成。 | 发货/现场交付事务内将实际扣减总额写入订单并按“收入－实际扣减成本－运费”算整单毛利，再按整单毛利10%计算提成；金额版本随计算输入变化。展示均价不可乘回替代实际扣减总额，尤其整仓SKU清空时须保留扣尽剩余成本的既有算法。后续运费更正基于已实现成本重算、令旧复核过期；普通运费继续走原重审规则，不生成采购纠错差额。 |
+| 纠错与提成 | `CostCorrection.before_after` 已保存影响；`CommissionReview` 保存现核定额及金额版本；`CommissionAdjustment` 保存已确认差额及线下完成状态。当前 `_persist_result` 在纠错审批时会直接更新仍有效的核定额并建差额记录，审批 API 没有独立提成确认动作。 | 纠错审批只做库存/经营成本回放并保持 `CommissionReview.approved_amount`，不等待提成选择，也不创建已确认差额。审批结果可在 `CostCorrection.before_after` 中保存按订单、金额版本绑定的最新提成建议。之后老板通过独立幂等操作选择“调整/保持”；服务端重算差额，不接手填金额。调整才更新核定并创建 `COST_CORRECTION` `CommissionAdjustment`；保持只留决定记录及核定版本，不伪造金额调整。此操作不阻断或撤销已生效的库存纠错。 |
+| 回放、报表及导出 | `InventoryReplay._order_input/_finalize_orders` 按订单行下单成本快照重算；`_fulfillment` 已回放实际出库成本，但 `_persist_result` 主要更新行快照及订单快照总额。销售报表 `_sales_data` 按 `line.order_cost_amount` 汇总“下单成本”；提成报表读 `commission_estimate`。 | 回放按订单口径分支：旧记录保留快照语义；新订单事件只占货，实际成本在履约事件从回放余额扣出并生成经营成本/提成。纠错回放更新出库流水、履约结果及受影响订单实际成本。销售报表新口径按订单+仓库+SKU聚合出库流水；未出库新单不报零成本/毛利/提成，已出库使用实际金额。提成报表只对已出库订单显示计算值；保留待审建议、现核定额、已确认差额分列且不重复加总。`build_report` 是页面/导出的共同数据入口，Excel随之校准。 |
+| 回归范围 | 现有相关覆盖位于 `crm/test_phase3.py`、`test_phase4.py`、`test_phase5.py`、`test_phase6.py`，覆盖订单快照、实际扣减、运费重审、纠错回放/重复差额及报表。 | 更新这些旧口径断言；新增新单不固化成本、参考价三位显示、现场/快递多仓实际成本、清空尾差、运费按已实现成本重算、纠错审批无须提成选择且不更改核定、独立“调整/保持”确认、当前核定基线、连续纠错增量、重复操作幂等/金额版本过期、旧口径兼容，以及销售/提成报表与Excel不把未出库金额伪作0。只列计划，本轮未测试。 |
+
+### 纠错生效与提成差额确认分为两步
+
+上一版建议把逐单“调整/保持”塞进 `approve_cost_correction`，现按负责人更正撤回：**成本纠错与提成差额确认是两个独立操作。纠错审批不得要求选择，也不能因未确认提成而阻断库存/成本纠错。**
+
+1. **批准成本纠错**：原子应用成本及 `InventoryReplay` 结果；更新系统最新成本/提成计算值及金额版本，保持 `CommissionReview.approved_amount` 原核定额，不写 `CommissionAdjustment`。在现有 `CostCorrection.before_after` 影响快照里，为已核定且受影响订单记录待确认建议：订单ID、现核定额、最新计算额、差额、`order.amount_version`、`approved_amount_version` 和来源纠错ID。未核定订单不生成差额建议，仍等完成/到账核对后按常规审核。
+2. **独立确认差额**：新增一个独立提成差额确认 action/API（不扩展成本纠错审批请求）。输入操作键、订单ID、来源纠错ID、期望 `amount_version`、期望 `approved_amount_version` 和 `adjust|keep`；不接收金额。复用现有成本纠错审批责任权限。服务端锁定订单/复核/纠错记录，校验建议仍对应当前应用的纠错及版本，并用最新 `commission_estimate` 与当前 `approved_amount` 重算差额。`adjust` 更新核定额/核定版本，并将非零差额写成关联此独立操作的 `CommissionAdjustment`；`keep` 保留核定金额，把复核版本推进到本次金额版本，并在 `CostCorrection.before_after` 与操作结果记录确认人、决定和版本，不生成虚假的差额行。
+3. **过期和幂等**：新采购纠错更新金额版本后，旧建议因版本不符不可操作；新纠错快照基于当时最新计算额和仍有效的当前核定额重新生成。若运费或其他金额输入先变化，旧建议同样过期，但仅进入现有普通 `REREVIEW` 流程，不生成采购纠错差额。确认 action 用独立 `operation_key`/`input_hash`；相同键重放同一结果，改变键重复确认由建议版本/核定版本冲突拒绝。纠错主操作原有幂等不受此独立操作影响；两边任何选择都不表示资金已划转。
+4. **展示与授权**：待确认建议只属于纠错影响快照/当前建议，不进入 `CommissionAdjustment` 差额合计；该表仍只记已确认金额变化。建议响应继续经 `visible_cost_correction_data` 按原订单和提成可见范围过滤，不新增角色或扩大提成可见权。后续纠错若再次改变金额，生成新的当前建议，旧建议自然过期，不累加重复扣款。
+
+### 历史与权限边界
+
+- 已验证的当前正式库预检只有期初、没有销售单据，因此本次部署没有历史销售行需要批量改算。迁移默认保留任何既存旧单为“旧快照口径”；新单自发布后才采用实际出库口径。不得全历史清零、覆盖核定金额或假填成本。历史工作簿重建是另一个仍暂停的任务，不由本方案导入或重新解释。
+- 若未来某个已有旧单被采购纠错影响，使用正式纠错的事件回放和老板选择处理该影响，不借本次迁移批量重写未受影响旧单。离线历史导入是否采用新口径仍遵循其独立批准与来源语义，不在本任务授权内。
+- 不新增补记出货接口，不改销售/仓管自助出货权限；保留收款图片、账户核对、问题暂停、本人确认收货、提成复核资格及库存并发校验。`CommissionAdjustment` 的已确认差额不并入正式核定额总计，不与线下补扣状态混为一项。
+
+实施前交付状态（历史）：当时最小技术面和运行差异已列；计划等待负责人安排实现窗口。本段仅保留实施前背景，当前状态见下方检查点。
+
+### COST-AT-OUTFLOW-1019｜实施检查点（2026-10-19）
+
+- 已按负责人确定的分离流程实现：纠错审批只应用库存/成本回放并保存版本建议；订单提成核定不自动改变。独立 `adjust|keep` action 采用现有老板组/超级用户权限，保留订单可见范围、金额版本和付款核对；重复 `operation_key` 返回同一结果。
+- 新接口为 `POST /api/v1/orders/{order_id}/commission-adjustment-confirm`（无尾斜杠；与现有订单动作路由一致）。`offline_transfer_required` 仅在本次 `adjust` 产生非零 `CommissionAdjustment` 时为真，`offline_transfer_performed` 恒为假；本次差额取当前核定额与最新计算额，不累计旧调整。
+- 应用改动涉及 `models.py`/迁移、销售预览及下单、履约实际成本分摊、纠错/提成确认、历史回放、报表/API 与 Phase 3–6 回归。新增订单出库前成本、毛利、提成及行成本为 `null`；迁移默认让已有订单继续采用旧快照口径。
+- 页面接入待前端单写窗口：`order_form.html` 当前把 `preview.cost_amount` 和 `preview.margin_amount` 直接插入字符串，JSON `null` 会显示成字面量；`commission_estimate` 已用空值占位但需补“出库后核算”的语义。`order_detail.html` 的订单总成本/毛利、提成当前计算金额及行 `unit_cost_snapshot`/`order_cost_amount` 会在出库前为空，需标示未核算。`report.html` 的成本、毛利汇总及对应销售行可能为空，需区分“未出库/未核算”；XLSX 对应金额列应保持空白。`adjustments.html` 也消费纠错影响里的成本/毛利/提成字段，前端需核对空值格式化，不能显示 `null`。
+- 已通过 `compileall`、Django `check`、`makemigrations --check --dry-run`、`git diff --check`。在专用合成 PostgreSQL 重跑 `crm.test_phase3` 至 `test_phase6`：118 项中 116 通过、0 errors、2 failures。成本出库、纠错回放/nullable 差异、权限拒绝、确认 API 幂等、旧快照和空值销售 XLSX 等16项定向回归均通过。仅剩两项未改页面的 HTML 断言：`test_home_is_login_only_and_renders_only_currently_authorized_data_blocks` 期望页面包含“今日已交付销售额”；`test_model_status_labels_and_each_status_filter_preserve_order_scope` 对 `<option>` 完整字符串的断言未匹配当前页面。对应模板未修改，需在前端适配/独立 QA 窗口复核，不据此宣称网页验收通过。
+- 已按负责人要求结束唯一后端写入窗口的实施阶段；前端待接入字段清单见上。专用 PostgreSQL 测试基库应在交付前清理；不改模板、不部署、不触碰运行副本或业务数据。后续由独立 QA 复核后再由负责人验收。

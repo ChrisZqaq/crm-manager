@@ -421,6 +421,59 @@ class ReportPhase6Tests(Phase4Base):
         second_balance.refresh_from_db()
         self.assertEqual(second_balance.on_hand, 9)
 
+    def test_legacy_snapshot_cost_and_preoutflow_blank_sales_export(self):
+        legacy = self._create_report_order(
+            "8.000", datetime(2025, 10, 1, 12, 0, tzinfo=ZoneInfo("UTC")),
+        )
+        legacy.cost_basis = SalesOrder.CostBasis.ORDER_SNAPSHOT
+        legacy.cost_amount = Decimal("2.000")
+        legacy.margin_amount = Decimal("6.000")
+        legacy.commission_estimate = Decimal("0.600")
+        legacy.save(update_fields=("cost_basis", "cost_amount", "margin_amount", "commission_estimate"))
+        legacy_line = legacy.lines.get(active=True)
+        legacy_line.unit_cost_snapshot = Decimal("2.000")
+        legacy_line.order_cost_amount = Decimal("2.000")
+        legacy_line.save(update_fields=("unit_cost_snapshot", "order_cost_amount"))
+
+        legacy_report = build_report(self.sales, "sales", {
+            "period": "custom", "start_date": "2025-10-01", "end_date": "2025-10-01",
+        })
+        legacy_item = next(row for row in legacy_report["items"] if row["sku_id"] == str(self.sku.pk))
+        self.assertEqual(legacy_item["cost_basis"], SalesOrder.CostBasis.ORDER_SNAPSHOT)
+        self.assertEqual(legacy_item["cost_amount"], "2.000")
+        self.assertEqual(legacy_item["margin_amount"], "6.000")
+
+        payload = self.order_payload(lines=[{
+            "sku_id": self.sku.pk, "warehouse_id": self.warehouse.pk,
+            "quantity": 1, "sale_price": "8.000",
+        }])
+        _, _, pending = self.preview_and_confirm(payload)
+        self.assertEqual(pending.cost_basis, SalesOrder.CostBasis.ACTUAL_OUTFLOW)
+        query = {"scope": "unshipped", "period": "all"}
+        report = build_report(self.sales, "sales", query)
+        item = next(row for row in report["items"] if row["sku_id"] == str(self.sku.pk))
+        self.assertEqual(item["cost_basis_label"], "出库实际成本")
+        self.assertEqual(item["cost_amount"], "")
+        self.assertEqual(item["margin_amount"], "")
+        self.assertEqual(report["summary"]["totals"]["cost_amount"], "")
+        self.assertEqual(report["summary"]["totals"]["margin_amount"], "")
+
+        self.client.force_login(self.sales)
+        api = self.client.get("/api/v1/reports/sales", query)
+        self.assertEqual(api.status_code, 200, api.content)
+        api_item = next(row for row in api.json()["items"] if row["sku_id"] == str(self.sku.pk))
+        self.assertEqual(api_item["cost_amount"], "")
+        self.assertEqual(api_item["margin_amount"], "")
+        export = self.client.get("/api/v1/reports/sales/export", query)
+        self.assertEqual(export.status_code, 200, export.content)
+        from io import BytesIO
+        from openpyxl import load_workbook
+
+        sheet = load_workbook(BytesIO(export.content), data_only=False).active
+        columns = {cell.value: cell.column for cell in sheet[6]}
+        self.assertIsNone(sheet.cell(row=7, column=columns["成本"]).value)
+        self.assertIsNone(sheet.cell(row=7, column=columns["预估毛利（未交付）"]).value)
+
     def test_unshipped_orders_are_explicit_and_never_mixed_into_sales(self):
         self.new_order()
         delivered = build_report(self.sales, "sales", {"period": "all"})

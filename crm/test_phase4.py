@@ -651,7 +651,9 @@ class FulfillmentPhase4Tests(Phase4Base):
         order = self.new_order(delivery_mode=SalesOrder.DeliveryMode.SHIPMENT, lines=[{
             "sku_id": self.sku.pk, "warehouse_id": self.warehouse.pk, "quantity": 5, "sale_price": "200.000",
         }])
-        self.assertEqual(order.cost_amount, Decimal("500.000"))
+        self.assertIsNone(order.cost_amount)
+        self.assertIsNone(order.margin_amount)
+        self.assertIsNone(order.commission_estimate)
         self.register(order)
         inbound = self.receipt_payload(self.sku, quantity_value=10, price="200.000")
         preview = preview_receipt(self.user, inbound)
@@ -659,6 +661,14 @@ class FulfillmentPhase4Tests(Phase4Base):
         order.refresh_from_db()
         shipment = self.shipment_data(order)
         ship_sales_order(self.user, order.pk, shipment)
+        order.refresh_from_db()
+        line = order.lines.get(active=True)
+        self.assertEqual(order.cost_amount, Decimal("750.000"))
+        self.assertEqual(order.margin_amount, Decimal("250.000"))
+        self.assertEqual(order.commission_estimate, Decimal("25.000"))
+        self.assertIsNone(line.unit_cost_snapshot)
+        self.assertEqual(line.order_cost_amount, Decimal("750.000"))
+        self.assertEqual(line.cost_mode, "actual_outflow")
         balance = InventoryBalance.objects.get(pk=self.balance.pk)
         self.assertEqual(balance.on_hand, 15)
         self.assertEqual(balance.occupied, 0)
@@ -667,18 +677,46 @@ class FulfillmentPhase4Tests(Phase4Base):
         final_order = self.new_order(delivery_mode=SalesOrder.DeliveryMode.ON_SITE, lines=[{
             "sku_id": self.sku.pk, "warehouse_id": self.warehouse.pk, "quantity": 15, "sale_price": "300.000",
         }])
+        self.assertIsNone(final_order.cost_amount)
         self.register(final_order)
         final_order.refresh_from_db()
         deliver_on_site(self.user, final_order.pk, {"operation_key": str(uuid4()), "expected_version": final_order.version})
+        final_order.refresh_from_db()
+        self.assertEqual(final_order.cost_amount, Decimal("2250.000"))
+        self.assertEqual(final_order.margin_amount, Decimal("2250.000"))
+        self.assertEqual(final_order.commission_estimate, Decimal("225.000"))
         balance.refresh_from_db()
         self.assertEqual(balance.on_hand, 0)
         self.assertEqual(balance.cost_amount, Decimal("0.000"))
 
+    def test_actual_outflow_cost_is_allocated_by_line_order_and_reconciles(self):
+        self.balance.on_hand = 3
+        self.balance.cost_amount = Decimal("1.000")
+        self.balance.save(update_fields=("on_hand", "cost_amount"))
+        order = self.new_order(lines=[
+            {"sku_id": self.sku.pk, "warehouse_id": self.warehouse.pk, "quantity": 1, "sale_price": "2.000"},
+            {"sku_id": self.sku.pk, "warehouse_id": self.warehouse.pk, "quantity": 2, "sale_price": "2.000"},
+        ])
+        self.register(order)
+        order.refresh_from_db()
+        deliver_on_site(self.user, order.pk, {
+            "operation_key": str(uuid4()), "expected_version": order.version,
+        })
+        order.refresh_from_db()
+        lines = list(order.lines.filter(active=True).order_by("line_number", "id"))
+        self.assertEqual([line.order_cost_amount for line in lines], [Decimal("0.333"), Decimal("0.667")])
+        self.assertTrue(all(line.unit_cost_snapshot is None for line in lines))
+        self.assertEqual(sum((line.order_cost_amount for line in lines), Decimal("0.000")), Decimal("1.000"))
+        self.assertEqual(order.cost_amount, Decimal("1.000"))
+        outbound = InventoryMovement.objects.get(sales_order=order, event_kind="order_outbound")
+        self.assertEqual(outbound.cost_delta, Decimal("-1.000"))
+
     def test_freight_updates_margin_versions_and_commission_re_review_delta(self):
         order = self.new_order(sale_price="0.100")
         line = order.lines.get(active=True)
-        self.assertEqual(order.margin_amount, Decimal("-0.466"))
-        self.assertEqual(order.commission_estimate, Decimal("-0.047"))
+        self.assertIsNone(order.cost_amount)
+        self.assertIsNone(order.margin_amount)
+        self.assertIsNone(order.commission_estimate)
         self.register(order, received_amount="0.200")
         self.verify(order)
         order.refresh_from_db()
@@ -690,7 +728,8 @@ class FulfillmentPhase4Tests(Phase4Base):
         order.refresh_from_db()
         line.refresh_from_db()
         self.assertEqual(line.outbound_freight, Decimal("0.100"))
-        self.assertEqual(order.margin_amount, Decimal("-0.566"))
+        self.assertEqual(order.cost_amount, Decimal("0.667"))
+        self.assertEqual(order.margin_amount, Decimal("-0.567"))
         self.assertEqual(order.commission_estimate, Decimal("-0.057"))
         self.assertEqual(order.amount_version, 2)
 
@@ -730,7 +769,7 @@ class FulfillmentPhase4Tests(Phase4Base):
         line.refresh_from_db()
         order.refresh_from_db()
         self.assertEqual(line.outbound_freight, Decimal("0.000"))
-        self.assertEqual(order.margin_amount, Decimal("-0.466"))
+        self.assertEqual(order.margin_amount, Decimal("-0.467"))
         self.assertEqual(order.commission_estimate, Decimal("-0.047"))
 
     def complete_adjustment_as(self, actor, adjustment_id):
@@ -804,6 +843,16 @@ class FulfillmentPhase4Tests(Phase4Base):
             {"sku_id": second_sku.pk, "warehouse_id": self.second_warehouse.pk, "quantity": 1, "sale_price": "0.338"},
         ])
         self.assertEqual(order.revenue_amount, Decimal("0.676"))
+        self.assertIsNone(order.cost_amount)
+        self.assertIsNone(order.margin_amount)
+        self.assertIsNone(order.commission_estimate)
+        self.register(order)
+        self.verify(order)
+        order.refresh_from_db()
+        deliver_on_site(self.user, order.pk, {
+            "operation_key": str(uuid4()), "expected_version": order.version,
+        })
+        order.refresh_from_db()
         self.assertEqual(order.cost_amount, Decimal("0.666"))
         self.assertEqual(order.margin_amount, Decimal("0.010"))
         self.assertEqual(order.commission_estimate, Decimal("0.001"))

@@ -76,6 +76,7 @@ from .corrections import (
     visible_cost_correction_data,
 )
 from .fulfillment import (
+    confirm_cost_correction_commission_decision,
     complete_commission_adjustment,
     deliver_on_site,
     receive_sales_order,
@@ -988,8 +989,9 @@ def _sales_order_data(order, actor):
         "invoice_credit_code": order.invoice_credit_code,
         "invoice_email": order.invoice_email,
         "revenue_amount": f"{order.revenue_amount:.3f}",
-        "cost_amount": f"{order.cost_amount:.3f}",
-        "margin_amount": f"{order.margin_amount:.3f}",
+          "cost_basis": order.cost_basis,
+          "cost_amount": f"{order.cost_amount:.3f}" if order.cost_amount is not None else None,
+          "margin_amount": f"{order.margin_amount:.3f}" if order.margin_amount is not None else None,
       "version": order.version,
       "amount_version": order.amount_version,
       "payment_version": order.payment_version,
@@ -1033,8 +1035,8 @@ def _sales_order_data(order, actor):
                 "quantity": line.quantity,
                 "unit_price": f"{line.unit_price:.3f}",
                 "revenue_amount": f"{line.revenue_amount:.3f}",
-                "unit_cost_snapshot": f"{line.unit_cost_snapshot:.3f}",
-                  "order_cost_amount": f"{line.order_cost_amount:.3f}",
+                  "unit_cost_snapshot": f"{line.unit_cost_snapshot:.3f}" if line.unit_cost_snapshot is not None else None,
+                    "order_cost_amount": f"{line.order_cost_amount:.3f}" if line.order_cost_amount is not None else None,
                   "outbound_freight": f"{line.outbound_freight:.3f}",
                 "cost_mode": line.cost_mode,
             }
@@ -1043,7 +1045,7 @@ def _sales_order_data(order, actor):
     }
     if commission_visible:
         data.update({
-            "commission_estimate": f"{order.commission_estimate:.3f}",
+              "commission_estimate": f"{order.commission_estimate:.3f}" if order.commission_estimate is not None else None,
             "commission_review": None if commission is None else {
                 "approved_amount": f"{commission.approved_amount:.3f}" if commission.approved_amount is not None else None,
                 "approved_amount_version": commission.approved_amount_version,
@@ -1427,6 +1429,20 @@ def order_commission_review_api(request, order_id):
     if error:
         return error
     return _operation_error_response(request, lambda: _api_operation(request, review_commission, request.user, order_id, _json_body(request)))
+
+
+@require_POST
+def order_commission_adjustment_confirm_api(request, order_id):
+    error = _require_api_access(request, ())
+    if error:
+        return error
+    return _operation_error_response(
+        request,
+        lambda: _api_operation(
+            request, confirm_cost_correction_commission_decision,
+            request.user, order_id, _json_body(request),
+        ),
+    )
 
 
 @require_POST

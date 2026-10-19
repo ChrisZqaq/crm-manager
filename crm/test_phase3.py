@@ -854,8 +854,17 @@ class SalesOrderPhase3Tests(Phase3Base):
             {"sku_id": second_sku.pk, "warehouse_id": self.second_warehouse.pk, "quantity": 1, "sale_price": "2.000"},
         ]
         preview, result, order = self.preview_and_confirm(self.order_payload(lines=lines))
-        self.assertEqual([line["unit_cost_snapshot"] for line in preview["lines"]], ["0.333", "0.333", "0.333"])
-        self.assertEqual(preview["cost_amount"], "1.332")
+        self.assertEqual([line["current_unit_cost_reference"] for line in preview["lines"]], ["0.333", "0.333", "0.333"])
+        self.assertEqual(preview["cost_amount"], None)
+        self.assertEqual(preview["margin_amount"], None)
+        self.assertEqual(preview["commission_estimate"], None)
+        self.assertTrue(all(
+            line.unit_cost_snapshot is None and line.order_cost_amount is None
+            for line in order.lines.filter(active=True)
+        ))
+        self.assertIsNone(order.cost_amount)
+        self.assertIsNone(order.margin_amount)
+        self.assertIsNone(order.commission_estimate)
         self.assertEqual(order.lines.filter(active=True).count(), 3)
         self.assertEqual(InventoryBalance.objects.get(pk=self.balance.pk).occupied, 3)
         self.assertEqual(InventoryBalance.objects.get(warehouse=self.second_warehouse, sku=second_sku).occupied, 1)
@@ -872,40 +881,45 @@ class SalesOrderPhase3Tests(Phase3Base):
         self.assertEqual(InventoryBalance.objects.get(pk=self.balance.pk).occupied, 0)
         self.assertEqual(SalesOrder.objects.count(), 0)
 
-    def test_receipt_does_not_change_order_cost_and_amend_rules_keep_or_recalculate_cost(self):
+    def test_order_cost_stays_blank_until_outflow_and_amendments_do_not_snapshot_references(self):
         _, _, order = self.preview_and_confirm()
         line = order.lines.get(active=True)
         line_id = line.pk
-        self.assertEqual(line.unit_cost_snapshot, Decimal("0.333"))
+        self.assertIsNone(line.unit_cost_snapshot)
+        self.assertIsNone(line.order_cost_amount)
+        self.assertIsNone(order.cost_amount)
 
         receipt_preview = preview_receipt(self.user, self.receipt_payload(self.sku, quantity_value=3, price="3.000"))
         confirm_receipt(self.user, uuid4(), receipt_preview["preview_token"])
         line.refresh_from_db()
-        self.assertEqual(line.unit_cost_snapshot, Decimal("0.333"))
+        self.assertIsNone(line.unit_cost_snapshot)
+        self.assertIsNone(line.order_cost_amount)
 
         update = self.amendment_payload(order)
         update["lines"][0]["sale_price"] = "6.000"
         self.amend(order, update)
         line.refresh_from_db()
         self.assertEqual(line.pk, line_id)
-        self.assertEqual(line.unit_cost_snapshot, Decimal("0.333"))
-        self.assertEqual(line.cost_mode, "price_only")
+        self.assertIsNone(line.unit_cost_snapshot)
+        self.assertIsNone(line.order_cost_amount)
+        self.assertEqual(line.cost_mode, "actual_outflow")
 
         reduction = self.amendment_payload(order)
         reduction["lines"][0]["quantity"] = 1
         self.amend(order, reduction)
         line.refresh_from_db()
         self.assertEqual(line.pk, line_id)
-        self.assertEqual(line.unit_cost_snapshot, Decimal("0.333"))
-        self.assertEqual(line.order_cost_amount, Decimal("0.333"))
+        self.assertIsNone(line.unit_cost_snapshot)
+        self.assertIsNone(line.order_cost_amount)
 
         increase = self.amendment_payload(order)
         increase["lines"][0]["quantity"] = 2
         self.amend(order, increase)
         line.refresh_from_db()
-        self.assertEqual(line.unit_cost_snapshot, Decimal("1.667"))
-        self.assertEqual(line.order_cost_amount, Decimal("3.334"))
-        self.assertEqual(line.cost_mode, "average_recalculation")
+        self.assertIsNone(line.unit_cost_snapshot)
+        self.assertIsNone(line.order_cost_amount)
+        self.assertEqual(line.cost_mode, "actual_outflow")
+        self.assertIsNone(order.cost_amount)
 
     def test_customer_and_address_snapshots_survive_edit_transfer_and_archive(self):
         customer = self.create_customer()

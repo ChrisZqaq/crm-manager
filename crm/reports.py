@@ -209,7 +209,7 @@ def _with_query_metadata(report, query, *, basis, date_filter=True, payment_pend
 
 
 def _money(value):
-    return f"{Decimal(value or 0):.3f}"
+    return "" if value is None else f"{Decimal(value):.3f}"
 
 
 def _local_datetime(value):
@@ -396,12 +396,14 @@ def _sales_data(actor, query, *, today=None, now=None):
                 customer["latest_order"] = latest_order
                 customer["customer_name"] = order.customer_name_snapshot
         key = (
-            sku.pk, line.warehouse_id, order.salesperson_id, order.customer_id, order.channel_id,
+            sku.pk, line.warehouse_id, order.cost_basis, order.salesperson_id, order.customer_id, order.channel_id,
             order.province_snapshot, order.city_snapshot,
         )
         if key not in groups:
             groups[key] = {
                 "row_type": "未交付订单" if scope == "unshipped" else "已交付销售",
+                "cost_basis": order.cost_basis,
+                "cost_basis_label": "出库实际成本" if order.cost_basis == SalesOrder.CostBasis.ACTUAL_OUTFLOW else "历史下单成本快照",
                 "sku_id": str(sku.pk), "sku_code": sku.code, "barcode": sku.barcode,
                 "brand": sku.product.brand.name, "product": sku.product.name,
                 "warehouse_id": str(line.warehouse_id), "warehouse": line.warehouse.name,
@@ -411,19 +413,26 @@ def _sales_data(actor, query, *, today=None, now=None):
                 "channel": order.channel.name, "province": order.province_snapshot, "city": order.city_snapshot,
                 "unit": sku.unit, "quantity": 0, "order_count": 0,
                 "revenue_amount": ZERO, "cost_amount": ZERO, "freight_amount": ZERO, "margin_amount": ZERO,
-                "_orders": set(),
+                "_cost_incomplete": False, "_orders": set(),
             }
         item = groups[key]
         item["quantity"] += line.quantity
         item["_orders"].add(order.pk)
         item["revenue_amount"] += line.revenue_amount
-        item["cost_amount"] += line.order_cost_amount
         item["freight_amount"] += line.outbound_freight
-        item["margin_amount"] += line.revenue_amount - line.order_cost_amount - line.outbound_freight
+        if line.order_cost_amount is None:
+            item["_cost_incomplete"] = True
+        else:
+            item["cost_amount"] += line.order_cost_amount
+            item["margin_amount"] += line.revenue_amount - line.order_cost_amount - line.outbound_freight
     items = []
     for item in groups.values():
         item["order_count"] = len(item.pop("_orders"))
-        for field in ("revenue_amount", "cost_amount", "freight_amount", "margin_amount"):
+        if item.pop("_cost_incomplete"):
+            item["cost_amount"] = item["margin_amount"] = None
+        for field in ("revenue_amount", "freight_amount"):
+            item[field] = _money(item[field])
+        for field in ("cost_amount", "margin_amount"):
             item[field] = _money(item[field])
         items.append(item)
     items.sort(key=lambda row: (row["brand"], row["sku_code"], row["warehouse"], row["salesperson"], row["customer"]))
@@ -433,12 +442,16 @@ def _sales_data(actor, query, *, today=None, now=None):
         ("sku_code", "SKU编号", "text"), ("barcode", "包装条码", "text"), ("brand", "IP", "text"),
         ("product", "产品", "text"), ("warehouse", "仓库", "text"), ("salesperson", "销售", "text"),
         ("customer", "客户", "text"), ("channel", "渠道", "text"), ("province", "收货省份", "text"),
-        ("city", "收货城市", "text"), ("unit", "售卖单位", "text"), ("quantity", "数量", "integer"),
-        ("order_count", "订单数", "integer"), ("revenue_amount", revenue_label, "amount"),
-        ("cost_amount", "下单成本", "amount"), ("freight_amount", "出库运费", "amount"),
-        ("margin_amount", margin_label, "amount"),
+        ("city", "收货城市", "text"), ("unit", "售卖单位", "text"), ("cost_basis_label", "成本口径", "text"),
+        ("quantity", "数量", "integer"), ("order_count", "订单数", "integer"),
+        ("revenue_amount", revenue_label, "amount"), ("cost_amount", "成本", "amount"),
+        ("freight_amount", "出库运费", "amount"), ("margin_amount", margin_label, "amount"),
     ]
-    totals = {key: _money(sum((Decimal(row[key]) for row in items), ZERO)) for key in ("revenue_amount", "cost_amount", "freight_amount", "margin_amount")}
+    totals = {}
+    for key in ("revenue_amount", "freight_amount"):
+        totals[key] = _money(sum((Decimal(row[key]) for row in items), ZERO))
+    for key in ("cost_amount", "margin_amount"):
+        totals[key] = "" if any(row[key] == "" for row in items) else _money(sum((Decimal(row[key]) for row in items), ZERO))
     quantity_by_unit = defaultdict(int)
     for row in items:
         quantity_by_unit[row["unit"]] += row["quantity"]
@@ -608,13 +621,13 @@ def _commission_data(actor, query, *, today=None):
             "estimate_amount": _money(order.commission_estimate),
             "approved_amount": _money(review.approved_amount) if review and review.approved_amount is not None else "",
             "review_delta": _money(order.commission_estimate - review.approved_amount)
-            if review and review.approved_amount is not None and state == "needs_review" else "",
+            if review and review.approved_amount is not None and order.commission_estimate is not None and state == "needs_review" else "",
             "adjustment_kind": "", "old_amount": "", "new_amount": "", "delta_amount": "",
             "completion_status": "", "completed_at": "", "completed_by": "",
         }
         order_items.append(item)
         summaries[state]["count"] += 1
-        if state in ("estimate", "pending_review"):
+        if state in ("estimate", "pending_review") and order.commission_estimate is not None:
             summaries[state]["amount"] += order.commission_estimate
         elif review and review.approved_amount is not None:
             summaries[state]["amount"] += review.approved_amount

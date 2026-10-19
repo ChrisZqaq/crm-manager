@@ -15,7 +15,6 @@ from .inventory_replay import (
 from .models import (
     BusinessOperation,
     BusinessControl,
-    CommissionAdjustment,
     CommissionReview,
     CostCorrection,
     DamagedRecord,
@@ -26,6 +25,7 @@ from .models import (
     InventoryMovement,
     OpeningBatch,
     OpeningLine,
+    PaymentRecord,
     Receipt,
     ReceiptLine,
     SalesOrder,
@@ -289,6 +289,9 @@ def _movement_value(value):
 
 
 def _result_differences(before, after):
+    def format_amount(value):
+        return f"{value:.3f}" if value is not None else None
+
     changes = {"balances": [], "order_lines": [], "orders": [], "movements": [], "splits": [], "gifts": [], "damage_resolutions": [], "counts": [], "fulfillments": []}
     for key in sorted(before.balances.keys() | after.balances.keys()):
         left, right = before.balance(key), after.balance(key)
@@ -307,8 +310,8 @@ def _result_differences(before, after):
         if any(left[field] != right[field] for field in cost_line_fields):
             changes["order_lines"].append({
                 "line_id": line_id, "order_id": right["order_id"],
-                "before": {field: f"{left[field]:.3f}" for field in cost_line_fields},
-                "after": {field: f"{right[field]:.3f}" for field in cost_line_fields},
+                  "before": {field: format_amount(left[field]) for field in cost_line_fields},
+                  "after": {field: format_amount(right[field]) for field in cost_line_fields},
             })
     for order_id in sorted(before.orders.keys() | after.orders.keys()):
         left, right = before.orders.get(order_id), after.orders.get(order_id)
@@ -317,8 +320,8 @@ def _result_differences(before, after):
         fields = ("revenue_amount", "cost_amount", "margin_amount", "commission_estimate")
         if any(left[field] != right[field] for field in fields):
             changes["orders"].append({"order_id": order_id,
-                                      "before": {field: f"{left[field]:.3f}" for field in fields},
-                                      "after": {field: f"{right[field]:.3f}" for field in fields}})
+                                        "before": {field: format_amount(left[field]) for field in fields},
+                                        "after": {field: format_amount(right[field]) for field in fields}})
     for identity in sorted(before.movements.keys() | after.movements.keys(), key=str):
         left, right = before.movements.get(identity), after.movements.get(identity)
         if left != right:
@@ -380,12 +383,26 @@ def visible_cost_correction_data(actor, data):
     collect(data)
     orders = {
         row.pk: row
-        for row in sales_order_queryset_for(actor).filter(pk__in=order_ids).only("pk", "salesperson_id")
+        for row in sales_order_queryset_for(actor).filter(pk__in=order_ids).only("pk", "salesperson_id", "amount_version")
     }
     commission_order_ids = {
         order_id for order_id, order in orders.items()
         if sales_order_commission_visible_to(actor, order)
     }
+    commission_reviews = {
+        row.order_id: row
+        for row in CommissionReview.objects.filter(order_id__in=commission_order_ids).only(
+            "order_id", "approved_amount", "approved_amount_version",
+        )
+    }
+    decision_pairs = set()
+    if actor.is_superuser or _owner(actor):
+        decision_pairs = {
+            (payload.get("cost_correction_id"), order_id)
+            for order_id, payload in BusinessOperation.objects.filter(
+                action="cost_correction_commission_decision", sales_order_id__in=orders,
+            ).values_list("sales_order_id", "payload")
+        }
     omit = object()
 
     def clean(value, order_context=None, order_list=False):
@@ -400,6 +417,30 @@ def visible_cost_correction_data(actor, data):
                 return omit
             result = {}
             for key, child in value.items():
+                if key == "commission_adjustment_suggestions" and not (actor.is_superuser or _owner(actor)):
+                    continue
+                if key == "commission_adjustment_suggestions":
+                    active = []
+                    for suggestion in child if isinstance(child, list) else []:
+                        try:
+                            suggestion_order_id = int(suggestion["order_id"])
+                            correction_id = int(suggestion["cost_correction_id"])
+                        except (KeyError, TypeError, ValueError):
+                            continue
+                        order = orders.get(suggestion_order_id)
+                        review = commission_reviews.get(suggestion_order_id)
+                        if (
+                            order is None or review is None or review.approved_amount is None
+                            or order.amount_version != suggestion.get("expected_amount_version")
+                            or review.approved_amount_version != suggestion.get("expected_approved_amount_version")
+                            or f"{review.approved_amount:.3f}" != suggestion.get("approved_amount")
+                            or (correction_id, suggestion_order_id) in decision_pairs
+                        ):
+                            continue
+                        active.append(suggestion)
+                    if active:
+                        result[key] = active
+                    continue
                 if key == "commission_estimate" and direct_id not in commission_order_ids:
                     continue
                 is_order_list = key in ("orders", "order_ids", "sales_order_ids") and isinstance(child, (list, tuple))
@@ -562,7 +603,7 @@ def _movement_changed(before, after):
     return before != after
 
 
-def _persist_result(result, replay, before_result, correction, actor, operation):
+def _persist_result(result, replay, before_result, correction, operation):
     version_touched = set()
     quantity_touched = set()
     changed_movements = set()
@@ -784,7 +825,11 @@ def _persist_result(result, replay, before_result, correction, actor, operation)
         line = replay.db_order_lines.get(line_id)
         if line is None:
             raise OperationError("回放订单明细与现存明细不一致。", status=409, code="correction_replay_invalid")
-        if line.unit_cost_snapshot != values["unit_cost_snapshot"] or line.order_cost_amount != values["order_cost_amount"]:
+        if (
+            line.unit_cost_snapshot != values["unit_cost_snapshot"]
+            or line.order_cost_amount != values["order_cost_amount"]
+            or line.cost_mode != values["cost_mode"]
+        ):
             changed_line_ids.append(line_id)
     changed_lines = SalesOrderLine.objects.select_for_update().filter(pk__in=changed_line_ids).order_by("order_id", "id")
     for line in changed_lines:
@@ -792,7 +837,8 @@ def _persist_result(result, replay, before_result, correction, actor, operation)
         line_changes.add(line.order_id)
         line.unit_cost_snapshot = values["unit_cost_snapshot"]
         line.order_cost_amount = values["order_cost_amount"]
-        line.save(update_fields=("unit_cost_snapshot", "order_cost_amount"))
+        line.cost_mode = values["cost_mode"]
+        line.save(update_fields=("unit_cost_snapshot", "order_cost_amount", "cost_mode"))
 
     changed_order_ids = set(line_changes)
     for order_id, values in result.orders.items():
@@ -801,7 +847,7 @@ def _persist_result(result, replay, before_result, correction, actor, operation)
             raise OperationError("回放订单与现存订单不一致。", status=409, code="correction_replay_invalid")
         if any(getattr(order, field) != values[field] for field in ("revenue_amount", "cost_amount", "margin_amount", "commission_estimate")):
             changed_order_ids.add(order_id)
-    now = timezone.now()
+    commission_adjustment_suggestions = []
     locked_orders = SalesOrder.objects.select_for_update().filter(pk__in=changed_order_ids).order_by("id")
     for order in locked_orders:
         order_id = order.pk
@@ -825,19 +871,26 @@ def _persist_result(result, replay, before_result, correction, actor, operation)
         order.save(update_fields=tuple(fields))
         review = CommissionReview.objects.select_for_update().filter(order=order, approved_amount__isnull=False).first()
         if review is not None and active_change and review.approved_amount_version == amount_version_before_correction:
-            old_approved = review.approved_amount
-            new_approved = values["commission_estimate"]
-            review.approved_amount = new_approved
-            review.approved_amount_version = order.amount_version
-            review.reviewer = actor
-            review.reviewed_at = now
-            review.save(update_fields=("approved_amount", "approved_amount_version", "reviewer", "reviewed_at"))
-            delta = amount(new_approved - old_approved, "delta", nonnegative=False)
-            if delta:
-                CommissionAdjustment.objects.create(
-                    approval_operation=operation, order=order, kind=CommissionAdjustment.Kind.COST_CORRECTION,
-                    old_amount=old_approved, new_amount=new_approved, delta=delta, confirmed_at=now,
-                )
+            payment = PaymentRecord.objects.select_for_update().filter(order=order).first()
+            if (
+                order.status == SalesOrder.Status.COMPLETED
+                and values["commission_estimate"] is not None
+                and payment is not None
+                and payment.status == PaymentRecord.Status.PASSED
+                and not payment.paused
+                and payment.expected_payment_version == order.payment_version
+                and payment.verified_version == order.payment_version
+            ):
+                commission_adjustment_suggestions.append({
+                    "cost_correction_id": correction.pk,
+                    "order_id": order.pk,
+                    "source_amount_version": amount_version_before_correction,
+                    "expected_amount_version": order.amount_version,
+                    "approved_amount": f"{review.approved_amount:.3f}",
+                    "expected_approved_amount_version": review.approved_amount_version,
+                    "target_amount": f"{values['commission_estimate']:.3f}",
+                    "delta_amount": f"{amount(values['commission_estimate'] - review.approved_amount, 'delta', nonnegative=False):.3f}",
+                })
         changed_orders.append(order_id)
 
     historical_operations = {row.pk: row for row in replay.operations}
@@ -849,6 +902,11 @@ def _persist_result(result, replay, before_result, correction, actor, operation)
         values = result.fulfillment_costs[historical.pk]
         historical.result = {**historical.result, "actual_inventory_cost": f"{values['cost']:.3f}"}
         historical.save(update_fields=("result",))
+    correction.before_after = {
+        **correction.before_after,
+        "commission_adjustment_suggestions": commission_adjustment_suggestions,
+    }
+    correction.save(update_fields=("before_after",))
     return {"changed_order_ids": changed_orders}
 
 
@@ -918,7 +976,7 @@ def submit_cost_correction(actor, operation_key, preview_token, request_id=""):
             )
             if not impact_required:
                 _record_source_input(source, correction)
-                _persist_result(proposed, proposed_replay, base_replay.result, correction, actor, operation)
+                _persist_result(proposed, proposed_replay, base_replay.result, correction, operation)
             result = {"document_id": correction.pk, "cost_correction_id": correction.pk, "sequence": sequence,
                       "version": correction.version, "status": correction.status, "approval_required": impact_required}
             operation.result = result
@@ -986,7 +1044,7 @@ def approve_cost_correction(actor, correction_id, data, request_id=""):
             correction.before_after = {"source": {"before": current, "after": correction.proposed_input},
                                        "changes": _result_differences(base_replay.result, proposed), "impact": impact}
             correction.save(update_fields=("status", "reviewer", "reviewed_at", "version", "before_after"))
-            _persist_result(proposed, proposed_replay, base_replay.result, correction, actor, operation)
+            _persist_result(proposed, proposed_replay, base_replay.result, correction, operation)
             result = {"document_id": correction.pk, "cost_correction_id": correction.pk, "sequence": sequence,
                       "version": correction.version, "status": correction.status}
             operation.result = result

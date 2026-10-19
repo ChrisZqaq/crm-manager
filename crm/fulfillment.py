@@ -9,6 +9,7 @@ from .models import (
     BusinessOperation,
     CommissionAdjustment,
     CommissionReview,
+    CostCorrection,
     InventoryBalance,
     InventoryMovement,
     PaymentAccount,
@@ -333,8 +334,9 @@ def _apply_freight(order, active_lines, changes):
             line.save(update_fields=("outbound_freight",))
             changed = True
     freight_total = sum((line.outbound_freight for line in active_lines.values()), Decimal(0))
-    order.margin_amount = amount(order.revenue_amount - order.cost_amount - freight_total, "margin_amount", nonnegative=False)
-    order.commission_estimate = amount(order.margin_amount * Decimal("0.10"), "commission_estimate", nonnegative=False)
+    if order.cost_amount is not None:
+        order.margin_amount = amount(order.revenue_amount - order.cost_amount - freight_total, "margin_amount", nonnegative=False)
+        order.commission_estimate = amount(order.margin_amount * Decimal("0.10"), "commission_estimate", nonnegative=False)
     if changed:
         order.amount_version += 1
     return changed
@@ -407,7 +409,30 @@ def _fulfill_inventory(order, operation):
             cost_delta=-cost,
             cost_revision=balance.version,
         )
-    return sum(quantities.values()), sum(deductions.values(), Decimal(0))
+    return sum(quantities.values()), sum(deductions.values(), Decimal(0)), deductions
+
+
+def _allocate_actual_outflow_costs(lines, deductions):
+    grouped = {}
+    for line in lines.values():
+        grouped.setdefault((line.warehouse_id, line.sku_id), []).append(line)
+    for key, rows in grouped.items():
+        rows.sort(key=lambda line: (line.line_number, line.pk))
+        quantity_total = sum(line.quantity for line in rows)
+        remaining = deductions[key]
+        for index, line in enumerate(rows):
+            if index == len(rows) - 1:
+                line_cost = remaining
+            else:
+                with localcontext() as context:
+                    context.prec = 50
+                    line_cost = amount(deductions[key] * line.quantity / quantity_total, "order_cost_amount")
+                line_cost = min(line_cost, remaining)
+            remaining -= line_cost
+            line.unit_cost_snapshot = None
+            line.order_cost_amount = line_cost
+            line.cost_mode = "actual_outflow"
+            line.save(update_fields=("unit_cost_snapshot", "order_cost_amount", "cost_mode"))
 
 
 def _normalise_shipments(data):
@@ -451,9 +476,17 @@ def _perform_fulfillment(actor, order, key, action, input_data, input_hash, cont
         selected_warehouses = {line.warehouse_id for line in active_lines.values()}
         if assigned_warehouses != selected_warehouses:
             raise OperationError("所有供货仓库都必须且只能关联到本次物流。", status=409, code="warehouse_coverage", fields={"shipments": "只能选择订单中已有供货仓库，并覆盖全部供货仓库。"})
-    _apply_freight(order, active_lines, freight_changes)
+    freight_changed = _apply_freight(order, active_lines, freight_changes)
     operation = _create_operation(actor, order, key, action, input_hash, input_data, control)
-    quantity_out, actual_cost = _fulfill_inventory(order, operation)
+    quantity_out, actual_cost, deductions = _fulfill_inventory(order, operation)
+    if order.cost_basis == SalesOrder.CostBasis.ACTUAL_OUTFLOW:
+        _allocate_actual_outflow_costs(active_lines, deductions)
+        order.cost_amount = amount(actual_cost, "actual_inventory_cost")
+        freight_total = sum((line.outbound_freight for line in active_lines.values()), Decimal(0))
+        order.margin_amount = amount(order.revenue_amount - order.cost_amount - freight_total, "margin_amount", nonnegative=False)
+        order.commission_estimate = amount(order.margin_amount * Decimal("0.10"), "commission_estimate", nonnegative=False)
+        if not freight_changed:
+            order.amount_version += 1
     if onsite:
         order.status = SalesOrder.Status.COMPLETED
         order.completed_at = timezone.now()
@@ -475,7 +508,7 @@ def _perform_fulfillment(actor, order, key, action, input_data, input_hash, cont
     order.last_sequence = operation.sequence
     order.save(update_fields=(
         "status", "completed_at", "shipped_at", "version", "amount_version", "last_sequence",
-        "margin_amount", "commission_estimate", "updated_at",
+        "cost_amount", "margin_amount", "commission_estimate", "updated_at",
     ))
     return _finish_operation(
         operation,
@@ -694,6 +727,132 @@ def review_commission(actor, order_id, data, request_id=""):
             )
 
     return _run_write(action, actor, request_id, write)
+
+
+def confirm_cost_correction_commission_decision(actor, order_id, data, request_id=""):
+    def require_owner():
+        if not actor.is_authenticated:
+            raise OperationError("请先登录。", status=401, code="authentication_required")
+        if not actor.is_superuser and not actor.groups.filter(name=ROLE_OWNER).exists():
+            raise OperationError("只有老板或管理员可以确认成本纠错提成差额。", status=403, code="permission_denied")
+
+    allowed = {
+        "operation_key", "cost_correction_id", "expected_amount_version",
+        "expected_approved_amount_version", "decision",
+    }
+    if not isinstance(data, dict) or set(data) - allowed:
+        raise OperationError("成本纠错提成确认数据格式无效。")
+    key = _operation_key(data)
+    correction_id = identifier(data.get("cost_correction_id"), "cost_correction_id")
+    expected_amount_version = quantity(data.get("expected_amount_version"), "expected_amount_version", positive=True)
+    expected_approved_amount_version = quantity(
+        data.get("expected_approved_amount_version"), "expected_approved_amount_version", positive=True,
+    )
+    decision = data.get("decision")
+    if decision not in ("adjust", "keep"):
+        raise OperationError("提成差额决定无效。", fields={"decision": "请选择adjust或keep。"})
+    order_id = identifier(order_id, "order_id")
+    action = "cost_correction_commission_decision"
+    input_data = {
+        "order_id": order_id,
+        "cost_correction_id": correction_id,
+        "expected_amount_version": expected_amount_version,
+        "expected_approved_amount_version": expected_approved_amount_version,
+        "decision": decision,
+    }
+    input_hash = canonical_hash({"action": action, "input": input_data})
+
+    def write():
+        with transaction.atomic():
+            control = _lock_control()
+            require_owner()
+            order = _locked_order(actor, order_id)
+            replayed = _operation_replay(actor, key, action, input_hash)
+            if replayed is not None:
+                return replayed
+            correction = CostCorrection.objects.select_for_update().filter(pk=correction_id).first()
+            if correction is None or correction.status != CostCorrection.Status.APPLIED:
+                raise OperationError("成本纠错建议不存在或尚未生效。", status=404, code="not_found")
+            suggestions = correction.before_after.get("commission_adjustment_suggestions", [])
+            suggestion = next((row for row in suggestions if row.get("order_id") == order.pk), None)
+            latest_correction_id = BusinessOperation.objects.filter(
+                action="cost_correction_approve",
+                cost_correction__status=CostCorrection.Status.APPLIED,
+                cost_correction__before_after__commission_adjustment_suggestions__contains=[{"order_id": order.pk}],
+            ).order_by("-sequence").values_list("cost_correction_id", flat=True).first()
+            if suggestion is None or latest_correction_id != correction.pk:
+                raise OperationError("提成差额建议已更新或不适用于此订单。", status=409, code="stale_suggestion")
+            if order.amount_version != expected_amount_version or order.amount_version != suggestion["expected_amount_version"]:
+                raise OperationError("订单金额版本已变化，请重新查看最新建议。", status=409, code="stale_suggestion")
+            review = CommissionReview.objects.select_for_update().filter(order=order).first()
+            if (
+                review is None or review.approved_amount is None
+                or review.approved_amount_version != expected_approved_amount_version
+                or review.approved_amount_version != suggestion["expected_approved_amount_version"]
+                or f"{review.approved_amount:.3f}" != suggestion["approved_amount"]
+                or order.commission_estimate is None
+                or f"{order.commission_estimate:.3f}" != suggestion["target_amount"]
+            ):
+                raise OperationError("提成核定或计算金额已变化，请重新查看最新建议。", status=409, code="stale_suggestion")
+            if order.status != SalesOrder.Status.COMPLETED:
+                raise OperationError("订单完成后才能确认成本纠错提成差额。", status=409, code="state_conflict")
+            payment = PaymentRecord.objects.select_for_update().filter(order=order).first()
+            if (
+                payment is None
+                or payment.status != PaymentRecord.Status.PASSED
+                or payment.paused
+                or payment.expected_payment_version != order.payment_version
+                or payment.verified_version != order.payment_version
+            ):
+                raise OperationError("订单收款尚未按当前付款版本核对通过。", status=409, code="payment_unverified")
+            if BusinessOperation.objects.filter(
+                action=action, sales_order=order, payload__cost_correction_id=correction.pk,
+            ).exists():
+                raise OperationError("此成本纠错的提成差额已确认。", status=409, code="already_decided")
+
+            old_amount = review.approved_amount
+            target_amount = order.commission_estimate
+            delta = amount(target_amount - old_amount, "delta", nonnegative=False)
+            approved_amount = target_amount if decision == "adjust" else old_amount
+            now = timezone.now()
+            operation = _create_operation(actor, order, key, action, input_hash, input_data, control)
+            review.approved_amount = approved_amount
+            review.approved_amount_version = order.amount_version
+            review.reviewer = actor
+            review.reviewed_at = now
+            review.save(update_fields=("approved_amount", "approved_amount_version", "reviewer", "reviewed_at"))
+            order.version += 1
+            order.last_sequence = operation.sequence
+            order.save(update_fields=("version", "last_sequence", "updated_at"))
+            adjustment = None
+            if decision == "adjust" and delta:
+                adjustment = CommissionAdjustment.objects.create(
+                    approval_operation=operation,
+                    order=order,
+                    kind=CommissionAdjustment.Kind.COST_CORRECTION,
+                    old_amount=old_amount,
+                    new_amount=target_amount,
+                    delta=delta,
+                    confirmed_at=now,
+                )
+            return _finish_operation(
+                operation,
+                order,
+                order.status,
+                decision=decision,
+                approved_amount_before=f"{old_amount:.3f}",
+                calculated_amount=f"{target_amount:.3f}",
+                approved_amount=f"{approved_amount:.3f}",
+                delta_amount=f"{delta:.3f}",
+                amount_version=order.amount_version,
+                approved_amount_version=review.approved_amount_version,
+                adjustment_id=adjustment.pk if adjustment else None,
+                offline_transfer_required=adjustment is not None,
+                offline_transfer_performed=False,
+            )
+
+    require_owner()
+    return _run_write("cost_correction_commission_decision", actor, request_id, write)
 
 
 def complete_commission_adjustment(actor, adjustment_id, data, request_id=""):

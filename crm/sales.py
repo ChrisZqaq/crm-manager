@@ -690,6 +690,8 @@ def _plan_order(actor, payload, order, *, lock_balances=False):
     new_totals = {}
     matched = {}
     recalculate = order is None
+    cost_basis = order.cost_basis if order else SalesOrder.CostBasis.ACTUAL_OUTFLOW
+    actual_outflow_cost = cost_basis == SalesOrder.CostBasis.ACTUAL_OUTFLOW
     for index, line in enumerate(payload["lines"]):
         key = (line["warehouse_id"], line["sku_id"])
         new_totals[key] = new_totals.get(key, 0) + line["quantity"]
@@ -720,12 +722,17 @@ def _plan_order(actor, payload, order, *, lock_balances=False):
         balance = balances.get((warehouse.pk, sku.pk))
         if balance is None or balance.on_hand <= 0:
             raise OperationError("该仓库SKU没有可计成本的在库数量。", status=409, code="stock_conflict", fields={f"lines[{index}].warehouse_id": "请选择有库存的仓库。"})
+        with localcontext() as context:
+            context.prec = 50
+            current_unit_cost_reference = _round_cost(balance.cost_amount / balance.on_hand, f"lines[{index}].current_unit_cost_reference")
         sale_price = Decimal(line["sale_price"])
         revenue = amount(sale_price * line["quantity"], f"lines[{index}].sale_price")
-        if recalculate:
-            with localcontext() as context:
-                context.prec = 50
-                unit_cost = _round_cost(balance.cost_amount / balance.on_hand, f"lines[{index}].unit_cost_snapshot")
+        if actual_outflow_cost:
+            unit_cost = None
+            line_cost = None
+            cost_mode = "actual_outflow"
+        elif recalculate:
+            unit_cost = current_unit_cost_reference
             cost_mode = "average_recalculation" if old else "average_snapshot"
         else:
             unit_cost = old.unit_cost_snapshot
@@ -735,7 +742,8 @@ def _plan_order(actor, payload, order, *, lock_balances=False):
                 cost_mode = "price_only"
             else:
                 cost_mode = old.cost_mode
-        line_cost = amount(unit_cost * line["quantity"], f"lines[{index}].order_cost_amount")
+        if not actual_outflow_cost:
+            line_cost = amount(unit_cost * line["quantity"], f"lines[{index}].order_cost_amount")
         planned.append({
             **line,
             "existing": old,
@@ -745,14 +753,18 @@ def _plan_order(actor, payload, order, *, lock_balances=False):
             "revenue_amount": revenue,
             "unit_cost_snapshot": unit_cost,
             "order_cost_amount": line_cost,
+            "current_unit_cost_reference": current_unit_cost_reference,
             "outbound_freight": Decimal("0.000"),
             "cost_mode": cost_mode,
         })
 
     revenue_amount = amount(sum((item["revenue_amount"] for item in planned), Decimal(0)), "revenue_amount")
-    cost_amount = amount(sum((item["order_cost_amount"] for item in planned), Decimal(0)), "cost_amount")
-    margin_amount = amount(revenue_amount - cost_amount, "margin_amount", nonnegative=False)
-    commission_estimate = amount(margin_amount * Decimal("0.10"), "commission_estimate", nonnegative=False)
+    if actual_outflow_cost:
+        cost_amount = margin_amount = commission_estimate = None
+    else:
+        cost_amount = amount(sum((item["order_cost_amount"] for item in planned), Decimal(0)), "cost_amount")
+        margin_amount = amount(revenue_amount - cost_amount, "margin_amount", nonnegative=False)
+        commission_estimate = amount(margin_amount * Decimal("0.10"), "commission_estimate", nonnegative=False)
     old_ids = {line.pk for line in old_lines}
     retained_ids = {item["existing"].pk for item in planned if item["existing"] is not None}
     amount_changed = order is None or old_ids != retained_ids
@@ -762,7 +774,7 @@ def _plan_order(actor, payload, order, *, lock_balances=False):
             if old is None or (
                 old.sku_id != item["sku"].pk or old.warehouse_id != item["warehouse"].pk
                 or old.quantity != item["quantity"] or old.unit_price != item["unit_price"]
-                or old.unit_cost_snapshot != item["unit_cost_snapshot"]
+                or (not actual_outflow_cost and old.unit_cost_snapshot != item["unit_cost_snapshot"])
             ):
                 amount_changed = True
     customer_name = (
@@ -783,6 +795,7 @@ def _plan_order(actor, payload, order, *, lock_balances=False):
         "balances": balances,
         "dependencies": dependencies,
         "lines": planned,
+        "cost_basis": cost_basis,
         "recalculate": recalculate,
         "amount_changed": amount_changed,
         "revenue_amount": revenue_amount,
@@ -813,17 +826,19 @@ def _order_preview_result(token, control, plan, payload):
                 "quantity": item["quantity"],
                 "sale_price": f"{item['unit_price']:.3f}",
                 "revenue_amount": f"{item['revenue_amount']:.3f}",
-                "unit_cost_snapshot": f"{item['unit_cost_snapshot']:.3f}",
-                "order_cost_amount": f"{item['order_cost_amount']:.3f}",
+                  "current_unit_cost_reference": f"{item['current_unit_cost_reference']:.3f}",
+                  "unit_cost_snapshot": f"{item['unit_cost_snapshot']:.3f}" if item["unit_cost_snapshot"] is not None else None,
+                  "order_cost_amount": f"{item['order_cost_amount']:.3f}" if item["order_cost_amount"] is not None else None,
                 "cost_mode": item["cost_mode"],
             }
             for item in plan["lines"]
         ],
         "recalculate_all_costs": plan["recalculate"],
+          "cost_basis": plan["cost_basis"],
         "revenue_amount": f"{plan['revenue_amount']:.3f}",
-        "cost_amount": f"{plan['cost_amount']:.3f}",
-        "margin_amount": f"{plan['margin_amount']:.3f}",
-        "commission_estimate": f"{plan['commission_estimate']:.3f}",
+          "cost_amount": f"{plan['cost_amount']:.3f}" if plan["cost_amount"] is not None else None,
+          "margin_amount": f"{plan['margin_amount']:.3f}" if plan["margin_amount"] is not None else None,
+          "commission_estimate": f"{plan['commission_estimate']:.3f}" if plan["commission_estimate"] is not None else None,
         "status": SalesOrder.Status.AWAITING_PAYMENT,
     }
 
@@ -992,6 +1007,7 @@ def confirm_sales_order(actor, operation_key_value, preview_token, request_id=""
                     channel=plan["channel"],
                     status=SalesOrder.Status.AWAITING_PAYMENT,
                     delivery_mode=payload["delivery_mode"],
+                      cost_basis=plan["cost_basis"],
                     customer_name_snapshot=plan["customer_name_snapshot"],
                     recipient_snapshot=plan["snapshot"]["recipient"],
                     contact_snapshot=plan["snapshot"]["contact"],
@@ -1043,6 +1059,7 @@ def confirm_sales_order(actor, operation_key_value, preview_token, request_id=""
                     line.save(update_fields=("sku", "warehouse", "quantity", "unit_price", "revenue_amount", "unit_cost_snapshot", "order_cost_amount", "outbound_freight", "cost_mode"))
                     retained.add(line.pk)
                 item["saved_line_id"] = line.pk
+                item["saved_line_number"] = line.line_number
                 line_records.append(line)
             for line in plan["old_lines"]:
                 if line.pk not in retained:
@@ -1103,11 +1120,12 @@ def confirm_sales_order(actor, operation_key_value, preview_token, request_id=""
 
             operation_lines = [
                 {
-                    "line_id": item["saved_line_id"], "sku_id": item["sku"].pk,
+                      "line_id": item["saved_line_id"], "line_number": item["saved_line_number"],
+                      "sku_id": item["sku"].pk,
                     "warehouse_id": item["warehouse"].pk, "quantity": item["quantity"],
                     "sale_price": f"{item['unit_price']:.3f}",
-                    "unit_cost_snapshot": f"{item['unit_cost_snapshot']:.3f}",
-                    "order_cost_amount": f"{item['order_cost_amount']:.3f}",
+                  "unit_cost_snapshot": f"{item['unit_cost_snapshot']:.3f}" if item["unit_cost_snapshot"] is not None else None,
+                  "order_cost_amount": f"{item['order_cost_amount']:.3f}" if item["order_cost_amount"] is not None else None,
                     "cost_mode": item["cost_mode"],
                 }
                 for item in plan["lines"]
@@ -1128,6 +1146,7 @@ def confirm_sales_order(actor, operation_key_value, preview_token, request_id=""
                     "delivery_mode": payload["delivery_mode"],
                     "lines": operation_lines,
                     "recalculate_all_costs": plan["recalculate"],
+                      "cost_basis": plan["cost_basis"],
                     "retired_line_ids": sorted(old_line_ids - retained),
                 },
                 sales_order=order,
