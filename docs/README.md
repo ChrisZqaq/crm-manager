@@ -20,6 +20,7 @@
 - **business/**：[项目共识](business/PROJECT_CONSENSUS.md)、[商品](business/PRODUCT_CATALOG.md)、[采购](business/PURCHASE_RECEIVING.md)、[销售履约](business/SALES_FULFILLMENT.md)、[权限](business/ACCESS_CONTROL.md)、[客户/报表](business/CUSTOMERS_REPORTS.md)、[期初/导出](business/INITIAL_DATA.md)。
 - **specs/**：[PRD](specs/PRD.md)、[SPEC](specs/SPEC.md)、[数据库](specs/DATABASE_DESIGN.md)、[成本算法](specs/COST_ENGINE.md)、[API](specs/API_CONTRACT.md)、[验收](specs/ACCEPTANCE.md)。业务基线ad06ea3已批准，后续明确增量见对应文档。
 - **project/**：只维护当前会话、任务、问题和授权，不存角色聊天全文。
+- **2026-10-19已确认调整**：[实际出库成本、提成差额及UI目标](project/COST_COMMISSION_REVISION_20261019.md)。已替代下单固定成本及纠错自动改已核提成的旧目标，尚未实施；各旧实现合同的相关段落按入口说明区分，不直接用于新开发。
 - **workspaces/**：ROLE/WORK和角色产物，不是已确认业务的副本；原型不等于批准、交付声明不等于验收。
 - **templates/**：[当前12列期初模板](templates/期初盘点模板-简化版.xlsx)，原期初模板及用户已有未提交修改保留、不覆盖或提交。
 - **archive/**：[旧阶段记录](archive/DEVELOPMENT_PLAN_HISTORY.md)、[旧问题证据](archive/ISSUE_LOG_HISTORY.md)、[旧协作记录](archive/COORDINATION_HISTORY.md)、[文档审查](archive/DOCUMENT_REVIEW.md)、[协作方法参考](archive/PROJECT_WORKING_METHOD.md)。仅查证具体历史时读取。
