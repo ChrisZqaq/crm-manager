@@ -852,6 +852,7 @@ def _persist_result(result, replay, before_result, correction, operation):
     for order in locked_orders:
         order_id = order.pk
         values = result.orders[order_id]
+        commission_estimate_before_correction = order.commission_estimate
         active_change = (
             order.revenue_amount != values["revenue_amount"] or order.cost_amount != values["cost_amount"]
             or order.margin_amount != values["margin_amount"] or order.commission_estimate != values["commission_estimate"]
@@ -870,7 +871,35 @@ def _persist_result(result, replay, before_result, correction, operation):
             fields.append("amount_version")
         order.save(update_fields=tuple(fields))
         review = CommissionReview.objects.select_for_update().filter(order=order, approved_amount__isnull=False).first()
-        if review is not None and active_change and review.approved_amount_version == amount_version_before_correction:
+        carries_pending_suggestion = False
+        if (
+            review is not None and active_change
+            and review.approved_amount_version != amount_version_before_correction
+        ):
+            previous_suggestion_operation = BusinessOperation.objects.filter(
+                action="cost_correction_approve",
+                sequence__lt=operation.sequence,
+                cost_correction__status=CostCorrection.Status.APPLIED,
+                cost_correction__before_after__commission_adjustment_suggestions__contains=[{"order_id": order_id}],
+            ).select_related("cost_correction").order_by("-sequence").first()
+            if previous_suggestion_operation is not None:
+                previous_suggestion = next((
+                    row for row in previous_suggestion_operation.cost_correction.before_after.get(
+                        "commission_adjustment_suggestions", [],
+                    ) if row.get("order_id") == order_id
+                ), None)
+                carries_pending_suggestion = bool(
+                    previous_suggestion
+                    and previous_suggestion.get("expected_amount_version") == amount_version_before_correction
+                    and previous_suggestion.get("expected_approved_amount_version") == review.approved_amount_version
+                    and previous_suggestion.get("approved_amount") == f"{review.approved_amount:.3f}"
+                    and commission_estimate_before_correction is not None
+                    and previous_suggestion.get("target_amount") == f"{commission_estimate_before_correction:.3f}"
+                )
+        if (
+            review is not None and active_change
+            and (review.approved_amount_version == amount_version_before_correction or carries_pending_suggestion)
+        ):
             payment = PaymentRecord.objects.select_for_update().filter(order=order).first()
             if (
                 order.status == SalesOrder.Status.COMPLETED

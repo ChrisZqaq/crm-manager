@@ -1,6 +1,6 @@
 # 原开发／后端当前工作
 
-更新：2026-10-08；UI-QUERY-1应用实现及自测完成，已固定本地提交，待交QA。长期主责后端和数据库。
+更新：2026-10-19；COST-AT-OUTFLOW-1019连续纠错建议返工已固定，待QA定向复核。长期主责后端和数据库。
 
 最近阶段交付：阶段6fd3c991及导航修复b6bc1e8已负责人验收，发布f477c07；UI-QUERY-1待提交，结果见下节。
 
@@ -541,3 +541,11 @@ UV_PROJECT_ENVIRONMENT=/Users/chrisz/.cache/aluola-crm-uiquery1-venv CRM_DB_NAME
 - 页面接入待前端单写窗口：`order_form.html` 当前把 `preview.cost_amount` 和 `preview.margin_amount` 直接插入字符串，JSON `null` 会显示成字面量；`commission_estimate` 已用空值占位但需补“出库后核算”的语义。`order_detail.html` 的订单总成本/毛利、提成当前计算金额及行 `unit_cost_snapshot`/`order_cost_amount` 会在出库前为空，需标示未核算。`report.html` 的成本、毛利汇总及对应销售行可能为空，需区分“未出库/未核算”；XLSX 对应金额列应保持空白。`adjustments.html` 也消费纠错影响里的成本/毛利/提成字段，前端需核对空值格式化，不能显示 `null`。
 - 已通过 `compileall`、Django `check`、`makemigrations --check --dry-run`、`git diff --check`。在专用合成 PostgreSQL 重跑 `crm.test_phase3` 至 `test_phase6`：118 项中 116 通过、0 errors、2 failures。成本出库、纠错回放/nullable 差异、权限拒绝、确认 API 幂等、旧快照和空值销售 XLSX 等16项定向回归均通过。仅剩两项未改页面的 HTML 断言：`test_home_is_login_only_and_renders_only_currently_authorized_data_blocks` 期望页面包含“今日已交付销售额”；`test_model_status_labels_and_each_status_filter_preserve_order_scope` 对 `<option>` 完整字符串的断言未匹配当前页面。对应模板未修改，需在前端适配/独立 QA 窗口复核，不据此宣称网页验收通过。
 - 已按负责人要求结束唯一后端写入窗口的实施阶段；前端待接入字段清单见上。专用 PostgreSQL 测试基库应在交付前清理；不改模板、不部署、不触碰运行副本或业务数据。后续由独立 QA 复核后再由负责人验收。
+
+### COST-AT-OUTFLOW-1019｜连续纠错建议返工（2026-10-19）
+
+- 依据：负责人复核 `1f48aa4` 指出“纠错A未决定、纠错B继续改变金额”时建议断档，并开后端唯一应用写入窗口；前端固定 `f6fba53` 停写。本轮仅改 `corrections.py`、Phase 5 回归及本工作记录。
+- `_persist_result` 仅在核定版本仍落后于本次纠错前金额版本时检查上一条已生效建议；只有上一建议的 `expected_amount_version` 精确等于本次纠错前版本、核定版本/金额仍一致、上一目标额仍等于纠错前计算额时，才沿未决建议链生成替代建议。B 仍基于当前有效核定额和本次最新计算额；A 自动因金额版本过期而不可确认。版本不连续或核定基线变化时保持原行为，不继承建议。
+- 新增三项回归：A未决定→B替代建议、原核定基线与旧A失效；B的 `adjust` 与 `keep` 都验证同操作键重放幂等；A→运费→B不生成成本纠错差额建议，普通提成 `REREVIEW` 仍可完成。另复跑既有“运费后旧建议失效”与“每次纠错后立即决定”测试。
+- 验证：Python 3.12.13；Django check、`compileall`、`git diff --check` 通过。专用合成 PostgreSQL 使用本机 Unix socket `.local/postgres-socket:55439`，基库 `aluola_crm_cost_chain_fix_20261019` 与测试库 `test_aluola_crm_cost_chain_fix_20261019` 均为本轮新建；定向5项全部通过，Django 测试运行器销毁测试库，随后核实无其他连接并删除基库。未使用开发/演示库，未执行全套或浏览器验收。
+- 无模型/迁移/API/模板变更，不部署、不触运行副本或业务数据。固定提交后停止应用写入，交 QA 仅对本补丁边界复核并同步负责人；既有两项 HTML 断言仍属于前端/整页验收范围。

@@ -1011,6 +1011,138 @@ class InventoryAdjustmentPhase5Tests(Phase5Base):
         )
         self.assert_replay()
 
+    def _unresolved_cost_commission_suggestion(self):
+        receipt = self.receive(quantity_value=10, price="10.000")
+        order = self.new_order(lines=[{
+            "sku_id": self.sku.pk, "warehouse_id": self.warehouse.pk,
+            "quantity": 5, "sale_price": "20.000",
+        }])
+        self.fulfill_onsite(order)
+        review_commission(self.owner, order.pk, {
+            "operation_key": str(uuid4()), "expected_version": order.version,
+        })
+        review = CommissionReview.objects.get(order=order)
+        preview = preview_cost_correction(self.user, self.correction_data(receipt, purchase_price="11.000"))
+        result = submit_cost_correction(self.user, uuid4(), preview["preview_token"])
+        correction_a = CostCorrection.objects.get(pk=result["cost_correction_id"])
+        self.approve_correction(correction_a)
+        correction_a.refresh_from_db()
+        order.refresh_from_db()
+        review.refresh_from_db()
+        suggestion_a = correction_a.before_after["commission_adjustment_suggestions"][0]
+        return receipt, order, review, correction_a, suggestion_a
+
+    def _apply_next_purchase_price_correction(self, receipt, price="12.000"):
+        preview = preview_cost_correction(self.user, self.correction_data(receipt, purchase_price=price))
+        result = submit_cost_correction(self.user, uuid4(), preview["preview_token"])
+        correction = CostCorrection.objects.get(pk=result["cost_correction_id"])
+        self.approve_correction(correction)
+        correction.refresh_from_db()
+        return correction
+
+    def test_unresolved_cost_suggestion_is_replaced_by_next_contiguous_correction(self):
+        receipt, order, review, correction_a, suggestion_a = self._unresolved_cost_commission_suggestion()
+        suggestion_b_correction = self._apply_next_purchase_price_correction(receipt)
+        suggestion_b = suggestion_b_correction.before_after["commission_adjustment_suggestions"][0]
+        order.refresh_from_db()
+        review.refresh_from_db()
+
+        self.assertEqual(suggestion_b["source_amount_version"], suggestion_a["expected_amount_version"])
+        self.assertEqual(suggestion_b["expected_amount_version"], order.amount_version)
+        self.assertEqual(suggestion_b["approved_amount"], "5.000")
+        self.assertEqual(
+            suggestion_b["expected_approved_amount_version"],
+            suggestion_a["expected_approved_amount_version"],
+        )
+        self.assertEqual(suggestion_b["target_amount"], "4.000")
+        self.assertEqual(review.approved_amount, Decimal("5.000"))
+        self.assertEqual(review.approved_amount_version, suggestion_a["expected_approved_amount_version"])
+
+        with self.assertRaises(OperationError) as raised:
+            confirm_cost_correction_commission_decision(self.owner, order.pk, {
+                "operation_key": str(uuid4()),
+                "cost_correction_id": correction_a.pk,
+                "expected_amount_version": suggestion_a["expected_amount_version"],
+                "expected_approved_amount_version": suggestion_a["expected_approved_amount_version"],
+                "decision": "adjust",
+            })
+        self.assertEqual(raised.exception.code, "stale_suggestion")
+
+        data = {
+            "operation_key": str(uuid4()),
+            "cost_correction_id": suggestion_b_correction.pk,
+            "expected_amount_version": suggestion_b["expected_amount_version"],
+            "expected_approved_amount_version": suggestion_b["expected_approved_amount_version"],
+            "decision": "adjust",
+        }
+        result = confirm_cost_correction_commission_decision(self.owner, order.pk, data)
+        self.assertEqual(confirm_cost_correction_commission_decision(self.owner, order.pk, data), result)
+        self.assertEqual(result["approved_amount_before"], "5.000")
+        self.assertEqual(result["approved_amount"], "4.000")
+        self.assertTrue(result["offline_transfer_required"])
+        self.assertFalse(result["offline_transfer_performed"])
+        review.refresh_from_db()
+        order.refresh_from_db()
+        self.assertEqual(review.approved_amount, Decimal("4.000"))
+        self.assertEqual(review.approved_amount_version, order.amount_version)
+        self.assertEqual(CommissionAdjustment.objects.filter(
+            order=order, kind=CommissionAdjustment.Kind.COST_CORRECTION,
+        ).count(), 1)
+
+    def test_unresolved_cost_suggestion_can_be_kept_idempotently_after_next_correction(self):
+        receipt, order, review, _, _ = self._unresolved_cost_commission_suggestion()
+        correction_b = self._apply_next_purchase_price_correction(receipt)
+        suggestion_b = correction_b.before_after["commission_adjustment_suggestions"][0]
+        data = {
+            "operation_key": str(uuid4()),
+            "cost_correction_id": correction_b.pk,
+            "expected_amount_version": suggestion_b["expected_amount_version"],
+            "expected_approved_amount_version": suggestion_b["expected_approved_amount_version"],
+            "decision": "keep",
+        }
+
+        result = confirm_cost_correction_commission_decision(self.owner, order.pk, data)
+        self.assertEqual(confirm_cost_correction_commission_decision(self.owner, order.pk, data), result)
+        self.assertEqual(result["approved_amount_before"], "5.000")
+        self.assertEqual(result["approved_amount"], "5.000")
+        self.assertFalse(result["offline_transfer_required"])
+        self.assertFalse(result["offline_transfer_performed"])
+        self.assertIsNone(result["adjustment_id"])
+        review.refresh_from_db()
+        order.refresh_from_db()
+        self.assertEqual(review.approved_amount, Decimal("5.000"))
+        self.assertEqual(review.approved_amount_version, order.amount_version)
+        self.assertEqual(CommissionAdjustment.objects.filter(
+            order=order, kind=CommissionAdjustment.Kind.COST_CORRECTION,
+        ).count(), 0)
+
+    def test_later_correction_does_not_carry_suggestion_across_freight_review(self):
+        receipt, order, review, _, suggestion_a = self._unresolved_cost_commission_suggestion()
+        update_outbound_freight(self.user, order.pk, {
+            "operation_key": str(uuid4()), "expected_version": order.version,
+            "outbound_freights": [{"line_id": order.lines.get(active=True).pk, "amount": "1.000"}],
+        })
+        order.refresh_from_db()
+        self.assertGreater(order.amount_version, suggestion_a["expected_amount_version"])
+
+        correction_b = self._apply_next_purchase_price_correction(receipt)
+        self.assertEqual(correction_b.before_after["commission_adjustment_suggestions"], [])
+        review.refresh_from_db()
+        order.refresh_from_db()
+        self.assertLess(review.approved_amount_version, order.amount_version)
+        self.assertFalse(CommissionAdjustment.objects.filter(
+            order=order, kind=CommissionAdjustment.Kind.COST_CORRECTION,
+        ).exists())
+
+        result = review_commission(self.owner, order.pk, {
+            "operation_key": str(uuid4()), "expected_version": order.version,
+        })
+        review.refresh_from_db()
+        adjustment = CommissionAdjustment.objects.get(pk=result["adjustment_id"])
+        self.assertEqual(adjustment.kind, CommissionAdjustment.Kind.REREVIEW)
+        self.assertEqual(review.approved_amount, order.commission_estimate)
+        self.assertEqual(review.approved_amount_version, order.amount_version)
+
     def test_cost_commission_decision_requires_owner_or_superuser_and_is_idempotent(self):
         receipt = self.receive(quantity_value=10, price="10.000")
         order = self.new_order(lines=[{
