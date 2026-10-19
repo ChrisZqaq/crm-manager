@@ -150,7 +150,7 @@ class ApprovedWorkbenchAndPaymentUITests(TestCase):
         self.client.force_login(self.order_writer)
         response = self.client.get("/orders/new/")
         self.assertEqual(response.status_code, 200)
-        for marker in ('id="customer-mode"', 'id="requires-invoice"', 'id="more-skus"', 'data-availability'):
+        for marker in ('id="customer-mode"', 'id="requires-invoice"', 'id="more-skus"', 'data-availability', 'id="order-review-facts"', 'id="order-review-lines"', 'id="order-review-bar"', 'data-quantity-error', '当前成本参考：选择仓库与SKU后显示'):
             self.assertContains(response, marker)
 
         self.client.force_login(self.admin)
@@ -158,6 +158,9 @@ class ApprovedWorkbenchAndPaymentUITests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "正式期初入口")
         self.assertContains(response, "商品语言管理")
+        receiving = self.client.get("/receiving/")
+        self.assertContains(receiving, 'class="line receipt-line"')
+        self.assertContains(receiving, 'class="receipt-line-extra"')
 
         self.client.force_login(self.order_writer_without_customers)
         response = self.client.get("/orders/new/")

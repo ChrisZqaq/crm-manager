@@ -342,6 +342,38 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
 .order-editor > #preview-result { grid-column: 2; grid-row: 1; }
 .order-preview #summary { white-space: pre-line; font-variant-numeric: tabular-nums; }
 .order-preview.is-current-stage { border-color: var(--brand); }
+.order-review-facts { display: grid; grid-template-columns: minmax(100px, auto) minmax(0, 1fr); gap: 6px 12px; margin: 0 0 16px; }
+.order-review-facts dt { color: var(--muted); }
+.order-review-facts dd { min-width: 0; margin: 0; overflow-wrap: anywhere; }
+.order-review-lines { display: grid; min-width: 0; gap: 8px; }
+.order-review-line { min-width: 0; border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+.order-review-line strong, .order-review-line p { overflow-wrap: anywhere; }
+.order-review-line p { margin: 5px 0 0; color: var(--muted); }
+.order-review-bar { display: grid; grid-template-columns: minmax(0, 1fr); align-items: center; gap: 8px; margin-top: 16px; border-top: 1px solid var(--line); padding-top: 12px; }
+.order-review-bar[hidden], .order-review-bar [hidden], #preview[hidden] { display: none !important; }
+.order-review-total { display: grid; gap: 3px; color: var(--muted); }
+.order-review-total strong { color: var(--ink); font-size: 20px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.order-review-bar .workflow-actions { justify-content: flex-end; }
+.field-error { color: var(--danger); font-weight: 600; }
+.receipt-lines { display: grid; min-width: 0; gap: 10px; }
+.receipt-line { min-width: 0; border: 1px solid var(--line); border-radius: 10px; padding: 12px; }
+.receipt-line-main { display: grid; min-width: 0; grid-template-columns: minmax(240px, 2fr) minmax(120px, .8fr) minmax(150px, 1fr) auto; align-items: end; gap: 10px; }
+.receipt-line-main label, .receipt-line-settings label { display: grid; min-width: 0; gap: 5px; }
+.receipt-line-main .sku { min-width: 0; }
+.receipt-line-extra { margin-top: 10px; }
+.receipt-line-extra summary { cursor: pointer; color: var(--muted); }
+.receipt-line-extra summary span { margin-left: 8px; font-size: 12px; }
+.receipt-line-settings { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; padding-top: 10px; }
+.legacy-content #payment-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.legacy-content #payment-form > label { display: grid; min-width: 0; gap: 5px; }
+.legacy-content #payment-form > label:has(input[type="file"]), .legacy-content #payment-form > button, .legacy-content #payment-form > p { grid-column: 1 / -1; }
+.legacy-content #payment-form > label input, .legacy-content #payment-form > label select, .legacy-content #payment-form > label textarea { min-width: 0; width: 100%; }
+.legacy-content > #order-detail-lines { width: 100%; min-width: 0; }
+.legacy-content > #order-detail-lines thead, .legacy-content > #order-detail-lines tbody { min-width: 760px; }
+.legacy-content > #order-detail-lines td:nth-child(1) { min-width: 120px; }
+.legacy-content > #order-detail-lines td:nth-child(2) { min-width: 130px; }
+.legacy-content > #order-detail-lines td { white-space: normal; overflow-wrap: normal; word-break: normal; }
+#order-detail-lines:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 .legacy-content > form#receipt-form { display: grid; min-width: 0; gap: 14px; align-items: start; }
 .legacy-content > form#receipt-form[hidden] { display: none; }
 .receipt-stage, .receipt-review, .order-next-step { min-width: 0; border: 1px solid var(--line); border-radius: var(--radius-card); padding: 16px; background: var(--surface); box-shadow: var(--shadow-card); }
@@ -396,11 +428,13 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
   .workflow-step { grid-template-columns: 34px minmax(0, 1fr); }
   .receipt-source-fields, .order-progress-list { grid-template-columns: minmax(0, 1fr); }
   .receipt-stage, .receipt-review, .order-next-step { padding: 13px; }
-  .order-preview.is-current-stage.has-preview { position: fixed; z-index: 30; right: 10px; bottom: 10px; left: 10px; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px 12px; padding: 12px; box-shadow: 0 8px 30px rgb(20 28 21 / 18%); }
-  .order-preview.is-current-stage.has-preview h2 { grid-column: 1 / -1; }
-  .order-preview.is-current-stage.has-preview #summary { margin: 0; max-height: 18vh; overflow: auto; }
-  .order-preview.is-current-stage.has-preview .workflow-actions { display: grid; grid-template-columns: 1fr 1fr; }
-  .order-editor:has(.order-preview.is-current-stage.has-preview) { padding-bottom: 150px; }
+  .order-preview.is-current-stage.has-preview { position: static; display: block; box-shadow: var(--shadow-card); }
+  .order-review-bar:not([hidden]) { position: fixed; z-index: 30; right: 0; bottom: 0; left: 0; grid-template-columns: minmax(0, 1fr) auto; margin: 0; border-top: 1px solid var(--line); padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); background: var(--surface); box-shadow: 0 -6px 20px rgb(20 28 21 / 12%); }
+  .order-editor:has(.order-review-bar:not([hidden])) { padding-bottom: 90px; }
+  .receipt-line-main { grid-template-columns: minmax(0, 1fr) minmax(120px, .8fr); }
+  .receipt-line-main > label:first-child { grid-column: 1 / -1; }
+  .receipt-line-main .remove { justify-self: start; }
+  .receipt-line-settings { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 480px) {
   .order-editor > #preview-result { grid-column: 1; grid-row: 2; }
@@ -410,9 +444,14 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
   .order-customer-fields, .order-address-fields, .order-invoice-fields, .catalog-create-form .form-grid, .catalog-create-form .catalog-sku-row > .form-grid { grid-template-columns: minmax(0, 1fr); }
   .order-search-row { grid-template-columns: minmax(0, 1fr); }
   .order-search-actions { justify-content: flex-start; }
-  .order-preview.is-current-stage.has-preview { right: 8px; bottom: 8px; left: 8px; grid-template-columns: minmax(0, 1fr); }
-  .order-preview.is-current-stage.has-preview h2 { grid-column: 1; }
-  .order-preview.is-current-stage.has-preview .workflow-actions { grid-template-columns: 1fr 1fr; }
+  .order-review-facts { grid-template-columns: 1fr; gap: 2px; }
+  .order-review-facts dd { margin-bottom: 8px; }
+  .order-review-bar:not([hidden]) { grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+  .order-review-bar .workflow-actions { display: flex; }
+  .receipt-line-main { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .receipt-line-main label:nth-child(2), .receipt-line-main label:nth-child(3) { grid-row: 2; }
+  .receipt-line-settings, .legacy-content #payment-form { grid-template-columns: minmax(0, 1fr); }
+  .legacy-content #payment-form > label:has(input[type="file"]), .legacy-content #payment-form > button, .legacy-content #payment-form > p { grid-column: 1; }
   .workbench-summary .summary-horizontal { align-items: flex-start; flex-wrap: wrap; }
   .workbench-summary #customer-ranking { min-width: 100%; border-left: 0; border-top: 1px solid var(--line); padding: 8px 0 0; }
 }

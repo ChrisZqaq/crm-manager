@@ -26,21 +26,22 @@
     <section class="receipt-stage workflow-panel" data-receipt-stage="2" aria-labelledby="receipt-lines-title" hidden>
     <h2 id="receipt-lines-title" tabindex="-1">录入实收</h2>
     <p class="muted">每行录入实际到货数量、成本与限制数量；非默认值会在核对结果中列出。</p>
-      <div class="table-scroll" id="receipt-lines-scroll"><table>
-      <thead><tr><th>SKU</th><th>实收数量</th><th>采购单价</th><th>分摊运费</th><th>客户预留</th><th>破损</th><th>低库存阈值（留空继承）</th><th></th></tr></thead>
-      <tbody id="lines">
-        <tr class="line">
-          <td><select class="sku" required><option value="">请选择</option>{% for sku in skus %}<option value="{{ sku.id }}">{{ sku.code }} · {{ sku.product.brand.name }} / {{ sku.product.name }} · {{ sku.unit }}</option>{% endfor %}</select></td>
-          <td><input class="quantity" type="number" min="1" step="1" required></td>
-          <td><input class="price" type="number" min="0" step="0.001" required></td>
-          <td><input class="freight" type="number" min="0" step="0.001" value="0" required></td>
-          <td><input class="reserved" type="number" min="0" step="1" value="0" required></td>
-          <td><input class="damaged" type="number" min="0" step="1" value="0" required></td>
-          <td><input class="threshold" type="number" min="0" step="1" placeholder="继承全局"></td>
-          <td><button class="remove" type="button">删除行</button></td>
-        </tr>
-      </tbody>
-      </table></div>
+        <div id="lines" class="receipt-lines">
+          <section class="line receipt-line">
+            <div class="receipt-line-main">
+              <label>SKU<select class="sku" required><option value="">请选择</option>{% for sku in skus %}<option value="{{ sku.id }}">{{ sku.code }} · {{ sku.product.brand.name }} / {{ sku.product.name }} · {{ sku.unit }}</option>{% endfor %}</select></label>
+              <label>实收数量<input class="quantity" type="number" min="1" step="1" required><small class="field-error" data-quantity-error hidden></small></label>
+              <label>采购单价<input class="price" type="number" min="0" step="0.001" required></label>
+              <button class="remove" type="button">删除行</button>
+            </div>
+            <details class="receipt-line-extra"><summary>其他入库信息 <span data-extra-summary>运费 / 预留 / 破损 / 提醒</span></summary><div class="receipt-line-settings">
+              <label>分摊运费<input class="freight" type="number" min="0" step="0.001" value="0" required></label>
+              <label>客户预留<input class="reserved" type="number" min="0" step="1" value="0" required></label>
+              <label>破损<input class="damaged" type="number" min="0" step="1" value="0" required></label>
+              <label>低库存阈值（留空继承）<input class="threshold" type="number" min="0" step="1" placeholder="继承全局"></label>
+            </div></details>
+          </section>
+        </div>
     <button id="add-line" type="button">添加SKU</button>
       <div class="workflow-actions"><button type="button" data-receipt-back="1">返回仓库与供应商</button><button type="button" class="button-primary" data-receipt-next="3">核对入库</button></div>
     </section>
@@ -84,19 +85,23 @@
     receiptSteps.forEach(step=>step.addEventListener('click',()=>setReceiptStage(Number(step.dataset.receiptStep))));
     document.querySelectorAll('[data-receipt-next]').forEach(button=>button.addEventListener('click',()=>setReceiptStage(Number(button.dataset.receiptNext))));
     document.querySelectorAll('[data-receipt-back]').forEach(button=>button.addEventListener('click',()=>setReceiptStage(Number(button.dataset.receiptBack))));
-    document.getElementById('receipt-form').addEventListener('invalid',event=>{const stage=event.target.closest('[data-receipt-stage]');if(stage){setReceiptStage(Number(stage.dataset.receiptStage),false);requestAnimationFrame(()=>event.target.focus());}},true);
+    document.getElementById('receipt-form').addEventListener('invalid',event=>{const stage=event.target.closest('[data-receipt-stage]');if(stage){setReceiptStage(Number(stage.dataset.receiptStage),false);if(event.target.matches('.quantity')){event.preventDefault();event.target.setAttribute('aria-invalid','true');const error=event.target.closest('.receipt-line').querySelector('[data-quantity-error]');error.textContent='数量须为大于零的整数';error.hidden=false;status.replaceChildren();const jump=document.createElement('button');jump.type='button';jump.dataset.quantityReturn='true';jump.textContent='返回并检查数量';jump.addEventListener('click',()=>{setReceiptStage(2);event.target.focus();});status.append(jump);status.setAttribute('role','alert');}requestAnimationFrame(()=>event.target.focus());}},true);
     function renderReceiptResult(data,confirmed=false){resultBox.replaceChildren();const summary=document.createElement('dl');summary.className='receipt-result-summary';const fields=[['仓库',data.warehouse?.name],['供应商',data.supplier?.name],['SKU 行数',data.line_count],['合计成本',data.total_cost==null?null:`¥${data.total_cost}`]];for(const [label,value] of fields){if(value==null)continue;const term=document.createElement('dt'),detail=document.createElement('dd');term.textContent=label;detail.textContent=String(value);summary.append(term,detail);}if(summary.childNodes.length)resultBox.append(summary);if(data.lines?.length){const list=document.createElement('div');list.className='receipt-result-lines';for(const line of data.lines){const item=document.createElement('article');item.className='receipt-result-line';const title=document.createElement('strong');title.textContent=`${line.code||'SKU'} · ${line.product||''} ${line.unit||''}`;const details=document.createElement('p');details.textContent=`实收 ${line.quantity} · 采购单价 ¥${line.purchase_price} · 分摊运费 ¥${line.inbound_freight} · 成本 ¥${line.cost_amount} · 预留 ${line.reserved_quantity} · 破损 ${line.damaged_quantity}`;item.append(title,details);list.append(item);}resultBox.append(list);}if(data.warnings?.length){const warnings=document.createElement('ul');warnings.className='receipt-warnings';for(const warning of data.warnings){const item=document.createElement('li');item.textContent=warning;warnings.append(item);}resultBox.append(warnings);}if(confirmed){const note=document.createElement('p');note.className='receipt-confirmed';note.textContent='入库已由服务器确认。';resultBox.prepend(note);}}
     function invalidateReceiptPreview(){if(!previewToken)return;previewToken=null;operationKey=null;document.getElementById('confirm').hidden=true;document.getElementById('receipt-review').hidden=true;status.textContent='明细已修改，请重新预览后再确认。';status.setAttribute('role','status');updateReceiptSummary();}
+    function updateReceiptExtraSummary(row){const values=[['运费',row.querySelector('.freight').value,'0'],['预留',row.querySelector('.reserved').value,'0'],['破损',row.querySelector('.damaged').value,'0'],['提醒',row.querySelector('.threshold').value,'']].filter(([,value,defaultValue])=>value!==defaultValue).map(([label,value])=>`${label} ${value}`);row.querySelector('[data-extra-summary]').textContent=values.join(' · ')||'运费 / 预留 / 破损 / 提醒';}
+    lines.addEventListener('input',event=>{const row=event.target.closest('.receipt-line');if(row)updateReceiptExtraSummary(row);if(event.target.matches('.quantity')){row.querySelector('[data-quantity-error]').hidden=true;event.target.removeAttribute('aria-invalid');if(status.querySelector('[data-quantity-return]')){status.replaceChildren();status.setAttribute('role','status');}}});
+    lines.addEventListener('change',event=>{const row=event.target.closest('.receipt-line');if(row)updateReceiptExtraSummary(row);});
     document.getElementById('add-line').addEventListener('click', () => {
       const row = lineTemplate.cloneNode(true);
       row.querySelector('.sku').value = '';
       row.querySelector('.quantity').value = '';
       row.querySelector('.price').value = '';
+      row.querySelector('.freight').value='0';row.querySelector('.reserved').value='0';row.querySelector('.damaged').value='0';row.querySelector('.threshold').value='';row.querySelector('.receipt-line-extra').open=false;updateReceiptExtraSummary(row);
       lines.appendChild(row);
       updateReceiptSummary();
     });
     lines.addEventListener('click', event => {
-      if (event.target.matches('.remove') && lines.querySelectorAll('.line').length > 1) { event.target.closest('tr').remove(); updateReceiptSummary(); }
+      if (event.target.matches('.remove') && lines.querySelectorAll('.line').length > 1) { event.target.closest('.line').remove(); updateReceiptSummary(); }
     });
     document.getElementById('receipt-form').addEventListener('input',invalidateReceiptPreview);
     document.getElementById('receipt-form').addEventListener('change',invalidateReceiptPreview);
