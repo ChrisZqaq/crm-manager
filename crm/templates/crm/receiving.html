@@ -10,13 +10,22 @@
   {% if not skus %}<p role="alert">请先在管理后台新增并启用SKU。</p>{% endif %}
   <form id="receipt-form">
     {% csrf_token %}
-    <label>仓库
-      <select id="warehouse" required><option value="">请选择</option>{% for item in warehouses %}<option value="{{ item.id }}">{{ item.name }}</option>{% endfor %}</select>
-    </label>
-    <label>供应商
-      <select id="supplier" required><option value="">请选择</option>{% for item in suppliers %}<option value="{{ item.id }}">{{ item.name }}</option>{% endfor %}</select>
-    </label>
-    <h2>入库明细</h2>
+    <nav class="workflow-steps receipt-workflow-steps" aria-label="采购入库阶段">
+      <button type="button" class="workflow-step" data-receipt-step="1"><span class="workflow-step-number">1</span><span><strong>仓库与供应商</strong><small data-step-summary>选择入库地点和来源</small></span></button>
+      <button type="button" class="workflow-step" data-receipt-step="2"><span class="workflow-step-number">2</span><span><strong>录入实收</strong><small data-step-summary>添加一个或多个 SKU</small></span></button>
+      <button type="button" class="workflow-step" data-receipt-step="3"><span class="workflow-step-number">3</span><span><strong>核对入库</strong><small data-step-summary>预览真实核算结果</small></span></button>
+    </nav>
+    <section class="receipt-stage workflow-panel" data-receipt-stage="1" aria-labelledby="receipt-source-title">
+      <h2 id="receipt-source-title" tabindex="-1">仓库与供应商</h2>
+      <div class="receipt-source-fields">
+        <label>仓库<select id="warehouse" required><option value="">请选择</option>{% for item in warehouses %}<option value="{{ item.id }}">{{ item.name }}</option>{% endfor %}</select></label>
+        <label>供应商<select id="supplier" required><option value="">请选择</option>{% for item in suppliers %}<option value="{{ item.id }}">{{ item.name }}</option>{% endfor %}</select></label>
+      </div>
+      <div class="workflow-actions"><span></span><button type="button" class="button-primary" data-receipt-next="2">继续录入实收</button></div>
+    </section>
+    <section class="receipt-stage workflow-panel" data-receipt-stage="2" aria-labelledby="receipt-lines-title" hidden>
+    <h2 id="receipt-lines-title" tabindex="-1">录入实收</h2>
+    <p class="muted">每行录入实际到货数量、成本与限制数量；非默认值会在核对结果中列出。</p>
       <div class="table-scroll" id="receipt-lines-scroll"><table>
       <thead><tr><th>SKU</th><th>实收数量</th><th>采购单价</th><th>分摊运费</th><th>客户预留</th><th>破损</th><th>低库存阈值（留空继承）</th><th></th></tr></thead>
       <tbody id="lines">
@@ -33,13 +42,18 @@
       </tbody>
       </table></div>
     <button id="add-line" type="button">添加SKU</button>
+      <div class="workflow-actions"><button type="button" data-receipt-back="1">返回仓库与供应商</button><button type="button" class="button-primary" data-receipt-next="3">核对入库</button></div>
+    </section>
+    <section class="receipt-stage workflow-panel" data-receipt-stage="3" aria-labelledby="receipt-review-title" hidden>
+    <h2 id="receipt-review-title" tabindex="-1">核对入库</h2>
     <p><label>入库凭证（JPEG/PNG/WebP，最多20张，每张10MB）<input id="images" type="file" accept="image/jpeg,image/png,image/webp" multiple></label></p>
     <p id="image-status" role="status"></p>
-    <button type="submit">预览核对</button>
+      <div class="workflow-actions"><button type="button" data-receipt-back="2">返回修改实收</button><button id="preview-receipt" class="button-primary" type="submit">预览并核对</button></div>
+    </section>
   </form>
-  <section>
-    <h2>预览</h2>
-    <pre id="result" aria-live="polite"></pre>
+  <section id="receipt-review" class="receipt-review data-card card-body" aria-labelledby="receipt-review-title-card" hidden>
+    <h2 id="receipt-review-title-card">服务器核对结果</h2>
+    <div id="result" aria-live="polite"></div>
     <button id="confirm" type="button" hidden>确认入库</button>
   </section>
   <p id="status" role="status"></p>
@@ -59,19 +73,33 @@
     let previewToken = null;
     let operationKey = null;
     let confirming = false;
+    let previewing = false;
     let imageIds = [];
+    let lastPreview = null;
     const resultBox = document.getElementById('result');
     const status = document.getElementById('status');
+    const receiptSteps=[...document.querySelectorAll('[data-receipt-step]')],receiptStages=[...document.querySelectorAll('[data-receipt-stage]')];
+    function updateReceiptSummary(){const warehouse=document.getElementById('warehouse').selectedOptions[0]?.textContent||'待选择仓库',supplier=document.getElementById('supplier').selectedOptions[0]?.textContent||'待选择供应商',count=lines.querySelectorAll('.line').length;receiptSteps.forEach((step,index)=>{step.querySelector('[data-step-summary]').textContent=[`${warehouse} · ${supplier}`,`${count} 行实收明细`,lastPreview?'服务器核对完成':'预览后显示数量与成本'][index];});}
+    function setReceiptStage(stage,focus=true){receiptStages.forEach(section=>{section.hidden=Number(section.dataset.receiptStage)!==stage;});receiptSteps.forEach(step=>{const number=Number(step.dataset.receiptStep),active=number===stage;step.classList.toggle('is-current',active);step.classList.toggle('is-complete',number<stage);if(active)step.setAttribute('aria-current','step');else step.removeAttribute('aria-current');});updateReceiptSummary();if(focus)document.querySelector(`[data-receipt-stage="${stage}"] h2`)?.focus({preventScroll:true});}
+    receiptSteps.forEach(step=>step.addEventListener('click',()=>setReceiptStage(Number(step.dataset.receiptStep))));
+    document.querySelectorAll('[data-receipt-next]').forEach(button=>button.addEventListener('click',()=>setReceiptStage(Number(button.dataset.receiptNext))));
+    document.querySelectorAll('[data-receipt-back]').forEach(button=>button.addEventListener('click',()=>setReceiptStage(Number(button.dataset.receiptBack))));
+    document.getElementById('receipt-form').addEventListener('invalid',event=>{const stage=event.target.closest('[data-receipt-stage]');if(stage){setReceiptStage(Number(stage.dataset.receiptStage),false);requestAnimationFrame(()=>event.target.focus());}},true);
+    function renderReceiptResult(data,confirmed=false){resultBox.replaceChildren();const summary=document.createElement('dl');summary.className='receipt-result-summary';const fields=[['仓库',data.warehouse?.name],['供应商',data.supplier?.name],['SKU 行数',data.line_count],['合计成本',data.total_cost==null?null:`¥${data.total_cost}`]];for(const [label,value] of fields){if(value==null)continue;const term=document.createElement('dt'),detail=document.createElement('dd');term.textContent=label;detail.textContent=String(value);summary.append(term,detail);}if(summary.childNodes.length)resultBox.append(summary);if(data.lines?.length){const list=document.createElement('div');list.className='receipt-result-lines';for(const line of data.lines){const item=document.createElement('article');item.className='receipt-result-line';const title=document.createElement('strong');title.textContent=`${line.code||'SKU'} · ${line.product||''} ${line.unit||''}`;const details=document.createElement('p');details.textContent=`实收 ${line.quantity} · 采购单价 ¥${line.purchase_price} · 分摊运费 ¥${line.inbound_freight} · 成本 ¥${line.cost_amount} · 预留 ${line.reserved_quantity} · 破损 ${line.damaged_quantity}`;item.append(title,details);list.append(item);}resultBox.append(list);}if(data.warnings?.length){const warnings=document.createElement('ul');warnings.className='receipt-warnings';for(const warning of data.warnings){const item=document.createElement('li');item.textContent=warning;warnings.append(item);}resultBox.append(warnings);}if(confirmed){const note=document.createElement('p');note.className='receipt-confirmed';note.textContent='入库已由服务器确认。';resultBox.prepend(note);}}
+    function invalidateReceiptPreview(){if(!previewToken)return;previewToken=null;operationKey=null;document.getElementById('confirm').hidden=true;document.getElementById('receipt-review').hidden=true;status.textContent='明细已修改，请重新预览后再确认。';status.setAttribute('role','status');updateReceiptSummary();}
     document.getElementById('add-line').addEventListener('click', () => {
       const row = lineTemplate.cloneNode(true);
       row.querySelector('.sku').value = '';
       row.querySelector('.quantity').value = '';
       row.querySelector('.price').value = '';
       lines.appendChild(row);
+      updateReceiptSummary();
     });
     lines.addEventListener('click', event => {
-      if (event.target.matches('.remove') && lines.querySelectorAll('.line').length > 1) event.target.closest('tr').remove();
+      if (event.target.matches('.remove') && lines.querySelectorAll('.line').length > 1) { event.target.closest('tr').remove(); updateReceiptSummary(); }
     });
+    document.getElementById('receipt-form').addEventListener('input',invalidateReceiptPreview);
+    document.getElementById('receipt-form').addEventListener('change',invalidateReceiptPreview);
     document.getElementById('images').addEventListener('change', async event => {
       const files = [...event.target.files];
       if (files.length + imageIds.length > 20) { status.textContent = '每张入库单最多20张图片。'; event.target.value = ''; return; }
@@ -86,7 +114,7 @@
       event.target.value = '';
     });
     document.getElementById('receipt-form').addEventListener('submit', async event => {
-      event.preventDefault(); previewToken = null; operationKey = null; document.getElementById('confirm').hidden = true;
+      event.preventDefault(); if(previewing)return; previewing=true;previewToken = null; operationKey = null; document.getElementById('confirm').hidden = true;document.getElementById('receipt-review').hidden=true;const previewButton=document.getElementById('preview-receipt');previewButton.disabled=true;
       const data = {
         warehouse_id: document.getElementById('warehouse').value,
         supplier_id: document.getElementById('supplier').value,
@@ -106,10 +134,12 @@
         const result = await readResponse(response);
         previewToken = result.preview_token;
         operationKey = CrmCrypto.uuidV4();
-        resultBox.textContent = JSON.stringify(result, null, 2);
+        lastPreview=result;renderReceiptResult(result);document.getElementById('receipt-review').hidden=false;
         document.getElementById('confirm').hidden = !previewToken;
         status.textContent = '请核对仓库、供应商、数量、价格、运费与限制数量。';
-      } catch (error) { resultBox.textContent = error.message; status.textContent = '预览未通过。'; }
+        status.setAttribute('role','status');updateReceiptSummary();
+      } catch (error) { resultBox.textContent = error.message; status.textContent = `预览未通过：${error.message}`;status.setAttribute('role','alert'); }
+      finally{previewing=false;previewButton.disabled=false;}
     });
     document.getElementById('confirm').addEventListener('click', async () => {
       if (!previewToken || confirming) return;
@@ -120,8 +150,9 @@
       try {
         const response = await fetch('/api/v1/receipts/confirm', {method: 'POST', credentials: 'same-origin', headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrfToken()}, body: JSON.stringify({preview_token: previewToken, operation_key: operationKey})});
         const result = await readResponse(response);
-        resultBox.textContent = JSON.stringify(result, null, 2); previewToken = null; operationKey = null; imageIds = [];
-        confirmButton.hidden = true;
+        previewToken = null; operationKey = null; imageIds = [];
+        renderReceiptResult(lastPreview||result,true);confirmButton.hidden = true;
+        document.getElementById('receipt-form').hidden=true;
         status.textContent = '入库已确认。';
       } catch (error) {
         if (error.code === 'stale_preview') {
@@ -137,6 +168,9 @@
         confirmButton.disabled = false;
       }
     });
+    document.getElementById('warehouse').addEventListener('change',updateReceiptSummary);
+    document.getElementById('supplier').addEventListener('change',updateReceiptSummary);
+    setReceiptStage(1,false);updateReceiptSummary();
   </script>
 </div>
 {% endblock %}

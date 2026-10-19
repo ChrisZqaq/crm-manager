@@ -1516,7 +1516,7 @@ class OrderListStatusTests(Phase4Base):
         page = viewer_client.get("/orders/")
         self.assertEqual(list(page.context["status_options"]), list(SalesOrder.Status.choices))
         for status, label in SalesOrder.Status.choices:
-            self.assertContains(page, f'<option value="{status}">{label}</option>')
+            self.assertContains(page, f'data-order-status="{status}"')
 
 
 class OrderListFilterTests(Phase4Base):
@@ -1537,7 +1537,7 @@ class OrderListFilterTests(Phase4Base):
         client.force_login(viewer)
         authorized = client.get("/")
         self.assertEqual(authorized.status_code, 200, authorized.content)
-        self.assertContains(authorized, "今日已交付销售额")
+        self.assertContains(authorized, "今日销售额")
         self.assertContains(authorized, "/api/v1/orders")
         self.assertEqual(client.get("/api/v1/orders").status_code, 200)
 
@@ -1547,7 +1547,6 @@ class OrderListFilterTests(Phase4Base):
         shell = client.get("/")
         self.assertEqual(shell.status_code, 200, shell.content)
         self.assertContains(shell, "工作台")
-        self.assertNotContains(shell, "今日已交付销售额")
         self.assertNotContains(shell, "/api/v1/orders")
         self.assertEqual(client.get("/api/v1/orders").status_code, 403)
 

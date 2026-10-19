@@ -604,8 +604,8 @@
     commission_estimate: '提成', delta: '盘点差异', unit_cost: '盘点单位成本',
     cost: '成本调整', difference: '退款与库存成本差额', quantity: '数量',
   };
-  function valueText(value) {
-    if (value === null || value === undefined) return '无';
+  function valueText(value, field) {
+    if (value === null || value === undefined) return ['订单单位成本','订单成本','毛利','提成'].includes(field) ? '未出库 / 未核算' : '—';
     if (typeof value === 'object') return '有变化';
     return String(value);
   }
@@ -651,8 +651,8 @@
         for (const [field, oldValue, newValue] of fields) {
           const tr = document.createElement('tr');
           const item = document.createElement('td'); item.textContent = changeTitle(key, row) + ' · ' + field;
-          const oldCell = document.createElement('td'); oldCell.textContent = valueText(oldValue);
-          const newCell = document.createElement('td'); newCell.textContent = valueText(newValue);
+          const oldCell = document.createElement('td'); oldCell.textContent = valueText(oldValue, field);
+          const newCell = document.createElement('td'); newCell.textContent = valueText(newValue, field);
           tr.append(item, oldCell, newCell); table.append(tr);
         }
       }

@@ -8,8 +8,29 @@
 <p>状态：{{ order.get_status_display }}；交付方式：{{ order.get_delivery_mode_display }}；销售：{{ order.salesperson.get_username }}；渠道：{{ order.channel.name }}</p>
   <p>客户：{{ order.customer_name_snapshot|default:"现场客户" }}；收件人：{{ order.recipient_snapshot|default:"—" }}；联系方式：{{ order.contact_snapshot|default:"—" }}</p>
   <p>地址：{{ order.province_snapshot }} {{ order.city_snapshot }} {{ order.detail_snapshot }}</p>
-  <p>收入 {{ order.revenue_amount }} · 成本 {{ order.cost_amount }} · 毛利 {{ order.margin_amount }}{% if can_view_commission %} · 提成预估 {{ order.commission_estimate }}{% endif %}</p>
+  <p>收入 {{ order.revenue_amount|default_if_none:"—" }} · 成本 {{ order.cost_amount|default_if_none:"未出库 / 未核算" }} · 毛利 {{ order.margin_amount|default_if_none:"未出库 / 未核算" }}{% if can_view_commission %} · 提成预估 {{ order.commission_estimate|default_if_none:"未出库 / 未核算" }}{% endif %}</p>
   <p>备注：{{ order.remarks|default:"—" }}</p>
+  <section class="order-next-step" aria-labelledby="order-next-step-title">
+    <h2 id="order-next-step-title">订单进度</h2>
+    <ol class="order-progress-list" aria-label="收款、履约与完成">
+      <li class="{% if order.status != 'awaiting_payment' and order.status != 'cancelled' %}is-complete{% elif order.status == 'awaiting_payment' %}is-current{% endif %}"><span>1</span><strong>收款核对</strong></li>
+      <li class="{% if order.status == 'shipped' or order.status == 'completed' %}is-complete{% elif order.status == 'ready_to_ship' %}is-current{% endif %}"><span>2</span><strong>履约出库</strong></li>
+      <li class="{% if order.status == 'completed' %}is-complete is-current{% endif %}"><span>3</span><strong>订单完成</strong></li>
+    </ol>
+    {% if order.status == "awaiting_payment" %}
+      {% if initial.payment and initial.payment.status != "passed" and perms.crm.verify_payment or initial.payment and initial.payment.status != "passed" and request.user.is_superuser %}<p>下一步：核对已登记的收款。 <a href="#verify-payment">前往收款核对</a></p>
+      {% elif can_register_payment and not initial.payment %}<p>下一步：登记收款凭证。 <a href="#register-payment">前往登记收款</a></p>
+      {% else %}<p>下一步：等待有权限的人员完成收款登记与核对。</p>{% endif %}
+    {% elif order.status == "ready_to_ship" and order.delivery_mode == "shipment" %}
+      {% if perms.crm.ship_salesorder or request.user.is_superuser %}<p>下一步：按供货仓库登记物流并确认出库。 <a href="#ship-order">前往整单发货</a></p>{% else %}<p>下一步：等待有权限的人员发货。</p>{% endif %}
+    {% elif order.status == "ready_to_ship" and order.delivery_mode == "on_site" %}
+      {% if perms.crm.deliver_on_site or request.user.is_superuser %}<p>下一步：确认现场交付并扣减库存。 <a href="#onsite-order">前往现场交付</a></p>{% else %}<p>下一步：等待有权限的人员确认现场交付。</p>{% endif %}
+    {% elif order.status == "shipped" %}
+      {% if can_confirm_salesorder_receipt %}<p>下一步：确认客户收货并完成订单。 <a href="#receive-order">前往确认收货</a></p>{% else %}<p>下一步：等待有权限的人员确认客户收货。</p>{% endif %}
+    {% elif order.status == "completed" %}<p>订单已完成。</p>
+    {% elif order.status == "cancelled" %}<p>订单已取消。</p>
+    {% endif %}
+  </section>
   {% if initial.payment %}
     <section>
       <h2>收款凭证</h2>
@@ -27,7 +48,7 @@
     <p>正式核定提成：{{ initial.commission_review.approved_amount|default:"尚未核定" }}；首次计入：{{ initial.commission_review.first_earned_at|date:"Y-m-d H:i"|default:"—" }}；{% if initial.commission_review.needs_review %}当前金额待复核{% else %}当前金额已复核{% endif %}</p>
   {% endif %}
   <table><thead><tr><th>SKU</th><th>仓库</th><th>数量</th><th>单价</th><th>收入</th><th>成本单价快照</th><th>成本合计</th><th>出库运费</th></tr></thead><tbody>
-    {% for line in initial.lines %}<tr><td>{{ line.sku_code }}</td><td>{{ line.warehouse }}</td><td>{{ line.quantity }}</td><td>{{ line.unit_price }}</td><td>{{ line.revenue_amount }}</td><td>{{ line.unit_cost_snapshot }}</td><td>{{ line.order_cost_amount }}</td><td>{{ line.outbound_freight }}</td></tr>{% empty %}<tr><td colspan="8">暂无明细。</td></tr>{% endfor %}
+    {% for line in initial.lines %}<tr><td>{{ line.sku_code }}</td><td>{{ line.warehouse }}</td><td>{{ line.quantity }}</td><td>{{ line.unit_price }}</td><td>{{ line.revenue_amount }}</td><td>{{ line.unit_cost_snapshot|default_if_none:"未出库 / 未核算" }}</td><td>{{ line.order_cost_amount|default_if_none:"未出库 / 未核算" }}</td><td>{{ line.outbound_freight }}</td></tr>{% empty %}<tr><td colspan="8">暂无明细。</td></tr>{% endfor %}
   </tbody></table>
   {% if order.status == "awaiting_payment" or order.status == "ready_to_ship" %}
     {% if can_edit_sales_order %}<p><a class="button-link" href="{% url 'order-edit' order.pk %}">修改订单</a></p>{% endif %}
@@ -44,7 +65,7 @@
 
   {% if can_register_payment %}
     {% if order.status != "cancelled" %}
-      <section>
+      <section id="register-payment">
         <h2>登记或更新收款</h2>
         <form id="payment-form">
           <label>收款账户 <select id="payment-account" required><option value="">加载中…</option></select></label>
@@ -61,7 +82,7 @@
 
   {% if initial.payment and initial.payment.status != "passed" %}
     {% if perms.crm.verify_payment or request.user.is_superuser %}
-      <section>
+      <section id="verify-payment">
         <h2>收款核对</h2>
         <form id="verify-form">
           <label>结果 <select id="verify-result"><option value="passed">核对通过</option><option value="problem">待处理</option></select></label>
@@ -73,7 +94,7 @@
   {% endif %}
 
   {% if order.status == "ready_to_ship" and order.delivery_mode == "shipment" and perms.crm.ship_salesorder or order.status == "ready_to_ship" and order.delivery_mode == "shipment" and request.user.is_superuser %}
-    <section>
+    <section id="ship-order">
       <h2>整单发货</h2>
       <p>每个供货仓库关联一条物流；本次必须覆盖所有供货仓库。货拉拉编号填写平台订单号。</p>
       <form id="ship-form">
@@ -86,7 +107,7 @@
   {% endif %}
 
   {% if order.status == "ready_to_ship" and order.delivery_mode == "on_site" and perms.crm.deliver_on_site or order.status == "ready_to_ship" and order.delivery_mode == "on_site" and request.user.is_superuser %}
-    <section>
+    <section id="onsite-order">
       <h2>现场交付</h2>
       <form id="onsite-form">
         <table><thead><tr><th>SKU</th><th>供货仓库</th><th>运费（留空沿用，0清零）</th></tr></thead><tbody id="onsite-freight"></tbody></table>
@@ -96,7 +117,7 @@
   {% endif %}
 
   {% if order.status == "shipped" and can_confirm_salesorder_receipt %}
-    <section>
+    <section id="receive-order">
       <h2>确认收货</h2>
       <form id="receive-form">
         <table><thead><tr><th>SKU</th><th>供货仓库</th><th>运费（留空沿用，0清零）</th></tr></thead><tbody id="receive-freight"></tbody></table>

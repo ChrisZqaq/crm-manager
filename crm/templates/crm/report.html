@@ -101,7 +101,7 @@
     <p>统计范围：{{ metadata.period_label }}；统计口径：{{ metadata.date_basis }}；查询时间：{{ metadata.queried_at }}</p>
   {% endif %}
   {% if report_name == "sales" and summary.totals %}
-    <p class="summary">数量（分单位）：{% for item in summary.quantity_by_unit %}{{ item.unit }} {{ item.quantity }}{% if not forloop.last %}；{% endif %}{% empty %}无{% endfor %}；金额：{{ summary.totals.revenue_amount }}；下单成本：{{ summary.totals.cost_amount }}；出库运费：{{ summary.totals.freight_amount }}；毛利：{{ summary.totals.margin_amount }}。</p>
+    <p class="summary">数量（分单位）：{% for item in summary.quantity_by_unit %}{{ item.unit }} {{ item.quantity }}{% if not forloop.last %}；{% endif %}{% empty %}无{% endfor %}；金额：{{ summary.totals.revenue_amount }}；下单成本：{{ summary.totals.cost_amount|default_if_none:"未出库 / 未核算" }}；出库运费：{{ summary.totals.freight_amount|default_if_none:"—" }}；毛利：{{ summary.totals.margin_amount|default_if_none:"未出库 / 未核算" }}。</p>
   {% endif %}
   {% if report_name == "commissions" and summary.adjustment_delta_not_added %}
     <p class="summary">提成调整差额合计：{{ summary.adjustment_delta_not_added }}（独立展示，不加到正式提成金额）。</p>

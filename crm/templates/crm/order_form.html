@@ -6,8 +6,13 @@
 <section class="page-heading"><h1>{% if order %}修改订单 {{ order.pk }}{% else %}新建订单{% endif %}</h1></section>
 <div class="legacy-content order-editor">
   <form id="order-form" class="order-form">
-    <section class="order-section data-card card-body" aria-labelledby="customer-delivery-title">
-      <h2 id="customer-delivery-title">1 客户与交付</h2>
+    <nav class="workflow-steps" aria-label="订单填写阶段">
+      <button type="button" class="workflow-step" data-workflow-step="1"><span class="workflow-step-number">1</span><span><strong>客户与交付</strong><small data-step-summary>选择客户和交付方式</small></span></button>
+      <button type="button" class="workflow-step" data-workflow-step="2"><span class="workflow-step-number">2</span><span><strong>添加商品</strong><small data-step-summary>选择一个或多个 SKU</small></span></button>
+      <button type="button" class="workflow-step" data-workflow-step="3"><span class="workflow-step-number">3</span><span><strong>核对订单</strong><small data-step-summary>复核金额后确认</small></span></button>
+    </nav>
+    <section class="order-section data-card card-body workflow-panel" data-workflow-stage="1" aria-labelledby="customer-delivery-title">
+      <h2 id="customer-delivery-title" tabindex="-1">1 客户与交付</h2>
       <div class="order-customer-fields">
         {% if not order %}<label>客户类型<select id="customer-mode">{% if perms.crm.view_customer %}<option value="existing">已有客户</option>{% endif %}<option value="walk_in" {% if not perms.crm.view_customer %}selected{% endif %}>现场客户 / 不关联</option>{% if perms.crm.add_customer %}<option value="new">新建客户</option>{% endif %}</select></label>{% endif %}
         <label id="existing-customer-field">客户 <select id="customer"><option value="">请选择客户</option></select></label>
@@ -24,22 +29,24 @@
         </div></details>
       </div>
     </section>
-    <section class="order-section data-card card-body" aria-labelledby="order-lines-title">
-      <div class="order-section-heading"><h2 id="order-lines-title">2 商品明细</h2><span class="muted" id="order-line-count">1 个 SKU</span></div>
+    <div class="workflow-actions" data-stage-actions="1"><button type="button" class="button-primary" data-stage-next="2">继续添加商品</button></div>
+    <section class="order-section data-card card-body workflow-panel" data-workflow-stage="2" aria-labelledby="order-lines-title" hidden>
+      <div class="order-section-heading"><h2 id="order-lines-title" tabindex="-1">2 商品明细</h2><span class="muted" id="order-line-count">1 个 SKU</span></div>
       <div class="order-search-grid">
         <div class="order-search-row"><label for="sku-query">查找SKU<input id="sku-query" type="search" placeholder="SKU编码、条码或商品名"></label><div class="order-search-actions"><button id="search-skus" type="button">查找</button><button id="more-skus" type="button" hidden>加载更多</button></div></div>
         <div class="order-search-row"><label for="warehouse-query">查找仓库<input id="warehouse-query" type="search" placeholder="仓库名称"></label><div class="order-search-actions"><button id="search-warehouses" type="button">查找</button><button id="more-warehouses" type="button" hidden>加载更多</button></div></div>
       </div>
       <div id="lines"></div><button id="add-line" type="button">添加商品</button>
+      <div class="workflow-actions"><button type="button" data-stage-back="1">返回客户与交付</button><button type="button" class="button-primary" data-stage-next="3">核对订单</button></div>
     </section>
-    <section class="order-section data-card card-body" aria-labelledby="invoice-notes-title">
-      <h2 id="invoice-notes-title">3 本单开票与备注</h2>
+    <section class="order-section data-card card-body workflow-panel" data-workflow-stage="3" aria-labelledby="invoice-notes-title" hidden>
+      <h2 id="invoice-notes-title" tabindex="-1">3 本单开票与备注</h2>
       <div id="invoice-fields"><label class="order-checkbox"><input id="requires-invoice" type="checkbox"> 本单需要开票</label><div id="invoice-details" class="order-invoice-fields" hidden><label>发票抬头<input id="invoice-title" maxlength="255"></label><label>统一社会信用代码<input id="invoice-credit-code" maxlength="100"></label><label>发票邮箱<input id="invoice-email" maxlength="254"></label></div></div>
       <label>订单备注<textarea id="remarks"></textarea></label>
+      <div class="workflow-actions"><button type="button" data-stage-back="2">返回商品</button><button id="preview" class="button-primary" type="submit">预览并核对订单</button></div>
     </section>
-    <button id="preview" class="button-primary" type="submit">预览订单</button>
   </form>
-  <section id="preview-result" class="order-preview data-card card-body"><h2>订单预览</h2><p id="summary" class="muted">填写商品明细后预览服务器计算结果。</p><button id="confirm" class="button-primary" type="button" disabled>确认并占货</button></section>
+      <section id="preview-result" class="order-preview data-card card-body" aria-labelledby="order-preview-title"><h2 id="order-preview-title" tabindex="-1">订单核对</h2><p id="summary" class="muted">完成商品选择后，在核对阶段查看服务器计算结果。</p><div class="workflow-actions"><button id="review-back" type="button" data-stage-back="2" hidden>返回修改</button><button id="confirm" class="button-primary" type="button" disabled>确认并占货</button></div></section>
   <p id="status" role="status"></p>
   {{ initial|json_script:"order-initial" }}
   <script>
@@ -50,9 +57,18 @@
     const province=document.getElementById('province'),city=document.getElementById('city'),lines=document.getElementById('lines'),status=document.getElementById('status');
       let customers=[],regions=[],skus=[],warehouses=[],previewToken=null,operationKey=null;
       const customerCache=new Map(),skuCache=new Map(),warehouseCache=new Map(),searchPages={customers:1,skus:1,warehouses:1},searchTotals={customers:0,skus:0,warehouses:0};
+      let activeWorkflowStage=1;
+      const workflowPanels=[...document.querySelectorAll('[data-workflow-stage]')],workflowSteps=[...document.querySelectorAll('[data-workflow-step]')];
+      function updateWorkflowSummary(){const customerModeValue=document.getElementById('customer-mode')?.value||'existing',customerName=customerModeValue==='walk_in'?'现场客户':customerModeValue==='new'?(document.getElementById('new-customer-name')?.value||'新客户待填写'):(customerSelect.selectedOptions[0]?.textContent||'待选择客户'),selectedLines=[...lines.querySelectorAll('.order-line')].filter(row=>row.querySelector('[data-field="sku"]').value).length;const delivery=document.getElementById('delivery').selectedOptions[0]?.textContent||'待选择交付方式';const summaries=[`${customerName} · ${delivery}`,`${selectedLines} 个 SKU`,previewToken?'服务器核对完成':'预览后显示服务器金额'];workflowSteps.forEach((step,index)=>{step.querySelector('[data-step-summary]').textContent=summaries[index];});document.getElementById('preview-result').classList.toggle('has-preview',Boolean(previewToken));}
+      function setWorkflowStage(stage,focus=true){activeWorkflowStage=stage;workflowPanels.forEach(panel=>{panel.hidden=Number(panel.dataset.workflowStage)!==stage;});document.querySelectorAll('[data-stage-actions="1"]').forEach(node=>node.hidden=stage!==1);document.getElementById('review-back').hidden=stage!==3;document.getElementById('preview-result').classList.toggle('is-current-stage',stage===3);workflowSteps.forEach(step=>{const number=Number(step.dataset.workflowStep),active=number===stage;step.classList.toggle('is-current',active);step.classList.toggle('is-complete',number<stage);if(active)step.setAttribute('aria-current','step');else step.removeAttribute('aria-current');});updateWorkflowSummary();if(focus)document.querySelector(`[data-workflow-stage="${stage}"] h2`)?.focus({preventScroll:true});}
+      workflowSteps.forEach(step=>step.addEventListener('click',()=>setWorkflowStage(Number(step.dataset.workflowStep))));
+      document.querySelectorAll('[data-stage-next]').forEach(button=>button.addEventListener('click',()=>setWorkflowStage(Number(button.dataset.stageNext))));
+      document.querySelectorAll('[data-stage-back]').forEach(button=>button.addEventListener('click',()=>setWorkflowStage(Number(button.dataset.stageBack))));
+      document.getElementById('order-form').addEventListener('invalid',event=>{const panel=event.target.closest('[data-workflow-stage]');if(panel){setWorkflowStage(Number(panel.dataset.workflowStage),false);requestAnimationFrame(()=>event.target.focus());}},true);
       const orderFieldLabels={customer_id:'客户',channel_id:'销售渠道',delivery_mode:'交付方式',requires_invoice:'开票信息',invoice_title:'发票抬头',invoice_credit_code:'统一社会信用代码',invoice_email:'发票邮箱','new_customer.name':'客户名称','new_customer.contact':'客户联系方式','address_snapshot.recipient':'收件人','address_snapshot.contact':'收件联系方式','address_snapshot.province':'省份','address_snapshot.city':'城市','address_snapshot.detail':'详细地址'};
       function orderFieldLabel(field){const line=field.match(/^lines\[(\d+)\]\.(sku_id|warehouse_id|quantity|sale_price)$/);if(line)return `第 ${Number(line[1])+1} 项 SKU ${({sku_id:'商品',warehouse_id:'仓库',quantity:'数量',sale_price:'成交单价'})[line[2]]}`;return orderFieldLabels[field]||'订单信息';}
-      function showOrderError(error){const fields=error.data?.error?.fields||{},details=Object.entries(fields).map(([field,message])=>{if(field==='lines')return '';return `${orderFieldLabel(field)}：${message}`;}).filter(Boolean);status.textContent=details.join('；')||error.data?.error?.message||error.message||'订单操作失败，请重试。';status.setAttribute('role','alert');}
+      function fieldDestination(field){const line=field.match(/^lines\[(\d+)\]\.(sku_id|warehouse_id|quantity|sale_price)$/);if(line)return {stage:2,selector:`.order-line:nth-child(${Number(line[1])+1}) [data-field="${({sku_id:'sku',warehouse_id:'warehouse',quantity:'quantity',sale_price:'sale_price'})[line[2]]}"]`};if(field==='lines')return {stage:2,selector:'#lines [data-field="quantity"]'};if(field.startsWith('invoice_')||field==='requires_invoice')return {stage:3,selector:field==='requires_invoice'?'#requires-invoice':({invoice_title:'#invoice-title',invoice_credit_code:'#invoice-credit-code',invoice_email:'#invoice-email'}[field])};if(field==='channel_id')return {stage:1,selector:'#channel'};if(field==='delivery_mode')return {stage:1,selector:'#delivery'};if(field==='new_customer.name')return {stage:1,selector:'#new-customer-name'};if(field==='new_customer.contact')return {stage:1,selector:'#new-customer-contact'};if(field==='address_snapshot.recipient')return {stage:1,selector:'#recipient'};if(field==='address_snapshot.contact')return {stage:1,selector:'#contact'};if(field==='address_snapshot.province')return {stage:1,selector:'#province'};if(field==='address_snapshot.city')return {stage:1,selector:'#city'};if(field==='address_snapshot.detail')return {stage:1,selector:'#detail'};if(field==='customer_id')return {stage:1,selector:'#customer'};return null;}
+      function showOrderError(error){const fields=error.data?.error?.fields||{},entries=Object.entries(fields).filter(([field])=>field!=='lines'),details=entries.map(([field,message])=>`${orderFieldLabel(field)}：${message}`);status.replaceChildren(document.createTextNode(details.join('；')||error.data?.error?.message||error.message||'订单操作失败，请重试。'));status.setAttribute('role','alert');const first=entries.length?fieldDestination(entries[0][0]):fields.lines?fieldDestination('lines'):null;if(first){const button=document.createElement('button');button.type='button';button.className='link-button';button.textContent=`前往第 ${first.stage} 阶段修改`;button.addEventListener('click',()=>{setWorkflowStage(first.stage);requestAnimationFrame(()=>{const target=document.querySelector(first.selector);target?.closest('details')?.setAttribute('open','');target?.focus();});});status.append(' ',button);}}
       function option(select,value,label){const node=document.createElement('option');node.value=String(value);node.textContent=label;select.append(node);}
       function customerOptions(selectedId=customerSelect.value){customers=customers.filter((item,index,array)=>array.findIndex(other=>other.id===item.id)===index);const selected=customerCache.get(String(selectedId));if(selected&&!customers.some(item=>item.id===selected.id))customers.push(selected);customerSelect.innerHTML='';option(customerSelect,'','现场客户 / 不关联客户');for(const item of customers)option(customerSelect,item.id,item.name);customerSelect.value=selectedId||'';}
       function skuLabel(item){return `${item.product?.name?`${item.product.name} · `:''}${item.code} · ${item.unit}`;}
@@ -61,9 +77,9 @@
       function resetCities(selected=''){const row=regions.find(item=>item.province===province.value);city.innerHTML='<option value="">请选择城市</option>';for(const item of row?.cities||[])option(city,item.name,item.name);city.value=selected;}
     function customerAddresses(){const item=customers.find(row=>String(row.id)===customerSelect.value);savedAddress.innerHTML='<option value="">手工填写</option>';for(const address of item?.addresses||[])option(savedAddress,address.id,`${address.recipient} · ${address.province}${address.city} ${address.detail}`);}
     function updateLineCount(){const count=lines.children.length;document.getElementById('order-line-count').textContent=`${count} 个 SKU`;[...lines.children].forEach((row,index)=>{row.setAttribute('aria-label',`SKU ${index+1}`);row.querySelector('[data-remove]').setAttribute('aria-label',`移除第 ${index+1} 项 SKU`);});}
-    function addLine(value={}){
+      function addLine(value={}){
       const row=document.createElement('div');row.className='order-line';row.setAttribute('role','group');
-      row.innerHTML='<label class="line-sku">商品 / SKU <select data-field="sku" required></select></label><label class="line-warehouse">仓库 <select data-field="warehouse" required></select></label><label class="line-quantity">数量<input data-field="quantity" type="number" min="1" step="1" required><small data-availability class="muted">可售量：—</small></label><label class="line-price">成交单价 <input data-field="sale_price" inputmode="decimal" required></label><div class="line-subtotal"><span>小计</span><output data-line-subtotal>—</output></div><button class="line-remove" type="button" data-remove>移除</button>';
+        row.innerHTML='<label class="line-sku">商品 / SKU <select data-field="sku" required></select></label><label class="line-warehouse">仓库 <select data-field="warehouse" required></select></label><label class="line-quantity">数量<input data-field="quantity" type="number" min="1" step="1" required><small data-availability class="muted">可售量：—</small><small data-current-cost class="muted">当前成本参考：预览后显示</small></label><label class="line-price">成交单价 <input data-field="sale_price" inputmode="decimal" required></label><div class="line-subtotal"><span>小计</span><output data-line-subtotal>—</output></div><button class="line-remove" type="button" data-remove>移除</button>';
         const skuSelect=row.querySelector('[data-field="sku"]'),warehouseSelect=row.querySelector('[data-field="warehouse"]');
       if(value.sku_id&&value.sku_code)skuCache.set(String(value.sku_id),{id:value.sku_id,code:value.sku_code,unit:value.unit||'',product:{name:value.product_name||''}});
         if(value.warehouse_id&&value.warehouse)warehouseCache.set(String(value.warehouse_id),{id:value.warehouse_id,name:value.warehouse});
@@ -101,7 +117,7 @@
         updateDeliveryMode();
       }catch(error){status.textContent=error.message||'订单资料加载失败，请刷新页面重试。';status.setAttribute('role','alert');document.getElementById('preview').disabled=true;}
     }
-    function invalidatePreview(){previewToken=null;document.getElementById('summary').textContent='填写商品明细后预览服务器计算结果。';document.getElementById('confirm').disabled=true;lines.querySelectorAll('[data-line-subtotal]').forEach(output=>output.textContent='—');}
+    function invalidatePreview(){previewToken=null;document.getElementById('summary').textContent='完成商品选择后，在核对阶段查看服务器计算结果。';document.getElementById('confirm').disabled=true;lines.querySelectorAll('[data-line-subtotal]').forEach(output=>output.textContent='—');lines.querySelectorAll('[data-current-cost]').forEach(output=>output.textContent='当前成本参考：预览后显示');updateWorkflowSummary();}
     document.getElementById('add-line').addEventListener('click',()=>{addLine();invalidatePreview();});lines.addEventListener('click',event=>{if(event.target.closest('[data-remove]')){updateLineCount();invalidatePreview();}});
       document.getElementById('search-customers')?.addEventListener('click',()=>searchCustomers().catch(error=>{status.textContent=error.message;}));
       document.getElementById('search-skus').addEventListener('click',()=>searchSkus().catch(error=>{status.textContent=error.message;}));
@@ -126,12 +142,12 @@
     document.getElementById('order-form').addEventListener('input',invalidatePreview);
     document.getElementById('order-form').addEventListener('change',invalidatePreview);
     document.getElementById('order-form').addEventListener('submit',async event=>{
-      event.preventDefault();status.textContent='';status.setAttribute('role','status');previewToken=null;document.getElementById('confirm').disabled=true;lines.querySelectorAll('[data-line-subtotal]').forEach(output=>output.textContent='—');const button=document.getElementById('preview');button.disabled=true;try{const payload=buildPayload(),url=initial?`/api/v1/orders/${initial.id}/amend/preview`:'/api/v1/orders/preview';const preview=await api(url,'POST',payload);previewToken=preview.preview_token;operationKey=CrmCrypto.uuidV4();document.getElementById('summary').textContent=`收入：${preview.revenue_amount}\n成本：${preview.cost_amount}\n毛利：${preview.margin_amount}\n提成预估：${preview.commission_estimate??'—'}`;preview.lines.forEach((line,index)=>{const row=lines.children[index];if(row&&String(row.querySelector('[data-field="sku"]').value)===String(line.sku_id)&&String(row.querySelector('[data-field="warehouse"]').value)===String(line.warehouse_id))row.querySelector('[data-line-subtotal]').textContent=`¥${line.revenue_amount}`;});document.getElementById('confirm').disabled=false;}
+      event.preventDefault();if(activeWorkflowStage<3){setWorkflowStage(activeWorkflowStage+1);return;}status.textContent='';status.setAttribute('role','status');previewToken=null;document.getElementById('confirm').disabled=true;lines.querySelectorAll('[data-line-subtotal]').forEach(output=>output.textContent='—');const button=document.getElementById('preview');button.disabled=true;try{const payload=buildPayload(),url=initial?`/api/v1/orders/${initial.id}/amend/preview`:'/api/v1/orders/preview';const preview=await api(url,'POST',payload);previewToken=preview.preview_token;operationKey=CrmCrypto.uuidV4();const money=value=>value==null?'未出库 / 未核算':`¥${value}`;document.getElementById('summary').textContent=`服务器核对结果\n收入：¥${preview.revenue_amount}\n成本：${money(preview.cost_amount)}\n毛利：${money(preview.margin_amount)}\n提成预估：${money(preview.commission_estimate)}`;preview.lines.forEach((line,index)=>{const row=lines.children[index];if(row&&String(row.querySelector('[data-field="sku"]').value)===String(line.sku_id)&&String(row.querySelector('[data-field="warehouse"]').value)===String(line.warehouse_id)){row.querySelector('[data-line-subtotal]').textContent=`¥${line.revenue_amount}`;row.querySelector('[data-current-cost]').textContent=line.current_unit_cost_reference==null?'当前成本参考：—':`当前成本参考（每件）：¥${line.current_unit_cost_reference} · 只读参考`;}});document.getElementById('confirm').disabled=false;updateWorkflowSummary();}
       catch(error){showOrderError(error);}
       finally{button.disabled=false;}
     });
     document.getElementById('confirm').addEventListener('click',async event=>{if(!previewToken||event.currentTarget.disabled)return;const button=event.currentTarget;button.disabled=true;status.textContent='正在确认…';status.setAttribute('role','status');try{const data=await api(initial?`/api/v1/orders/${initial.id}/amend`:'/api/v1/orders','POST',{operation_key:operationKey,preview_token:previewToken});location.href=`/orders/${data.order_id}/`;}catch(error){showOrderError(error);button.disabled=false;}});
-    start();
+    start().then(()=>{if(initial)activeWorkflowStage=3;setWorkflowStage(activeWorkflowStage,false);updateWorkflowSummary();});
   </script>
 </div>
 {% endblock %}
