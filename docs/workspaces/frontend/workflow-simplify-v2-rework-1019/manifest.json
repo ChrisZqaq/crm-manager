@@ -1,0 +1,133 @@
+{
+  "task": "WORKFLOW-SIMPLIFY-V2-REWORK-1019",
+  "base_revision": "368c5cd70e3be59fb3e5532cf52dafd100f1d41b",
+  "implementation_revision": "0ad1b40a2464a91fa4b11c9f980bb47607b99ee3",
+  "scope": [
+    "crm/templates/crm/order_form.html",
+    "crm/templates/crm/receiving.html",
+    "crm/templates/crm/order_detail.html",
+    "crm/static/crm/app.css",
+    "crm/test_ui.py"
+  ],
+  "synthetic_environment": {
+    "database": "crm_ui_workflow_v2_rework_20261019",
+    "postgres_port": 19175,
+    "web_port": 19176,
+    "data": "synthetic only; private database and local server stopped after verification"
+  },
+  "viewports": {
+    "desktop_order_review": "1280x900",
+    "desktop_other": "1280x720",
+    "mobile": "390x844"
+  },
+  "checks": {
+    "djangocheck": "passed: no issues",
+    "targeted_test": "passed: crm.test_ui.ApprovedWorkbenchAndPaymentUITests.test_order_editor_and_admin_management_render (1 test)",
+    "diff_check": "passed: git diff --check",
+    "browser_console": "no error or warning entries observed",
+    "order_preview": "server preview showed customer/channel/delivery/address, two SKU rows and ¥320.000 total; returning to edit retained both rows; changing quantity invalidated preview and retained current cost reference",
+    "inventory_reference": "SKU QAWF0003 average_cost 0.000 displayed ¥0.000; QAWF0004 with no balance displayed 暂无参考; API responses were keyed by SKU/warehouse to ignore stale responses",
+    "receiving": "two-line server preview showed total cost ¥30.000 and zero purchase-price warning; return retained all fields; confirmation showed success and hid the entry form",
+    "quantity_errors": "order and receiving quantity=0 both showed Chinese inline error and focused the field; correcting quantity cleared inline error, aria-invalid, and stale alert button",
+    "detail_scroll": "390px viewport: table clientWidth 364px, scrollWidth 754px, tabindex 0, accessible name present, page width 390px; arrow keys traversed to the final columns and focus outline was visible. 1280px: no overflow and no extra Tab stop.",
+    "payment_layout": "390px labels stacked independently; 1280px form used two columns",
+    "payment_upload": "not tested in this run; no file was selected or uploaded. Previous QA report records the browser file chooser restriction; see docs/workspaces/ui/review-workflow-f6fba53/REPORT.md."
+  },
+  "files": [
+    {
+      "path": "order-detail-1280-geometry.json",
+      "bytes": 575,
+      "sha256": "a1d7cf2867feed998ff0b458debca7dffd3ea07db964a49f37ca0e8873ccf72e"
+    },
+    {
+      "path": "order-detail-1280.jpg",
+      "bytes": 77363,
+      "sha256": "d71b7ef52ed21c3f8fc0444b74021bfae9da0fa7b96605746ac8316e27d3a1a2"
+    },
+    {
+      "path": "order-detail-390-geometry.json",
+      "bytes": 1049,
+      "sha256": "2caa9a8a0f07673ab9652eae1d84da2f97bbfeab18e9c0483403ebad1e15eac0"
+    },
+    {
+      "path": "order-detail-lines-390.jpg",
+      "bytes": 33821,
+      "sha256": "787a9a086897c272fb7890bc6664a4c03ccf76083721545efec546f7d17f7811"
+    },
+    {
+      "path": "order-detail-lines-end-390.jpg",
+      "bytes": 38674,
+      "sha256": "9b90bcb3ecec83d506b15b3de2a7ac8ca163baaca3e5bd43f401d46815ceba0f"
+    },
+    {
+      "path": "order-review-1280-geometry.json",
+      "bytes": 744,
+      "sha256": "6f3bcf269777d960a1eb5fd526859a97abab7d67d8e05ef4080aa7ed3355c2cf"
+    },
+    {
+      "path": "order-review-1280.jpg",
+      "bytes": 87342,
+      "sha256": "1fe43ccea9e801037b1c35845eac6fa8238172cc4a4ddbdacf29dcc59e7d9a81"
+    },
+    {
+      "path": "order-review-390-geometry.json",
+      "bytes": 738,
+      "sha256": "0cf60eb1edf5311a9ed1c866cb95e727d790d72603f3ca45b4572e098bdaaa8b"
+    },
+    {
+      "path": "order-review-390.jpg",
+      "bytes": 40563,
+      "sha256": "12facafd22d81cc37665f21a1c6fed077f2011ab15a9571621736cc5228716e4"
+    },
+    {
+      "path": "payment-form-1280.jpg",
+      "bytes": 76374,
+      "sha256": "c3b3f960e2f8e4a514badf829383bf3d42816d052b8b2410eda6e2241c92c991"
+    },
+    {
+      "path": "payment-form-390.jpg",
+      "bytes": 35288,
+      "sha256": "d14de8f4ca5f064acb9e15129781f7f0758998510fffadd1fcc50e05a09150bb"
+    },
+    {
+      "path": "procurement-cards-1280-geometry.json",
+      "bytes": 300,
+      "sha256": "34f93cec6086cd78323e40ed1b00effa2966309d4174f4510241b971cbcfc4bb"
+    },
+    {
+      "path": "procurement-cards-1280.jpg",
+      "bytes": 69612,
+      "sha256": "2a69fd21fe24603e789f4ffea7d195801055467ceac3ab17de3d6c3d9ffd7ed3"
+    },
+    {
+      "path": "procurement-cards-390-geometry.json",
+      "bytes": 194,
+      "sha256": "c0f3dc62a87ab553bef93b7975c93724a81b1c876bb6b54f904487aab2e41a50"
+    },
+    {
+      "path": "procurement-cards-390.jpg",
+      "bytes": 35180,
+      "sha256": "ac54e90d984caac1143eeba1f6e8e46ac87dc2d65ae8ff1cdfb80b04143a5459"
+    },
+    {
+      "path": "quantity-error-1280.jpg",
+      "bytes": 72297,
+      "sha256": "4207d1cc5687ba671f31aefbce229cfa5254507819fdb95f6b1280c73fca1611"
+    },
+    {
+      "path": "quantity-error-390.jpg",
+      "bytes": 34192,
+      "sha256": "73daba31ee6e3994d3b36fdfbae0597684df7bdcc71a425fa4db10869db83fd6"
+    },
+    {
+      "path": "receipt-quantity-error-390.jpg",
+      "bytes": 36916,
+      "sha256": "f0b94c8e409e209b8206ee7712b49b4413e07bf2e57e0c2403556add544019d4"
+    },
+    {
+      "path": "walkin-remarks-390.jpg",
+      "bytes": 29547,
+      "sha256": "ff547a9ec0678c84f0bcb7e9ac44539d0cb18e272f0b54f70078078543aa4cc1"
+    }
+  ]
+}

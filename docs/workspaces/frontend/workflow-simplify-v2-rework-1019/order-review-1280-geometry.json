@@ -1,0 +1,45 @@
+{
+  "bar": {
+    "bottom": 780.296875,
+    "height": 122,
+    "right": 1235,
+    "width": 292,
+    "x": 943,
+    "y": 658.296875
+  },
+  "facts": {
+    "bottom": 277.296875,
+    "height": 138,
+    "right": 1235,
+    "width": 292,
+    "x": 943,
+    "y": 139.296875
+  },
+  "lines": {
+    "bottom": 529.796875,
+    "height": 206,
+    "right": 1235,
+    "width": 292,
+    "x": 943,
+    "y": 323.796875
+  },
+  "pageWidth": 1280,
+  "previewHidden": true,
+  "review": {
+    "bottom": 797.296875,
+    "height": 713.296875,
+    "right": 1254,
+    "width": 330,
+    "x": 924,
+    "y": 84
+  },
+  "total": "¥320.000",
+  "totalWhiteSpace": "nowrap",
+  "viewport": {
+    "height": 900,
+    "width": 1280
+  },
+  "visiblePrimary": [
+    "确认并占货"
+  ]
+}

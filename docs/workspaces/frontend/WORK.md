@@ -289,3 +289,15 @@ UI-QUERY-1契约冻结（负责人同步，2026-10-08；后端仍实施中，不
 - 未完成的浏览器证据：实际选择并上传付款凭证未测。Chrome `filechooser.setFiles` 返回原始拦截信息：`To enable file upload, go to chrome://extensions in Google Chrome, click Details under the ChatGPT extension, and enable "Allow access to file URLs." See [here](https://developers.openai.com/codex/app/chrome-extension#upload-files) for details.` 页面未选文件时提交显示“请上传1至20张收款图片。”；隔离库认证API的合成图片付款链不等于浏览器文件选择/上传通过。未更改扩展安全设置，已交负责人安排QA实测或明确阻断。
 - 390px订单详情观察项：阶段卡下方SKU明细表的“仓库”列宽过窄，`QA合成仓`被逐字换行，导致两行SKU信息纵向拥挤；此处属于本次获批订单详情页范围。没有据此改应用，负责人已安排QA/UI判断可读性并排后续窗口。
 - 当前状态：应用停写。固定版已交负责人安排的独立QA/UI验收；下一步由QA补浏览器真实凭证上传和付款表单端到端检查，QA/UI复核390px订单详情仓库列可读性。未宣称整版验收、发布或部署完成。
+
+
+## WORKFLOW-SIMPLIFY-V2-REWORK-1019 固定返修记录
+
+- 依据：负责人批准的同一返修范围及 UI 最终验收报告；基线 `368c5cd70e3be59fb3e5532cf52dafd100f1d41b`，应用固定提交 `0ad1b40a2464a91fa4b11c9f980bb47607b99ee3`。只改订单录入/详情、采购入库、共享样式及一条目标 UI 测试；没有修改服务端、模型、API、权限、迁移、日志、依赖或其它页面。应用提交后已停止应用写入。
+- 订单核对加入客户、销售渠道、交付/收件信息与服务器 SKU 行/小计，金额和唯一确认操作归入操作条；手机端内容留在正文流，只有金额/操作条固定。返回商品阶段保留双 SKU 字段；改值使旧预览失效并保留即时成本参考。库存现有响应即刻显示成本；实测零成本显示 `¥0.000`，无余额显示“暂无参考”，按 SKU/仓库请求键丢弃过期响应。
+- 采购行改卡片；运费/预留/破损/低库存提醒折叠并摘要非默认值。合成采购预览成本 `¥30.000` 与零价提示正确，返回保留两行所有字段，确认成功后入库表单退出。数量 0 在订单、入库页显示中文错误、焦点可返回字段；改正后清除错误和无效状态。
+- 订单详情表在 390px 实际溢出时才进入 Tab 顺序，具有可访问名称和焦点样式；键盘箭头可横向到末列。1280px 无溢出时不额外增加 Tab 停靠点；收款标签在 390px 分行、1280px 两列排列。
+- 验证：`manage.py check`、`crm.test_ui.ApprovedWorkbenchAndPaymentUITests.test_order_editor_and_admin_management_render`（1项）及 `git diff --check` 通过；浏览器无 console error/warn。实际视口使用 1280×900、1280×720 和 390×844。截图、几何数据、SHA256 版本清单在 [返修证据目录](workflow-simplify-v2-rework-1019/)，清单列出应用提交及合成环境。
+- 合成环境使用私有 PostgreSQL/数据库和 `127.0.0.1:19176`，确认操作只影响合成样本。验收后专用服务、数据库文件与样本均已停止并清理；未使用 8001/8765 或共享业务库。
+- 收款图片真实浏览器上传本轮未测，未选择或上传文件。此前独立 QA 报告记录的文件选择限制仍未解除，证据见 `docs/workspaces/ui/review-workflow-f6fba53/REPORT.md`；不得把收款表单布局通过描述成真实上传通过。
+- 状态：应用固定，待负责人安排独立 QA/UI 复验并验收；不推送、不部署。

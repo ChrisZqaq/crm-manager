@@ -1,0 +1,41 @@
+{
+  "pageWidth": 1280,
+  "paymentLabels": [
+    {
+      "height": 69.5,
+      "width": 518
+    },
+    {
+      "height": 69.5,
+      "width": 518
+    },
+    {
+      "height": 109.5,
+      "width": 518
+    },
+    {
+      "height": 109.5,
+      "width": 518
+    },
+    {
+      "height": 67,
+      "width": 1048
+    }
+  ],
+  "table": {
+    "aria": null,
+    "client": 1046,
+    "rect": {
+      "height": 140.5,
+      "width": 1048,
+      "x": 206,
+      "y": 452.296875
+    },
+    "scroll": 1046,
+    "tabIndex": -1
+  },
+  "viewport": {
+    "height": 720,
+    "width": 1280
+  }
+}

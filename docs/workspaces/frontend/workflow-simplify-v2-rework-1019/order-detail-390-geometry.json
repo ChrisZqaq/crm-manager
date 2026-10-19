@@ -1,0 +1,55 @@
+{
+  "start": {
+    "aria": "订单商品明细，可左右滚动查看更多列",
+    "client": 364,
+    "left": 0,
+    "pageWidth": 390,
+    "scroll": 754,
+    "tabIndex": 0,
+    "width": 390
+  },
+  "keyboardEnd": {
+    "focusVisible": true,
+    "focused": "order-detail-lines",
+    "left": 390.5,
+    "max": 390,
+    "outline": "2px"
+  },
+  "paymentLabels": [
+    {
+      "height": 69.5,
+      "text": "收款账户",
+      "width": 366,
+      "x": 12,
+      "y": 690.59375
+    },
+    {
+      "height": 69.5,
+      "text": "登记金额",
+      "width": 366,
+      "x": 12,
+      "y": 772.09375
+    },
+    {
+      "height": 69.5,
+      "text": "收款时间（可空）",
+      "width": 366,
+      "x": 12,
+      "y": 853.59375
+    },
+    {
+      "height": 109.5,
+      "text": "金额不一致原因",
+      "width": 366,
+      "x": 12,
+      "y": 935.09375
+    },
+    {
+      "height": 89.5,
+      "text": "收款图片（JPEG/PNG/WebP，每张≤10MB，整单最多20张）",
+      "width": 366,
+      "x": 12,
+      "y": 1056.59375
+    }
+  ]
+}
