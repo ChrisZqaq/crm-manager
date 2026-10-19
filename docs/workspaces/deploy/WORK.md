@@ -379,3 +379,8 @@ Nginx新增独立配置`/etc/nginx/sites-available/aluola-crm-iptest.conf`及启
 三个目标均先核对连接身份与0014计划，再仅执行CRM 0015。云测试用`aluola_crm_dev/crmdev`，业务库用`business.env + business_settings`及`aluola_crm_business/aluola_crm_business_app`，未启动业务Web；本机用既有PostgreSQL 17与demo配置连接`aluola_crm_local_demo/crm_dev`。三处迁移成功，`migrate --check`及Django `check`均通过，SKU三列已不存在。逐行流式生成迁移前快照与现库的行指纹（不落盘解出的字段值），CRM及auth账号/权限共43张表逐表相等：本机423行、云测试356行、云业务434行。指纹排除三项按批准删除的SKU列、`auth_user.last_login`、会变化的`django_session`及`django_migrations`；其他SKU字段、商品、库存余额、成本/流水、期初控制、用户密码及组权限均逐表哈希匹配。一次测试管理员登录自然更新last_login，未改密码/角色/staff/active。媒体方面，业务与测试目录仍为0文件，本机demo四个媒体文件与迁移前快照逐文件相同。
 
 运行状态与只读验证：云`aluola-crm-dev.service`已按原配置恢复active，仍仅Gunicorn 127.0.0.1:18765，原Nginx 18888保持监听；公网测试入口真实CSRF登录成功，首页、商品列表/新增页、库存、Admin和`/api/v1/skus`均200，非法Host为400。本机在固定新release启动8765，demo凭据真实登录成功；首页、商品列表、库存及SKU API为200。该demo账号无商品新增权限，新增页403；Admin最终重定向登录页，未冒称本机Admin访问通过。业务库无18766监听/网页；未新增业务交易、confirm或账号变更。后续由负责人做限定只读复核与公共状态收口；未提交或推送Git。
+
+
+## CRM-LOCAL-REVIEW-1019 本机只读审查入口恢复（2026-10-19）
+
+按负责人安排恢复本机演示副本供UI只读审查。启动前8765无监听；PG17 active并接受连接，原socket指向`aluola_crm_local_demo/crm_dev`，CRM迁移为0015。新release路径为`.local/demo-runtime/app/releases/71cf9f6b7719fcb8358f49fe815b3e1f58e84b41/aluola-crm`，86项固定运行文件哈希匹配0差异。只启动`runserver --noreload 127.0.0.1:8765`，登录页200/2485B、`app.css` 200/44517B。保持本地服务运行等待只读审查；未触云服务、数据库/媒体/账号、网络配置或18888入口，也未做业务提交。
