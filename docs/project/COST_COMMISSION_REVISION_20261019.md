@@ -56,5 +56,7 @@
 - 复用纠错 `before_after` 保存当时影响建议快照，复用 `BusinessOperation` 记录独立的调整/保持决定，`CommissionAdjustment` 只保存已确认非零调整；不新增待审表或通用审批模块。
 - 独立确认请求包含操作键、来源纠错、订单、订单金额及核定期望版本、调整/保持选择；不接收客户端金额。服务端按最新有效事实计算，相关版本/建议过期则拒绝并要求刷新，成功操作重试按既有幂等返回。
 - 调整以当前有效核定额为基线；更新当前核定前保留原核定依据及前后金额记录。保持则记录本次明确决定及计算版本，不自动恢复因普通运费/收款变化而失效的审核资格。旧的已确认但未线下完成调整分别保留，不重复叠入新差额。
-- 只允许既有老板/管理员相应权限执行；项目任务授权不是系统业务权限。此独立操作不转账、不代表线下资金处理完成。
+- 只允许既有OWNER老板角色或is_superuser管理员执行；普通人员即使同时拥有review_commission和approve_costcorrection也不自动获得此动作，不新增权限/账号配置。项目任务授权不是系统业务权限。此独立操作不转账、不代表线下资金处理完成。
 - 具体路由/响应及回归证据由后端固定交付，负责人同步公共API/SPEC；本合同批准不代表已实现或已测试。
+
+独立确认端点合同：`POST /api/v1/orders/{order_id}/commission-adjustment-confirm/`，请求包含 `operation_key`、`cost_correction_id`、`expected_amount_version`、`expected_approved_amount_version`、`decision`（adjust/keep）。响应须区分决定、现核定/系统计算/差额、版本及非零调整记录，保留既有有效身份与订单可见校验。具体JSON字段由固定后端交付同步API规格。
