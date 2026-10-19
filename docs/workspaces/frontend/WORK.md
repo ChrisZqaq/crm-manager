@@ -278,3 +278,14 @@ UI-QUERY-1契约冻结（负责人同步，2026-10-08；后端仍实施中，不
 - 几何明细与键盘滚动位置见 [.local 定向测量记录](../../../.local/ui-density-fix-20261013/final-qa-geometry.json)。最终复验只保存了几何记录，没有保存截图文件；此前本任务截图不包含这次极值复测，不作为该两项证据。
 - 正常对照今日 `123556.780`、昨日 `123.456`：1280及390无滚动提示/键盘焦点，根宽1265/1280与375/390，客户分隔线112px；390销售额30px、增速22.05px，常规视觉未因极值适配变化。`manage.py check`、`node --check crm/static/crm/app.js`、`git diff --check`通过；浏览器已确认页面内联脚本实际执行。隔离测试数据库 `aluola_crm_density_fix2_20261013`、合成用户及18002服务已删除/停止，浏览器视口已还原且隔离标签已关闭。未重跑全套、不触及既有服务或生产数据。
 - 固定后停止应用写入；不推送、不部署。交QA/UI仅复验客户112px分隔线与合法Decimal极值两个缺陷，并交负责人验收。
+
+
+## WORKFLOW-SIMPLIFY-V2-IMPLEMENT-1019 固定交付记录
+
+- 依据：负责人批准的 [UI-v2 HANDOFF](../ui/workflow-simplify-v2/HANDOFF.md)、[四项冻结指纹](../ui/workflow-simplify-v2/SHA256SUMS)、负责人唯一写入窗口及QA隔离固定源码通知。应用固定提交完整SHA：`f6fba53e195058c776ddb304b28dca32022f68e0`（`feat: implement approved order and receiving workflows`）。本提交仅包含三页流程、`report`/`adjustments`空值兼容和两条过时测试断言更新；没有修改服务端、模型、API、权限、迁移、日志或依赖。
+- 实际变更路径：`crm/templates/crm/order_form.html`、`crm/templates/crm/order_detail.html`、`crm/templates/crm/receiving.html`、`crm/static/crm/app.css`、`crm/templates/crm/report.html`、`crm/templates/crm/adjustments.html`、`crm/test_phase4.py`。测试定位在 `OrderListStatusTests.test_model_status_labels_and_each_status_filter_preserve_order_scope` 与 `OrderListFilterTests.test_home_is_login_only_and_renders_only_currently_authorized_data_blocks`；两项均通过。Django `manage.py check` 和 `git diff --check` 通过。
+- 合成环境：仅本轮私有目录 `.local/ui-workflow-v2-1019/`、独立PostgreSQL数据库 `crm_ui_workflow_v2_20261019`（端口19171）和本机服务 `127.0.0.1:19172`。完成订单多SKU预览/确认、库存不足后返回阶段保留输入；采购两SKU真实预览（合计成本44.000、零价提醒）并确认；随后通过正常认证API登记合成凭证、收款核验及现场出库，订单完成、出库5件、服务端实际成本44.667。私有PG、数据库数据、开发服务和临时图片均已停止/删除，QA不能复用该环境；不涉及现有8001、8765或其它角色服务。
+- 视觉检查：Chrome实际看过1280px与390px页面状态，覆盖订单新建/详情和采购阶段/确认；无浏览器console error/warn。截图只作为CUA会话内联输出，未保存到磁盘，因此**本轮没有可引用的截图文件路径**；不得将UI原型截图目录 `docs/workspaces/ui/workflow-simplify-v2/` 当作实现截图。实现源码、测试及批准依据的路径见上文。
+- 未完成的浏览器证据：实际选择并上传付款凭证未测。Chrome `filechooser.setFiles` 返回原始拦截信息：`To enable file upload, go to chrome://extensions in Google Chrome, click Details under the ChatGPT extension, and enable "Allow access to file URLs." See [here](https://developers.openai.com/codex/app/chrome-extension#upload-files) for details.` 页面未选文件时提交显示“请上传1至20张收款图片。”；隔离库认证API的合成图片付款链不等于浏览器文件选择/上传通过。未更改扩展安全设置，已交负责人安排QA实测或明确阻断。
+- 390px订单详情观察项：阶段卡下方SKU明细表的“仓库”列宽过窄，`QA合成仓`被逐字换行，导致两行SKU信息纵向拥挤；此处属于本次获批订单详情页范围。没有据此改应用，负责人已安排QA/UI判断可读性并排后续窗口。
+- 当前状态：应用停写。固定版已交负责人安排的独立QA/UI验收；下一步由QA补浏览器真实凭证上传和付款表单端到端检查，QA/UI复核390px订单详情仓库列可读性。未宣称整版验收、发布或部署完成。
