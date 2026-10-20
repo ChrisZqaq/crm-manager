@@ -651,6 +651,36 @@ def _commission_review_result_for(actor, order, result):
     return {key: value for key, value in result.items() if key not in hidden_fields}
 
 
+def _current_cost_correction_commission_suggestion(order, review):
+    operation = BusinessOperation.objects.filter(
+        action="cost_correction_approve",
+        cost_correction__status=CostCorrection.Status.APPLIED,
+        cost_correction__before_after__commission_adjustment_suggestions__contains=[{"order_id": order.pk}],
+    ).select_related("cost_correction").order_by("-sequence").first()
+    if operation is None:
+        return None
+    correction = operation.cost_correction
+    suggestion = next((
+        row for row in correction.before_after.get("commission_adjustment_suggestions", [])
+        if row.get("order_id") == order.pk
+    ), None)
+    if (
+        suggestion is None or review is None or review.approved_amount is None
+        or order.amount_version != suggestion.get("expected_amount_version")
+        or review.approved_amount_version != suggestion.get("expected_approved_amount_version")
+        or f"{review.approved_amount:.3f}" != suggestion.get("approved_amount")
+        or order.commission_estimate is None
+        or f"{order.commission_estimate:.3f}" != suggestion.get("target_amount")
+        or BusinessOperation.objects.filter(
+            action="cost_correction_commission_decision",
+            sales_order=order,
+            payload__cost_correction_id=correction.pk,
+        ).exists()
+    ):
+        return None
+    return correction, suggestion
+
+
 def review_commission(actor, order_id, data, request_id=""):
     _require(actor, "review_commission")
     order_id = identifier(order_id, "order_id")
@@ -685,6 +715,12 @@ def review_commission(actor, order_id, data, request_id=""):
             review = CommissionReview.objects.select_for_update().filter(order=order).first()
             if review and review.approved_amount_version == order.amount_version:
                 raise OperationError("当前金额版本已复核，无需重复复核。", status=409, code="already_reviewed")
+            if _current_cost_correction_commission_suggestion(order, review) is not None:
+                raise OperationError(
+                    "成本纠错提成建议待老板或管理员单独确认。",
+                    status=409,
+                    code="cost_correction_decision_required",
+                )
             now = timezone.now()
             previous_amount = review.approved_amount if review and review.approved_amount is not None else Decimal("0.000")
             kind = CommissionAdjustment.Kind.REREVIEW if review and review.approved_amount is not None else CommissionAdjustment.Kind.INITIAL
@@ -773,25 +809,19 @@ def confirm_cost_correction_commission_decision(actor, order_id, data, request_i
             correction = CostCorrection.objects.select_for_update().filter(pk=correction_id).first()
             if correction is None or correction.status != CostCorrection.Status.APPLIED:
                 raise OperationError("成本纠错建议不存在或尚未生效。", status=404, code="not_found")
-            suggestions = correction.before_after.get("commission_adjustment_suggestions", [])
-            suggestion = next((row for row in suggestions if row.get("order_id") == order.pk), None)
-            latest_correction_id = BusinessOperation.objects.filter(
-                action="cost_correction_approve",
-                cost_correction__status=CostCorrection.Status.APPLIED,
-                cost_correction__before_after__commission_adjustment_suggestions__contains=[{"order_id": order.pk}],
-            ).order_by("-sequence").values_list("cost_correction_id", flat=True).first()
-            if suggestion is None or latest_correction_id != correction.pk:
-                raise OperationError("提成差额建议已更新或不适用于此订单。", status=409, code="stale_suggestion")
-            if order.amount_version != expected_amount_version or order.amount_version != suggestion["expected_amount_version"]:
-                raise OperationError("订单金额版本已变化，请重新查看最新建议。", status=409, code="stale_suggestion")
             review = CommissionReview.objects.select_for_update().filter(order=order).first()
+            current_suggestion = _current_cost_correction_commission_suggestion(order, review)
+            if current_suggestion is None or current_suggestion[0].pk != correction.pk:
+                raise OperationError("提成差额建议已更新或不适用于此订单。", status=409, code="stale_suggestion")
+            suggestion = current_suggestion[1]
             if (
-                review is None or review.approved_amount is None
-                or review.approved_amount_version != expected_approved_amount_version
+                order.amount_version != expected_amount_version
+                or order.amount_version != suggestion["expected_amount_version"]
+            ):
+                raise OperationError("订单金额版本已变化，请重新查看最新建议。", status=409, code="stale_suggestion")
+            if (
+                review.approved_amount_version != expected_approved_amount_version
                 or review.approved_amount_version != suggestion["expected_approved_amount_version"]
-                or f"{review.approved_amount:.3f}" != suggestion["approved_amount"]
-                or order.commission_estimate is None
-                or f"{order.commission_estimate:.3f}" != suggestion["target_amount"]
             ):
                 raise OperationError("提成核定或计算金额已变化，请重新查看最新建议。", status=409, code="stale_suggestion")
             if order.status != SalesOrder.Status.COMPLETED:

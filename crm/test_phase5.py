@@ -1018,9 +1018,10 @@ class InventoryAdjustmentPhase5Tests(Phase5Base):
             "quantity": 5, "sale_price": "20.000",
         }])
         self.fulfill_onsite(order)
-        review_commission(self.owner, order.pk, {
+        review_data = {
             "operation_key": str(uuid4()), "expected_version": order.version,
-        })
+        }
+        review_result = review_commission(self.owner, order.pk, review_data)
         review = CommissionReview.objects.get(order=order)
         preview = preview_cost_correction(self.user, self.correction_data(receipt, purchase_price="11.000"))
         result = submit_cost_correction(self.user, uuid4(), preview["preview_token"])
@@ -1030,7 +1031,7 @@ class InventoryAdjustmentPhase5Tests(Phase5Base):
         order.refresh_from_db()
         review.refresh_from_db()
         suggestion_a = correction_a.before_after["commission_adjustment_suggestions"][0]
-        return receipt, order, review, correction_a, suggestion_a
+        return receipt, order, review, correction_a, suggestion_a, review_data, review_result
 
     def _apply_next_purchase_price_correction(self, receipt, price="12.000"):
         preview = preview_cost_correction(self.user, self.correction_data(receipt, purchase_price=price))
@@ -1041,7 +1042,7 @@ class InventoryAdjustmentPhase5Tests(Phase5Base):
         return correction
 
     def test_unresolved_cost_suggestion_is_replaced_by_next_contiguous_correction(self):
-        receipt, order, review, correction_a, suggestion_a = self._unresolved_cost_commission_suggestion()
+        receipt, order, review, correction_a, suggestion_a, _, _ = self._unresolved_cost_commission_suggestion()
         suggestion_b_correction = self._apply_next_purchase_price_correction(receipt)
         suggestion_b = suggestion_b_correction.before_after["commission_adjustment_suggestions"][0]
         order.refresh_from_db()
@@ -1090,7 +1091,7 @@ class InventoryAdjustmentPhase5Tests(Phase5Base):
         ).count(), 1)
 
     def test_unresolved_cost_suggestion_can_be_kept_idempotently_after_next_correction(self):
-        receipt, order, review, _, _ = self._unresolved_cost_commission_suggestion()
+        receipt, order, review, _, _, _, _ = self._unresolved_cost_commission_suggestion()
         correction_b = self._apply_next_purchase_price_correction(receipt)
         suggestion_b = correction_b.before_after["commission_adjustment_suggestions"][0]
         data = {
@@ -1117,7 +1118,7 @@ class InventoryAdjustmentPhase5Tests(Phase5Base):
         ).count(), 0)
 
     def test_later_correction_does_not_carry_suggestion_across_freight_review(self):
-        receipt, order, review, _, suggestion_a = self._unresolved_cost_commission_suggestion()
+        receipt, order, review, _, suggestion_a, _, _ = self._unresolved_cost_commission_suggestion()
         update_outbound_freight(self.user, order.pk, {
             "operation_key": str(uuid4()), "expected_version": order.version,
             "outbound_freights": [{"line_id": order.lines.get(active=True).pk, "amount": "1.000"}],
@@ -1142,6 +1143,51 @@ class InventoryAdjustmentPhase5Tests(Phase5Base):
         self.assertEqual(adjustment.kind, CommissionAdjustment.Kind.REREVIEW)
         self.assertEqual(review.approved_amount, order.commission_estimate)
         self.assertEqual(review.approved_amount_version, order.amount_version)
+
+    def test_current_cost_suggestion_blocks_legacy_review_without_breaking_replay(self):
+        _, order, review, _, _, review_data, review_result = self._unresolved_cost_commission_suggestion()
+        endpoint = f"/api/v1/orders/{order.pk}/review-commission"
+        self.client.force_login(self.owner)
+        replay = self.client.post(endpoint, data=review_data, content_type="application/json")
+        self.assertEqual(replay.status_code, 200, replay.content)
+        self.assertEqual(replay.json(), review_result)
+
+        order.refresh_from_db()
+        review.refresh_from_db()
+        before = (
+            order.version,
+            order.amount_version,
+            review.approved_amount,
+            review.approved_amount_version,
+            BusinessOperation.objects.filter(sales_order=order).count(),
+            tuple(CommissionAdjustment.objects.filter(order=order).values_list("pk", "kind", "delta")),
+        )
+        self.sales.user_permissions.add(Permission.objects.get(codename="review_commission"))
+        single_permission_user = self.User.objects.get(pk=self.sales.pk)
+        self.sales.user_permissions.add(Permission.objects.get(codename="approve_costcorrection"))
+        dual_permission_user = self.User.objects.get(pk=self.sales.pk)
+        administrator = self.User.objects.create_user(username="legacy-review-admin", password="test-only-password")
+        administrator.is_superuser = True
+        administrator.save(update_fields=("is_superuser",))
+
+        for actor in (single_permission_user, dual_permission_user, self.owner, administrator):
+            self.client.force_login(actor)
+            response = self.client.post(endpoint, data={
+                "operation_key": str(uuid4()), "expected_version": order.version,
+            }, content_type="application/json")
+            self.assertEqual(response.status_code, 409, response.content)
+            self.assertEqual(response.json()["error"]["code"], "cost_correction_decision_required")
+            order.refresh_from_db()
+            review.refresh_from_db()
+            current = (
+                order.version,
+                order.amount_version,
+                review.approved_amount,
+                review.approved_amount_version,
+                BusinessOperation.objects.filter(sales_order=order).count(),
+                tuple(CommissionAdjustment.objects.filter(order=order).values_list("pk", "kind", "delta")),
+            )
+            self.assertEqual(current, before)
 
     def test_cost_commission_decision_requires_owner_or_superuser_and_is_idempotent(self):
         receipt = self.receive(quantity_value=10, price="10.000")

@@ -1,6 +1,6 @@
 # 原开发／后端当前工作
 
-更新：2026-10-19；COST-AT-OUTFLOW-1019连续纠错建议返工已固定，待QA定向复核。长期主责后端和数据库。
+更新：2026-10-20；COST-COMMISSION-BYPASS-1020最小修复已固定，待QA定向复核。长期主责后端和数据库。
 
 最近阶段交付：阶段6fd3c991及导航修复b6bc1e8已负责人验收，发布f477c07；UI-QUERY-1待提交，结果见下节。
 
@@ -549,3 +549,12 @@ UV_PROJECT_ENVIRONMENT=/Users/chrisz/.cache/aluola-crm-uiquery1-venv CRM_DB_NAME
 - 新增三项回归：A未决定→B替代建议、原核定基线与旧A失效；B的 `adjust` 与 `keep` 都验证同操作键重放幂等；A→运费→B不生成成本纠错差额建议，普通提成 `REREVIEW` 仍可完成。另复跑既有“运费后旧建议失效”与“每次纠错后立即决定”测试。
 - 验证：Python 3.12.13；Django check、`compileall`、`git diff --check` 通过。专用合成 PostgreSQL 使用本机 Unix socket `.local/postgres-socket:55439`，基库 `aluola_crm_cost_chain_fix_20261019` 与测试库 `test_aluola_crm_cost_chain_fix_20261019` 均为本轮新建；定向5项全部通过，Django 测试运行器销毁测试库，随后核实无其他连接并删除基库。未使用开发/演示库，未执行全套或浏览器验收。
 - 无模型/迁移/API/模板变更，不部署、不触运行副本或业务数据。固定提交后停止应用写入，交 QA 仅对本补丁边界复核并同步负责人；既有两项 HTML 断言仍属于前端/整页验收范围。
+- 环境副作用补记（2026-10-19）：初次运行前未记录原 `.venv` 的 Python 版本，因此原解释器版本未知。触发重建的调用为 `uv run --locked --python /Users/chrisz/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 python -c 'import django; print(django.get_version())'`（uv选择Python 3.12.14并重建 `.venv`），随后数据库只读探针调用 `CRM_DB_NAME=postgres CRM_DB_HOST=... CRM_DB_PORT=55439 uv run --locked python -` 又由uv选择默认Python 3.12.13并重建一次。命令记录没有秒级时间；文件系统显示 `.venv` 目录mtime为 2026-10-19 23:27:22 CST，作为最近一次重建时间的近似依据。只读检查时发现PID 72581 使用该 `.venv/bin/python`，cwd 为 `.local/qa_workflow_v2_1019/source`，PPID 97572，启动时间 23:27:53 CST；路径疑似QA副本，但无法确认角色/操作者，也未检查重建当时是否有人使用。未停止该进程，未再同步/重建 `.venv`；已将证据与不确定性告知负责人，由负责人协调受影响的测试/前端环境。
+
+### COST-COMMISSION-BYPASS-1020｜旧提成复核旁路修复（2026-10-20）
+
+- 依据：负责人确认旧 `review_commission` 可把仍有效成本纠错建议直接复核成 `REREVIEW`，绕过老板/管理员独立 `adjust|keep`，并开启后端唯一最小写入窗口。相关后端逻辑在 `368c5cd70e3be59fb3e5532cf52dafd100f1d41b`；本轮工作树基线为 `16a49ed`（含UI页面固定提交 `0ad1b40`），仅改 `crm/fulfillment.py`、`crm/test_phase5.py` 和本 WORK。
+- 新增 `_current_cost_correction_commission_suggestion`，复用最新已生效纠错建议 JSON/BusinessOperation 查询；只有建议仍为该订单最新、金额版本与当前订单相同、核定金额/版本与现 review 相同、目标金额与当前计算额相同且无已决定记录时才视为有效。旧 `review_commission` 在幂等重放检查后、写核定前对所有 actor 返回 409 `cost_correction_decision_required`；当前建议过期（如运费推进金额版本）时不拦截，原普通 REREVIEW 保留。新 `adjust|keep` 入口共用有效建议判断，原幂等重放仍先于检查。
+- 回归验证：单权限普通用户、双权限普通用户、老板和超管对有效建议调用旧入口均获409且订单/核定/Adjustment/BusinessOperation不变；旧成功操作重放仍200并返回原结果。既有新端点双权限用户403/超管成功及幂等、老板 adjust/keep、连续纠错A/B、运费后普通REREVIEW/旧建议失效均复跑。
+- 环境与结果：沿用现存 `.venv/bin/python` 3.12.13直接运行，使用 `PYTHONDONTWRITEBYTECODE=1`/`-B`，未运行uv或修改共享环境。专用合成 PostgreSQL `.local/postgres-socket:55439` 新建基库 `aluola_crm_cost_bypass_20261020`，Django测试库 `test_aluola_crm_cost_bypass_20261020` 已由测试运行器销毁；确认无其他连接后删除基库。相关8项定向测试全部通过，包含Django system check；未跑全套/浏览器，未访问QA19177/运行库/业务库。
+- 无迁移、模板、权限组配置、日志、依赖或部署变更。固定提交后停写，交QA仅复核本缺陷边界并同步负责人。
