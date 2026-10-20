@@ -1528,9 +1528,12 @@ def order_detail_page(request, order_id):
         raise PermissionDenied
     can_view_commission = sales_order_commission_visible_to(request.user, order)
     order_in_change_scope = sales_order_queryset_for(request.user, changing=True).filter(pk=order.pk).exists()
+    initial = _sales_order_data(order, request.user)
+    commission = getattr(order, "commission_review", None) if can_view_commission else None
     return render(request, "crm/order_detail.html", {
         "order": order,
-        "initial": _sales_order_data(order, request.user),
+        "initial": initial,
+        "first_earned_at_display": timezone.localtime(commission.first_earned_at) if commission and commission.first_earned_at else None,
         "can_view_commission": can_view_commission,
         "can_edit_sales_order": order_in_change_scope and request.user.has_perm("crm.change_salesorder"),
         "can_cancel_sales_order": order_in_change_scope and request.user.has_perm("crm.cancel_salesorder"),

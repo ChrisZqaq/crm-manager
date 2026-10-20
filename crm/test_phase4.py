@@ -1324,6 +1324,37 @@ class D15PermissionBoundaryTests(Phase4Base):
         for field in ("commission_estimate", "commission_review", "commission_adjustments"):
             self.assertNotIn(field, hidden_detail)
 
+    def test_order_detail_formats_first_earned_at_in_shanghai_and_keeps_empty_and_permission_states(self):
+        order = self.completed_onsite_order()
+        self.set_commission_marker(order)
+        review = CommissionReview.objects.get(order=order)
+        review.first_earned_at = datetime(2026, 10, 20, 1, 7, tzinfo=ZoneInfo("UTC"))
+        review.save(update_fields=("first_earned_at",))
+
+        owner_client = Client()
+        owner_client.force_login(self.owner)
+        detail_url = f"/orders/{order.pk}/"
+        response = owner_client.get(detail_url)
+        self.assertContains(response, "首次计入：2026-10-20 09:07")
+        self.assertContains(response, "876.543")
+        self.assertEqual(
+            owner_client.get(f"/api/v1/orders/{order.pk}").json()["commission_review"]["first_earned_at"],
+            "2026-10-20T01:07:00+00:00",
+        )
+
+        review.approved_amount = None
+        review.approved_amount_version = None
+        review.first_earned_at = None
+        review.save(update_fields=("approved_amount", "approved_amount_version", "first_earned_at"))
+        self.assertContains(owner_client.get(detail_url), "首次计入：—")
+
+        limited_viewer = self.new_sales_user("limited-order-detail-viewer", "view_all_sales_orders")
+        limited_client = Client()
+        limited_client.force_login(limited_viewer)
+        hidden_detail = limited_client.get(detail_url)
+        self.assertNotContains(hidden_detail, "首次计入：")
+        self.assertNotContains(hidden_detail, "876.543")
+
     def test_commission_review_replay_masks_fields_after_permission_revocation(self):
         order = self.completed_onsite_order()
         reviewer = self.new_sales_user(
