@@ -421,3 +421,17 @@ Nginx新增独立配置`/etc/nginx/sites-available/aluola-crm-iptest.conf`及启
 - **专用证书/入口：**DNS A已解析，无AAAA。原共享证书SAN只有根域、study及对应www域名，不含CRM，到期`2026-12-22 02:54:45 UTC`且未改；此前“共享证书静态匹配CRM”结论有误，已更正。按授权通过Certbot 1.21.0 `webroot`签发独立`crm.onenesscyber.tech` lineage，SAN/checkhost通过，有效至`2027-01-18 UTC`。外部严格TLS curl到CRM、根域、study均200且`ssl_verify_result=0`。独立CRM 80 challenge vhost及443应用vhost已启用，`nginx -t`和reload通过；根域/study/18888配置、UFW及Nginx全局未改。CRM站点用独立静态目录及精确回调`access_log off` location；Cookie用仅对CRM HTTPS生效的`proxy_cookie_path / "/; Secure"`。80 challenge的外部合成webroot探针成功，HTTP-01 webroot保存在`/var/www/letsencrypt`；其他80 server_name为IP/root/study，不冲突。Certbot renewal配置`authenticator=webroot`、`webroot_path=/var/www/letsencrypt`，`certbot.timer` active；未运行renew dry-run。
 - **回调日志探针：**使用非真实合成code/state经严格HTTPS请求精确回调，缺失state响应400并带`Cache-Control: no-store`、`Referrer-Policy: no-referrer`。唯一marker在Nginx access/error、CRM service journal及`crm.business`日志的匹配数均为0；没有读取日志原文。仅证明此次合成错误路径，不代表真实OAuth或所有上游异常类型已验收。
 - **未决管理员材料：**企业微信域名所有权校验文件、CorpID、AgentID、Secret和获批试点成员绑定尚未提供，因此真实OAuth未联调。没有访问正式业务库或真实业务账号，没有变更根域/Study/18888之外的服务、共享证书、安全组或UFW来源。基础设施完整状态见[WECOM-SSO-INFRA-1020](WECOM-SSO-INFRA-1020.md)。
+
+
+## CRM-GO-LIVE-PREP-1020 正式密码入口及恢复准备（2026-10-20，只读）
+
+按负责人安排只读核对正式业务库、固定版迁移差异、账号、恢复点、续期与资源；未配置/迁移正式库、切换入口、制作新备份或演练恢复，未读/输出凭据。
+
+- **正式库与版本差异：**以只读 PostgreSQL 事务核对 `aluola_crm_business`，当前最新 CRM 迁移为 `0015_remove_sku_packaging_specs`，实际连接为本机 `postgres` 只读检查身份。当前聚合数：`auth_user` 共10条、9条active、1条staff/superuser；商品13、SKU15、销售单0、收货单0。既有账号交付记录确认9个正式员工账号（管理员1、老板1、仓管/财务1、销售6），另有非活跃导入技术账号。未读取账号名、密码、客户或单据字段。
+- 固定候选 `eefc490` 已迁移至0017。0016依赖0015：增加销售单 `cost_basis`（默认 `order_snapshot`）及合法值约束，并调整订单/明细成本与提成字段的空值定义；没有显式数据迁移脚本。0017在 `AccountProfile` 增加可空 `wecom_userid` 与忽略大小写的非空唯一约束。当前销售单数为0，降低0016历史行转换风险；正式迁移仍须先留当前DB/媒体配对恢复点，迁移后对全部保留表做行数和逐行指纹核对，不能仅依赖成功退出码。
+- **最小正式入口方案：**正式库当前没有Web入口。保留已验收的IP:18888和 `crm.onenesscyber.tech` HTTPS测试密码入口/证书各自连接测试库；正式业务服务使用独立Django unit、`business_settings`/`business.env`、业务媒体目录和新loopback上游，域名/vhost与测试入口隔离。正式域名尚未由负责人确认；不得把现有CRM HTTPS测试入口直接切到业务库。正式域名、DNS/证书、切换窗口和员工写入仍待负责人统一安排。
+- **账号密码整改：**9个正式账号在10月14日已逐一认证通过，交接CSV记录仅在本机忽略目录、目录700/文件600；本轮未查看密码，也没有证据说明凭据已安全交付或其强度。代码精确搜索未发现应用内自助改密、找回或强制首次改密路径。正式开放前应通过受控管理员流程给9人分别重置唯一高熵临时密码，并用独立受控渠道交付；要求首登改密须先有可强制执行的改密流程，当前不能宣称已具备。避免把新密码写入聊天、WORK或Git。
+- **备份与恢复覆盖：**上线目标仍是DB及新增/变更凭证每30分钟、保留24小时半小时点及7天每日点、服务器外副本、RPO≤1小时。当前最新已记录正式业务库/媒体恢复点为10月16日迁移前的本机私有文件（DB 228,014字节、媒体归档131字节，权限600）；远端定时器/cron未发现项目pg_dump或业务媒体备份任务，NAS/CIFS/NFS挂载为空。它是一次性迁移恢复点，不满足连续备份、异地副本或新变更覆盖要求；此前均未进行真实恢复演练。最小演练步骤：先核准独立恢复窗口和隔离目标；在独立PostgreSQL实例/临时隔离库以新名称恢复最新配对dump，媒体解到独立目录；只让固定应用副本指向该恢复目标，不启公网监听；核对迁移状态、用户/角色聚合数、库存及业务行数/指纹、附件数量/哈希和关键只读页面；记录恢复时长与数据点年龄，验收后按授权清理临时副本。不能让恢复命令连接或覆盖正式库。
+- **证书及主机资源：**2026-10-20 Certbot只读信息显示CRM独立证书有效至2027-01-18，renewal使用webroot，`certbot.timer` active；没有运行dry-run，因此自动续期链仍未演练。服务器同日08:09 UTC单次采样：2vCPU、总RAM 1.9GiB、available 1.2GiB、swap已用106MiB，50GiB根盘可用36GiB；峰值/持续负载未知。按SPEC最小单worker与约512MiB CRM预算可准备小规模切换预案，但不能据一次采样判定容量充足；需在正式窗口前核对实际峰值、备份/媒体增长及服务器外目标。眼下更明确的缺口是连续异地备份、实际恢复证据、正式域名/入口和初始密码整改，不是根盘容量。
+
+**结论/下一步：**正式密码入口可按“专用主机名 + 独立业务unit/配置/媒体 + loopback上游”收口，现有测试入口保持原样。正式迁移、账户重置、定时备份/NAS配置、续期演练、入口切换及恢复演练均未实施，需负责人给出独立窗口和输入后另行安排；本记录不授权执行这些变更。
