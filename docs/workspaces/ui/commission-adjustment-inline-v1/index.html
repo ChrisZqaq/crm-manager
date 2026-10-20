@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>提成差额 · 纠错影响局部候选</title>
+<link rel="stylesheet" href="style.css">
+<header class="brand"><img src="../revision-v1/brand-logo.png" alt="阿罗拉潮玩空间"><span>库存调整与纠错</span><span class="owner">老板</span></header>
+<main>
+  <div class="page-title"><div><p class="crumb">库存调整与纠错 / 纠错审批记录</p><h1>纠错影响明细</h1></div><span class="tag applied">已生效</span></div>
+  <article class="correction">
+    <div class="record-head"><div><h2>采购纠错 · 采购单 028</h2><p>采购成本更正</p></div><span class="muted">纠错记录 012</span></div>
+    <section class="existing"><h3>库存与成本</h3><div class="change"><span>共逐荣光 · QA合成仓</span><span>单位成本 <b>¥120.000 → ¥128.000</b></span></div></section>
+    <section class="commission" aria-labelledby="commission-title">
+      <div class="section-head"><div><h3 id="commission-title">提成差额</h3><p>逐单决定，金额由系统计算</p></div><button id="refresh" class="quiet">刷新建议</button></div>
+      <div id="notice" role="status" aria-live="polite"></div>
+      <div id="rows"></div>
+      <p class="footnote">调整核定金额后，资金仍需线下处理。</p>
+    </section>
+  </article>
+  <aside class="demo" aria-label="原型演示工具"><span>局部候选 · 仅合成演示</span><div><button id="reset" class="quiet">恢复待处理</button><button id="stale" class="quiet">演示版本过期</button><button id="blocked" class="quiet">演示条件变化</button></div></aside>
+</main>
+<script src="app.js"></script>
+</html>

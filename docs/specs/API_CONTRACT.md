@@ -1,6 +1,6 @@
 # 第一版网页与API合同
 
-> **2026-10-20成本口径：** 本文已按实际出库成本及独立提成差额确认规则校准。候选应用 `0ad1b40`（含后端 `1f48aa4`、连续纠错补丁 `368c5cd`）已通过分项QA/UI，完整网页链及最终发布仍待；已部署版仍为 `71cf9f6`/0015。既存旧单保留下单快照语义，新单采用实际出库成本；依据与范围见[本次调整](../project/COST_COMMISSION_REVISION_20261019.md)。
+> **2026-10-20成本口径：** 本文已按实际出库成本及独立提成差额确认规则校准。本轮应用 `6024205` 已完成分项QA/UI、现场/快递网页链及负责人限定验收，证据见[发布记录](../project/RELEASE_COST_WORKFLOW_20261020.md)；已部署版仍为 `71cf9f6`/0015。新单实际出库计成本，既存旧单保留快照，不将代码验收当正式业务切换。
 
 > 2026-10-09增量开发合同已收口，见本文新增章节及[本轮需求](../project/USER_REVISION_20261009.md)。获批UI见revision-v1/HANDOFF；下列增量是开发目标，尚未实现或发布。既有金额、库存及权限规则继续有效，旧阶段验收状态以开发计划为准。
 
@@ -239,4 +239,4 @@ UI-LIST-FILTERS集中核对补充（待实施）：orders.filter_options另含 `
 - 发货／现场交付后新单正式成本由库存实际扣减金额生成；报表和导出同源，`cost_basis_label`区分新旧口径，未出库报表金额用空字符串／Excel空白，不把未形成利润计零。
 - `POST /api/v1/orders/{order_id}/commission-adjustment-confirm` **无尾斜杠**，仅OWNER老板组或is_superuser，仍校验订单可见、完成、当前付款通过；普通review_commission与approve_costcorrection双权限不授予该动作。请求：`operation_key`、`cost_correction_id`、`expected_amount_version`、`expected_approved_amount_version`、`decision=adjust|keep`，不接收金额。
 - 成功直接返回operation result（无额外envelope）：document_id/order_id/sequence/version/status/decision、approved_amount_before/calculated_amount/approved_amount/delta_amount、amount_version/approved_amount_version、adjustment_id、offline_transfer_required、offline_transfer_performed。非零adjust才有adjustment_id及required=true；performed恒false，完成线下资金仍用既有标记，不由该动作转账。keep的delta表示计算差额，不是已批准资金调整。
-- 成本纠错批准本身不调整已核定提成；影响JSON包含老板可见的版本化建议。独立操作服务端重算差额，同键同输入返回原结果，同键异输入拒绝；旧版本或旧建议返回409 stale_suggestion，已决定新键拒绝重复决定。连续未决定成本纠错可用最新建议替代旧建议；普通运费穿插仍走REREVIEW，不借此恢复旧核定资格。
+- 成本纠错批准本身不调整已核定提成；影响JSON包含老板可见的版本化建议。独立操作服务端重算差额，同键同输入返回原结果，同键异输入拒绝；存在当前有效成本纠错建议时旧review-commission返回409 cost_correction_decision_required（老板/超管也须显式走新决定）；旧版本或旧建议返回409 stale_suggestion，已决定新键拒绝重复决定。连续未决定成本纠错可用最新建议替代旧建议；普通运费穿插仍走REREVIEW，不借此恢复旧核定资格。

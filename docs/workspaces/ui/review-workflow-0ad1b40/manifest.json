@@ -1,0 +1,108 @@
+{
+  "task": "WORKFLOW-SIMPLIFY-V2-REWORK-1019-UI-RETEST",
+  "date": "2026-10-20",
+  "implementation_revision": "0ad1b40a2464a91fa4b11c9f980bb47607b99ee3",
+  "frontend_evidence_revision": "31f4a7c34c08a0d34fe28cc36d9121c1a83df436",
+  "environment": {
+    "url": "http://127.0.0.1:19174/",
+    "database": "qa_ui_v2_retest_0ad1_20261020",
+    "version_basis": "QA-provided fixed git archive; UI did not rebuild or independently hash the served source"
+  },
+  "viewports": [
+    "1280x900",
+    "390x844"
+  ],
+  "verdict": "five scoped UI fixes passed; not whole-system acceptance or deployment",
+  "files": [
+    {
+      "path": "01-cost-before-preview-1280.jpg",
+      "bytes": 83587,
+      "sha256": "888c16ec1eafb7975287baa24dfaf9a5063b7d26849b5c1e0392685fc910c4f0"
+    },
+    {
+      "path": "02-order-quantity-error-1280.jpg",
+      "bytes": 88607,
+      "sha256": "9a8cb8e79e54b4849d7c5b7cb24fb8b19d33487d7397d95e37fe7d410c5a9ed8"
+    },
+    {
+      "path": "03-order-quantity-error-390.jpg",
+      "bytes": 28214,
+      "sha256": "a4b0abbeaf022ead6fc03a4f46462a4a335a3e0dd55f9c64bfaa090bd5f0c6df"
+    },
+    {
+      "path": "04-order-review-390.jpg",
+      "bytes": 31823,
+      "sha256": "3f9dff8ed61540eb5023f33fcea3832648022351835cad952eec75046ae2930b"
+    },
+    {
+      "path": "05-order-review-lines-390.jpg",
+      "bytes": 39026,
+      "sha256": "39225c91f0001b959fc3367f271951cf7482fb3e89562df73eab072ea25705e1"
+    },
+    {
+      "path": "06-order-review-1280.jpg",
+      "bytes": 83380,
+      "sha256": "ebd271d22fba1e6c7f579cc26dc08ee286e0328f567534a2fd35fb16f40be61a"
+    },
+    {
+      "path": "07-detail-1280.jpg",
+      "bytes": 86485,
+      "sha256": "5cf4848c5bd7af2eb153feecee04f92ccdf3a13c6784a523e3b4567c32b0ec90"
+    },
+    {
+      "path": "08-payment-form-1280.jpg",
+      "bytes": 78202,
+      "sha256": "c8c510316c91dd7757902d5d4a716b37a6deae092b3d384a7c299c65310180c2"
+    },
+    {
+      "path": "09-payment-form-390.jpg",
+      "bytes": 32456,
+      "sha256": "a4fbfcefb55dc122df4be733451c4c20e45ee741af585b1573d4dd57f982dd31"
+    },
+    {
+      "path": "10-detail-lines-390.jpg",
+      "bytes": 31805,
+      "sha256": "f7b67cb7dbdd27e8a23e0fee5e072083465eef5172d6d99ec24fd2694f084fb7"
+    },
+    {
+      "path": "11-detail-lines-end-390.jpg",
+      "bytes": 38125,
+      "sha256": "608a140f6c559539b520fab6fe30a046bc9a65f882de8901920f72d273ac95ad"
+    },
+    {
+      "path": "12-receiving-cards-1280.jpg",
+      "bytes": 68695,
+      "sha256": "73e1697e60e4fe3f1727d4a9fe328e13c531860bcd534823455e494df017a965"
+    },
+    {
+      "path": "13-receiving-cards-390.jpg",
+      "bytes": 36671,
+      "sha256": "41225572e0163e02fc4175f9ddd48fa1def9da5bc256fea79c1928c75d7ee157"
+    },
+    {
+      "path": "14-receiving-quantity-error-390.jpg",
+      "bytes": 37051,
+      "sha256": "1fb7e7b670f4588c971e632eb343d3392c5e00638a96232e742a5bc1502f7a27"
+    },
+    {
+      "path": "15-receiving-review-390.jpg",
+      "bytes": 38687,
+      "sha256": "c11f9faa8d94acd97547c7faeababffd7ec90dc952f1954952f361d12921b775"
+    },
+    {
+      "path": "16-cost-after-quantity-change-390.jpg",
+      "bytes": 27665,
+      "sha256": "f99e319abbaba93b0a754ee79eb2cdf93625f25adebbf87e286816c5d3f0c918"
+    },
+    {
+      "path": "REPORT.md",
+      "bytes": 5620,
+      "sha256": "39aaf625d52c58b96bdc4c3915af3fa3e65f7e014f5354f356528f834d395d67"
+    },
+    {
+      "path": "geometry.json",
+      "bytes": 2824,
+      "sha256": "e83306a24e8bb4e3e9dfd0e17af6a0df204f30528b880e946d16b9ad1fd1cebd"
+    }
+  ]
+}

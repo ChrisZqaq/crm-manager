@@ -1,0 +1,47 @@
+{
+  "date": "2026-10-20",
+  "status": "candidate awaiting specific user approval",
+  "scope": "existing applied cost correction inline commission decisions only",
+  "viewports": [
+    "1280x900",
+    "390x844"
+  ],
+  "files": [
+    {
+      "path": "index.html",
+      "sha256": "96551ab9c9909b69ed7aa48e515614ed9641bfdc76654261831acf29acbac39d"
+    },
+    {
+      "path": "style.css",
+      "sha256": "b651b455d0e0fb86c1c45efdf27dd1370cf02e7949b92bde11c8f9699c4990bc"
+    },
+    {
+      "path": "app.js",
+      "sha256": "7ed95e55654947f841138ada520e199820bd0928396ac9043c943f656ed12759"
+    },
+    {
+      "path": "screenshots/01-pending-1280.jpg",
+      "sha256": "f8ddfdf074d968ae1cea8082d1c856261db601044787fff5eeab0c74edb50379"
+    },
+    {
+      "path": "screenshots/02-decided-1280.jpg",
+      "sha256": "8222b6ac2b1bfe1d766c0c4b1205650d00f0e8f396c76253649227a9dcda2ee7"
+    },
+    {
+      "path": "screenshots/03-pending-390.jpg",
+      "sha256": "073c4d545b198e6605cb8e4f30e2682dd077af118d14b8452033bd6d8ed7566e"
+    },
+    {
+      "path": "screenshots/04-stale-390.jpg",
+      "sha256": "246a0b5c20833a171601a6df63f0ef0fe2845f164a4cf7716570b13f694ea780"
+    },
+    {
+      "path": "screenshots/05-blocked-390.jpg",
+      "sha256": "dca47c9da0f5e5dad38d31ebf6bf197568e8d43a91d74dc714622d2feec9513c"
+    },
+    {
+      "path": "screenshots/06-decided-390.jpg",
+      "sha256": "95191a4ff925f42d9dbbd842ffbb5616d555db47a96f7c5319b8a569748b2ca4"
+    }
+  ]
+}

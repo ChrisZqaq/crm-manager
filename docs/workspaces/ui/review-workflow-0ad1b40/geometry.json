@@ -1,0 +1,174 @@
+{
+  "order390": {
+    "button": [
+      {
+        "h": 44,
+        "text": "确认并占货"
+      }
+    ],
+    "h": 844,
+    "review": [
+      {
+        "h": 666.296875,
+        "id": "preview-result",
+        "pos": "static",
+        "w": 366,
+        "x": 12,
+        "y": 392.796875
+      },
+      {
+        "h": 78,
+        "id": "order-review-bar",
+        "pos": "fixed",
+        "w": 390,
+        "x": 0,
+        "y": 766
+      }
+    ],
+    "root": 390,
+    "w": 390
+  },
+  "order1280": {
+    "h": 900,
+    "reviewPos": "sticky",
+    "root": 1280,
+    "w": 1280
+  },
+  "detail1280": {
+    "h": 900,
+    "root": 1280,
+    "table": [
+      {
+        "scroll": 1046,
+        "tabindex": null,
+        "w": 1046
+      }
+    ],
+    "w": 1280
+  },
+  "detail390": {
+    "cells": [
+      [
+        {
+          "h": 71,
+          "text": "QAV2-001",
+          "w": 120
+        },
+        {
+          "h": 71,
+          "text": "QA合成仓",
+          "w": 130
+        },
+        {
+          "h": 71,
+          "text": "2",
+          "w": 54
+        }
+      ],
+      [
+        {
+          "h": 70,
+          "text": "QAV2-002",
+          "w": 120
+        },
+        {
+          "h": 70,
+          "text": "QA备用仓",
+          "w": 130
+        },
+        {
+          "h": 70,
+          "text": "3",
+          "w": 54
+        }
+      ]
+    ],
+    "h": 844,
+    "root": 390,
+    "table": [
+      {
+        "left": 0,
+        "name": "订单商品明细，可左右滚动查看更多列",
+        "scroll": 755,
+        "tabindex": "0",
+        "w": 364
+      }
+    ],
+    "w": 390
+  },
+  "receiving1280": {
+    "h": 900,
+    "root": 1280,
+    "select": [
+      {
+        "h": 42,
+        "w": 397.9921875
+      }
+    ],
+    "w": 1280
+  },
+  "receiving390": {
+    "h": 844,
+    "root": 390,
+    "select": [
+      {
+        "h": 42,
+        "w": 312
+      }
+    ],
+    "w": 390
+  },
+  "receivingReturn": {
+    "inputs": [
+      {
+        "invalid": null,
+        "label": null,
+        "value": "<redacted>"
+      },
+      {
+        "invalid": null,
+        "label": null,
+        "value": "<redacted>"
+      },
+      {
+        "invalid": null,
+        "label": null,
+        "value": "2"
+      },
+      {
+        "invalid": null,
+        "label": null,
+        "value": "14"
+      },
+      {
+        "invalid": null,
+        "label": null,
+        "value": "2"
+      },
+      {
+        "invalid": null,
+        "label": null,
+        "value": "1"
+      },
+      {
+        "invalid": null,
+        "label": null,
+        "value": "0"
+      },
+      {
+        "invalid": null,
+        "label": null,
+        "value": "9"
+      },
+      {
+        "invalid": null,
+        "label": null,
+        "value": ""
+      }
+    ],
+    "summaries": [
+      "报表",
+      "其他入库信息 运费 2 · 预留 1 · 提醒 9"
+    ]
+  }
+}

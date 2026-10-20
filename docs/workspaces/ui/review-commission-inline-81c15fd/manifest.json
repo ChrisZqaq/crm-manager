@@ -1,0 +1,69 @@
+{
+  "date": "2026-10-20",
+  "revision": "81c15fdc9afea23fdcf6bd797c6664d0d69d807b",
+  "scope": "approved commission inline only; 1280/390",
+  "verdict": "scoped visual and necessary interaction passed; not full page or technical acceptance",
+  "source_files_verified": {
+    "crm/templates/crm/adjustments.html": "fd41d2a71565d4bacd4fddb64bbdca824586e2e5d908a562ce01d235d77f72eb",
+    "crm/static/crm/app.css": "67566e3ccb1040df2090cbfba42d8db779fdecb0fee005f49e4392e5d67dcfe1"
+  },
+  "synthetic_operations": {
+    "order1": "one stale attempt; refreshed; no retry",
+    "order2": "keep once; sequence83",
+    "order5": "adjust once; sequence84",
+    "order10": "read only",
+    "order7": "not operated; old suggestion absent after refresh"
+  },
+  "files": [
+    {
+      "path": "01-pending-1280.jpg",
+      "bytes": 88249,
+      "sha256": "ffb4b7323a9c413bc42c132a78d3013e0f15856e7bf36b86c1fda67e3e341529"
+    },
+    {
+      "path": "02-pending-390.jpg",
+      "bytes": 33752,
+      "sha256": "fe209d3792d2b3384a06b9805df6b50b71debfb5ce520bbdd721a599098da9df"
+    },
+    {
+      "path": "03-stale-order1-1280.jpg",
+      "bytes": 70307,
+      "sha256": "670754bae27a3b899eed9b4139eb1d9c1d6a4766029d4c6571b5cf1c26015fdd"
+    },
+    {
+      "path": "04-stale-order1-390.jpg",
+      "bytes": 32135,
+      "sha256": "452ab0a456c4d570a3454b5078df1f4f3f2c6bfd7238e25a8dfa8c1c48783385"
+    },
+    {
+      "path": "05-keep-result-390.jpg",
+      "bytes": 32221,
+      "sha256": "6868b58cfb79b779912bef696336453046ff7b61771df59ac6babcdd62b009f2"
+    },
+    {
+      "path": "06-keep-result-1280.jpg",
+      "bytes": 84359,
+      "sha256": "557b844f73c8c31610bcdfeab712a29a83cb2b3152122165e54bb7e4ea6d63db"
+    },
+    {
+      "path": "07-adjust-result-1280.jpg",
+      "bytes": 83803,
+      "sha256": "80aa7760bfe3c747c6a1f4c2b04d9e12f681b162e1d68306552d3c5d9b82ccce"
+    },
+    {
+      "path": "08-adjust-result-390.jpg",
+      "bytes": 34874,
+      "sha256": "c12fad933e58fabd40402f07218fa8b30d4ae33641bee41503697aed01d1cc8c"
+    },
+    {
+      "path": "geometry.json",
+      "bytes": 2410,
+      "sha256": "32e0c02af1916b26c68918f7841ef56dd3838b72fb53c7be321b15c031a22c0d"
+    },
+    {
+      "path": "REPORT.md",
+      "bytes": 5566,
+      "sha256": "6794da22148d9e1e7943557c2acc4fa28bc2be4cdc0c5d82de14344a684c3ea2"
+    }
+  ]
+}
