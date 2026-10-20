@@ -1,5 +1,12 @@
 # 前端当前工作
 
+## COMMISSION-ADJUSTMENT-INLINE-1020 局部提成差额接入（2026-10-20）
+
+- 依据 `5cf1f73` 应用基线、负责人最新文档批准提交 `87b61b7`、唯一前端写入窗口及 UI 已批准原型 [HANDOFF](../ui/commission-adjustment-inline-v1/HANDOFF.md)。仅在库存调整页现有已生效纠错影响记录内展示订单当前核定金额、系统建议金额、差额和逐单 `adjust`/`keep`；调用既有无尾斜杠决定API。没有新页面/导航、金额编辑、历史API、服务/模型/权限/日志/依赖改动。客户端只提交纠错ID、双版本、决定和现有幂等操作键，不自行计算金额；普通复核者无按钮，过期/无权状态要求刷新，成功文案依据服务端结果区分核定变化和待线下资金处理。
+- 应用固定提交 `81c15fd`，改动限于 `crm/templates/crm/adjustments.html`、`crm/static/crm/app.css`、`crm/test_phase5.py`。移动端仅约束既有纠错审批段，实测390×844下该段342px、记录卡342px边界宽、决定行316px、按钮154×44px；页面其他旧区块仍造成438px文档滚动宽（可视clientWidth375），本轮不扩展修复范围。1280×900下根文档无横向溢出，决定行999×78.5px、按钮90×44px。合成证据与截图见 `.local/commission_adjustment_inline_1020/evidence/`。
+- 实际浏览器使用私有合成PostgreSQL及本机隔离账号：adjust/keep分别真实返回序号49/50；双击仅产生一条订单3决定（序号53）；断服使订单6请求在服务端处理前失败，按钮可重试，恢复后成功产生单一序号54并显示“待线下处理”；旧运费版本和付款条件变更均返回409并转刷新状态；撤销老板组后POST为403，刷新列表不再返回该建议。老板组已在合成库恢复。此处连接失败发生在服务端处理前，未专门模拟服务端提交后丢失响应；既有后端幂等回归及当前 `write()` 的同输入持键路径另有覆盖。浏览器console error/warn为空。
+- 定向测试 `test_correction_list_exposes_commission_suggestions_only_to_owner`、`test_cost_commission_decision_requires_owner_or_superuser_and_is_idempotent`、`test_cost_commission_decision_rejects_a_suggestion_invalidated_by_freight` 共3项通过；`manage.py check` 和目标文件 `git diff --check`通过。隔离测试库由Django创建并销毁。完成固定后停止应用写入，交QA/UI定向复核并同步负责人；未推送或部署。
+
 ## ORDER-COMMISSION-DATE-1020 首次计入时间显示修复（2026-10-20）
 
 - 依据固定基线 `71d23f9` 与负责人唯一应用写入窗口。仅改详情页模板专用时间上下文、详情模板消费者、回归及本记录；`initial.commission_review.first_earned_at` 的API ISO字符串合同保持不变。详情页从已缓存的复核记录取原始datetime，经 `timezone.localtime` 按 `Asia/Shanghai` 提供模板专用值，继续使用原格式 `Y-m-d H:i`；空值仍显示“—”。
