@@ -59,6 +59,8 @@
 - 只允许既有OWNER老板角色或is_superuser管理员执行；普通人员即使同时拥有review_commission和approve_costcorrection也不自动获得此动作，不新增权限/账号配置。项目任务授权不是系统业务权限。此独立操作不转账、不代表线下资金处理完成。
 - 具体路由/响应及回归证据由后端固定交付，负责人同步公共API/SPEC；本合同批准不代表已实现或已测试。
 
-独立确认端点合同：`POST /api/v1/orders/{order_id}/commission-adjustment-confirm/`，请求包含 `operation_key`、`cost_correction_id`、`expected_amount_version`、`expected_approved_amount_version`、`decision`（adjust/keep）。响应须区分决定、现核定/系统计算/差额、版本及非零调整记录，保留既有有效身份与订单可见校验。具体JSON字段由固定后端交付同步API规格。
+独立确认端点合同：`POST /api/v1/orders/{order_id}/commission-adjustment-confirm`（无尾斜杠），请求包含 `operation_key`、`cost_correction_id`、`expected_amount_version`、`expected_approved_amount_version`、`decision`（adjust/keep）。响应须区分决定、现核定/系统计算/差额、版本及非零调整记录，保留既有有效身份与订单可见校验。具体JSON字段由固定后端交付同步API规格。
 
 2026-10-20文档校准：主业务、PRD、SPEC、数据库、成本引擎、API和验收算例同步实际出库成本/新旧订单/独立差额确认；本次仅文档同步，上传许可已获用户直接确认，QA网页链进行中，不将分项通过改写为已部署。
+
+2026-10-20局部入口批准：用户明确同意commission-adjustment-inline-v1“接入”，在既有纠错影响明细内按原型显示核定/计算/差额及adjust/keep按钮。前端实施中，不新增页面/导航/金额编辑/历史API，固定后验证；UI具体批准唯一记录在UI WORK。
