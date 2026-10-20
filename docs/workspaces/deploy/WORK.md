@@ -394,6 +394,19 @@ Nginx新增独立配置`/etc/nginx/sites-available/aluola-crm-iptest.conf`及启
 
 官方文档查证 2026-10-20：企业可信域名不支持 IP/短链，要求已验证企业主体及备案域名并通过所有权核验；因此 IP:18888 不可作为 OAuth 可信域名。OAuth 授权码只能用一次、约5分钟有效；`91039` 页面正文确认是 `GET /cgi-bin/gettoken`，要求 `access_token` 留在服务端。消息推送、事件回调和客户联系均为可选。来源与直接链接及建议验收见[研究报告](WECOM-SELFBUILT-RESEARCH-1020.md)。
 
-项目状态取最近文档证据而非本次在线探测：应用 `6024205` 已完成限定验收但尚未部署；运行版本 `71cf9f6`/0015。云端 `18888` 为测试库入口，正式业务库未接 Web；本机 `8765` 于 10-19 恢复为只读审查副本。正式业务数据重建、Web 入口和切换尚未完成，需先确定最终版本/环境和域名。此前 Certbot 续期检查有错误，正式 HTTPS 条件不可假设满足。未读或抄录私有账号/企微标识及任何凭据；Secret 不应写入报告或 Git。
+项目状态取最近文档证据而非本次在线探测：应用 `6024205` 已完成限定验收但尚未部署；运行版本 `71cf9f6`/0015。云端 `18888` 为测试库入口，正式业务库未接 Web；本机 `8765` 于 10-19 恢复为只读审查副本。正式业务数据重建、Web 入口和切换尚未完成。负责人转述用户在负责人会话确认：企业微信已完成企业验证，用户有管理员权限，`onenesscyber.tech` 已备案；负责人报告只读DNS检查中根域有A记录，`crm.onenesscyber.tech` 无响应且只是候选。本研究未独立检查控制台或重新查询DNS，未获授权改DNS/证书/云服务。此前 Certbot 续期检查有错误，正式 HTTPS 条件不可假设满足。未读或抄录私有账号/企微标识及任何凭据；Secret 不应写入报告或 Git。
 
-后续路径：①负责人确认业务数据/目标版本、域名备案和 HTTPS 入口；②获得应用实现授权后，在合成测试环境接入并由小范围企微成员验证身份映射、禁用拒绝及角色权限不变；③独立 QA 和负责人确认后，再另行决定部署/扩大范围。当前无需提供密码或 Secret；待实施前由管理员在受控环节确认 CorpID、AgentID、应用可见范围和员工 userid 绑定。消息/回调/客户联系另按具体用例评估，不自动纳入。
+后续路径：①负责人确认业务数据/目标版本、实际子域、可信域名所有权验证与 HTTPS 入口；②获得应用实现授权后，在合成测试环境接入并由小范围企微成员验证身份映射、停用拒绝及角色权限不变；③独立 QA 和负责人确认后，再另行决定部署/扩大范围。当前无需提供密码或 Secret；待实施前由管理员在受控环节配置 CorpID、AgentID、应用可见范围和员工 userid 绑定。消息/回调/客户联系另按具体用例评估，不自动纳入。
+
+
+## WECOM-SSO-INFRA-1020 企业微信 SSO 隔离测试基础设施只读核验（2026-10-20）
+
+依据负责人派发和用户批准的 H5+SSO 研发范围，只读核验候选子域 DNS、TLS、Nginx/443、测试入口复用与 OAuth 查询日志风险。不改 DNS、证书、Nginx、UFW、安全组、服务、数据库、业务代码，不做真实 OAuth/业务账号登录，不读访问日志或凭据。
+
+只读结果：`crm.onenesscyber.tech` 当前无 A/AAAA 回答，根域有 A；根域 HTTPS 外网 GET 200、证书校验成功。现有 Nginx 1.18.0 active，443及原18888均监听，UFW均允许；443站点是根域及study子域，没有crm vhost。当前证书与crm子域主机名匹配，有效至2026-12-22 02:54:45 UTC；certbot.timer active、authenticator nginx，本轮未演练续期。18888 Nginx reverse proxy 指向 `127.0.0.1:18765`，测试 unit active；两端口登录页只读GET均200。运行版仍 `71cf9f6`/0015，测试库 `aluola_crm_dev`；SSO版未固定，正式库不应接入。本次未核腾讯云安全组。
+
+隐私风险：Nginx access log 未指定格式，默认 `combined` 使用 `$request` 记录完整原始请求行；OAuth回调的 `code/state` 位于查询参数，若经普通location处理会进入access log。建议后续单独精准回调location关闭access log或使用不含request/request_uri/args的脱敏格式，应用日志不得记录完整URL、code/state/token；回调完成后立即清除查询参数。主机级access log现状与官方Nginx依据及实施检查表见[基础设施方案](WECOM-SSO-INFRA-1020.md)。
+
+最小方案：域名管理员添加crm A记录指向现有主机；企微管理员提供域名根路径所有权校验文件。后续获准实施时另建独立443 vhost文件，复用现有SAN匹配证书和测试上游18765，不改共享站点和18888，无需新增服务/端口；只对新HTTPS host设置Cookie Secure，并将host列入DJANGO_ALLOWED_HOSTS，验证代理HTTPS/CSRF/session。实施前需为测试库与媒体制作并校验新恢复点；10-16备份已过期。DNS、HTTPS/vhost、测试库迁移和试点操作仍须负责人安排单独窗口；没有实施任何变更。
+
+2026-10-20 负责人追加只读核验：当前云端测试 settings overlay 中 `SESSION_COOKIE_SECURE=False`、`CSRF_COOKIE_SECURE=False`；`CSRF_TRUSTED_ORIGINS` 只含既有 IP:18888 与本机 HTTP 来源，`DJANGO_ALLOWED_HOSTS` 不含候选 CRM 域名。overlay 未显式设置 `SECURE_PROXY_SSL_HEADER`、`SESSION_COOKIE_DOMAIN` 或 `SECURE_SSL_REDIRECT`。服务 stdout 到 systemd journal、stderr 为 inherit；测试 vhost 继承全局 `/var/log/nginx/error.log`，普通 access log 使用默认 combined（含完整 `$request`）。代码图只读检查发现当前工作树的 SSO callback 没有显式记录 OAuth code/state/完整 URL，`crm.business` 是单独文件日志；Django/Gunicorn 异常路径仍需固定版合成成功/失败请求验证，不能仅关闭 access log 宣称无泄露。Cookie 方面 `proxy_cookie_path` 仅为候选，必须证明 HTTPS 新 vhost 与 HTTP 18888 按主机隔离且浏览器会话/CSRF正常；如不能证明则停止，不升级 Nginx、不增框架/服务/端口。未读日志内容、未做任何配置或服务变更；证书主机名匹配不代表 CRM 子域真实 TLS 验收。详见[基础设施方案](WECOM-SSO-INFRA-1020.md)。

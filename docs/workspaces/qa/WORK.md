@@ -938,3 +938,21 @@ UI于2026-10-20完成独立视觉复核并通知可清理：五项1280×900/390�
 DB快照：决定仅有订单1/6/5各1条（序号81/84/85）；订单2/3/4/7/8/9/10均为0条。纠错差额流水仅订单1/6各1条，订单5及其余订单为0条。OWNER组已恢复。浏览器会话内保留页面截图、DOM状态和对应请求结果；按用户接受的证据形式未保存截图文件。该证据仅覆盖本次窄范围，不替代全量系统验收。
 
 负责人最终验收前确认无角色依赖这两套QA环境，并授权收尾。19179/19178进程和55492/55491私有集群均已停止，四个端口复核无监听。旧19178进程命令行确认为本QA `.local/qa_commission_adjustment_inline_81c15fd_20261020/source/manage.py runserver`；55491集群数据目录对应本QA固定环境，目标数据库连接数为0、删除后只剩默认系统库，随后停止集群。两套QA专用目录（含固定源码副本、媒体及PG数据）均已从 `.local/` 移入系统废纸篓以保持可恢复；各自空socket目录已移除。未触碰共享55439、演示8765、云环境、用户文件或其它角色资源。结论已发负责人和前端；未提交或推送。
+
+### WECOM-SSO-IMPLEMENT-1020｜固定版独立安全验收（2026-10-20）
+
+依据固定提交 `eefc4900df1007a2191ff63d3577afdc681e45d1`（父提交 `be2dfcc5fd26db4c564d218a06139e26eb87a644`）。先以 detached Git worktree 建立独立副本 `.local/qa_wecom_sso_eefc490_20261020/source`，核对 HEAD 与固定SHA完全一致且工作树干净；没有从共享工作树启动。只读复用已安装的 `.venv`（Python 3.12.13、Django 5.2.17），未运行uv/pip安装或重建共享虚拟环境。
+
+隔离环境使用私有PostgreSQL `127.0.0.1:55493`、数据库 `qa_wecom_sso_eefc490_20261020`、单独QA settings和合成 CorpID/AgentID/Secret；全部迁移至 `crm.0017_accountprofile_wecom_userid`。没有启动应用服务。Provider网络入口 `_request_json` 在回调测试中全部mock，测试只校验本地路由/会话/权限与模拟响应；没有访问、跳转到或登录真实企业微信，也没有使用真实员工身份/凭据。
+
+`manage.py check`通过；固定应用内 `crm.test_wecom_sso` 13项通过；QA隔离探针5项通过；密码登录/主页权限回归4项通过。共22项定向测试，Django test runner创建并销毁独立测试库。最初两条本地HTTPS CSRF探针缺少Referer，因此按Django规则返回403；补齐同源HTTPS Referer后两条POST结果分别为缺token拒绝、有效token通过，最终探针全部通过。另以独立进程确认未设置 `DJANGO_TRUSTED_PROXY_SSL_HEADER` 时 `SECURE_PROXY_SSL_HEADER=None` 且伪造X-Forwarded-Proto不使请求变为HTTPS；显式设为 `1` 后使用 `(HTTP_X_FORWARDED_PROTO, https)`，本地RequestFactory才判为HTTPS。没有运行全量CRM测试。
+
+- **state与回调：** TTL约300秒；错误/非ASCII/过期state均400且不调用Provider，跨session复用state被拒绝；成功回调后session key轮换，状态只能使用一次。重复state不能触发Provider。
+- **入口、next与原登录：** 匿名根页继续跳转原密码登录，不自动跳企微；密码页正常可用，安全next保留，CSRF缺失POST为403、有token及同源HTTPS Referer后成功。在本轮合成配置下，HTTPS请求 `/accounts/wecom/login/?next=/` 生成固定OAuth授权URL，redirect_uri为同host HTTPS `/accounts/wecom/callback/`；外部及协议相对next回退根页，伪造 `X-Forwarded-Host` 不覆盖Host。该路由合同满足管理员配置企微应用主页应填的入口路径，但实际企业应用主页设置未读取/未验证。
+- **身份与会话：** 非成员（仅openid/external_userid）、未绑定userid、停用用户及无AccountProfile映射均拒绝；不创建CRM账号或Profile。现有已绑定员工成功登录保留原销售组/权限；同一CRM账号可继续，不同映射账号返回409要求显式退出，不静默切换；停用员工下一受保护请求失去原session。
+- **后台绑定与边界：** 具有原 `auth.change_user` 的员工管理员可在现UserAdmin编辑已有员工并为缺profile员工补建Profile；不具有该权限的staff账号不能编辑；大小写重复ID被表单/唯一约束拒绝。非超级用户不能打开超级用户编辑页（安全回到admin首页），也没有新增用户权限；普通员工编辑表单不提供 `is_staff`/`is_superuser`，额外提交 `is_superuser` 不会升权；超级用户新建表单也没有WeCom绑定字段。管理POST仍受CSRF保护，绑定操作未改变员工现有销售组。
+- **失败与秘密：** 上游模拟故障返回通用502，不建立半认证session；响应不回显合成code/token/secret。未通过代理或服务访问日志验证query参数脱敏。
+
+**未覆盖/部署限制：** 没有真实企微授权/回调联调、真实企业应用主页控制台设置或员工试点；没有实际HTTPS vhost/Gunicorn/反向代理、浏览器端Secure Cookie或现有HTTP `18888` session兼容验收。部署前需关闭或脱敏回调代理访问日志中的OAuth query；只有代理可靠覆盖转发头且Gunicorn保持loopback绑定时才能显式启用 `DJANGO_TRUSTED_PROXY_SSL_HEADER=1`。本地setting开关探针不证明部署代理配置正确。
+
+收尾核对目标库活动连接数为0后已删除合成数据库并停止私有55493集群，端口无监听；Git worktree已移除。QA独立目录（含PG数据、settings和本地探针）已从 `.local/` 移入系统废纸篓以保持可恢复，空socket目录已移除。未启动应用服务，未改固定应用源码、共享配置、运行/业务数据库或既有服务；没有真实企微联调，未提交或推送。
