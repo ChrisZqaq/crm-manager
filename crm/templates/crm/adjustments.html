@@ -805,8 +805,13 @@
               );
               if (!result) return;
               renderCommissionDecisionResult(orderRow, result);
-              show(decision === 'adjust'
-                ? '提成差额已确认；资金仍需按线下流程处理。'
+              const fundingMessage = result.offline_transfer_performed
+                ? '线下资金处理已完成。'
+                : result.offline_transfer_required
+                  ? '资金仍需按线下流程处理。'
+                  : '本次无需线下资金处理。';
+              show(result.decision === 'adjust'
+                ? `提成差额已确认；${fundingMessage}`
                 : '已保持原核定金额，本次不批准资金调整。');
             } catch (error) {
               if (error.status === 401 || error.status === 403 || error.status === 404 || error.status === 409) {
@@ -835,7 +840,8 @@
     if (hasRows) host.append(section);
   }
   async function refreshCommissionSuggestions() {
-    await loadCorrections();
+    const refreshed = await loadCorrections({clearBlockedCommissionSuggestions: true});
+    if (!refreshed) return;
     const host = document.getElementById('correction-records');
     const actionable = host?.querySelector('.commission-suggestion-actions button:not(:disabled)');
     const blocked = host?.querySelector('.commission-suggestion-row.is-blocked');
@@ -920,11 +926,12 @@
     });
   }
 
-  async function loadCorrections() {
+  async function loadCorrections(options = {}) {
     const host = document.getElementById('correction-records');
-    if (!host) return;
+    if (!host) return false;
     try {
       const result = await api('/api/v1/cost-corrections');
+      if (options.clearBlockedCommissionSuggestions) blockedCommissionSuggestions.clear();
       host.replaceChildren();
       for (const row of result.items || []) {
         const box = document.createElement('article');
@@ -970,7 +977,11 @@
         host.append(box);
       }
       if (!host.childElementCount) host.textContent = '暂无纠错审批记录。';
-    } catch (error) { show(error.message); }
+      return true;
+    } catch (error) {
+      show(error.message);
+      return false;
+    }
   }
 
   loadDamage(); loadCounts(); loadCorrections();
