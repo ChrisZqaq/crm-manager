@@ -7,6 +7,7 @@ from uuid import uuid4
 
 from django.contrib.auth.models import Group, Permission
 from django.db import close_old_connections, connection
+from django.test import Client
 
 from .corrections import (
     approve_cost_correction,
@@ -1032,6 +1033,27 @@ class InventoryAdjustmentPhase5Tests(Phase5Base):
         review.refresh_from_db()
         suggestion_a = correction_a.before_after["commission_adjustment_suggestions"][0]
         return receipt, order, review, correction_a, suggestion_a, review_data, review_result
+
+    def test_correction_list_exposes_commission_suggestions_only_to_owner(self):
+        _, _, _, correction, suggestion, _, _ = self._unresolved_cost_commission_suggestion()
+
+        self.client.force_login(self.owner)
+        owner_response = self.client.get("/api/v1/cost-corrections")
+        self.assertEqual(owner_response.status_code, 200, owner_response.content)
+        owner_row = next(item for item in owner_response.json()["items"] if item["id"] == correction.pk)
+        self.assertEqual(owner_row["before_after"]["commission_adjustment_suggestions"], [suggestion])
+
+        reviewer = self.User.objects.create_user(username="synthetic-commission-reviewer", password="test-only-password")
+        reviewer.user_permissions.add(*Permission.objects.filter(
+            content_type__app_label="crm",
+            codename__in=("view_costcorrection", "view_all_sales_orders", "view_all_commissions", "review_commission"),
+        ))
+        reviewer_client = Client()
+        reviewer_client.force_login(reviewer)
+        reviewer_response = reviewer_client.get("/api/v1/cost-corrections")
+        self.assertEqual(reviewer_response.status_code, 200, reviewer_response.content)
+        reviewer_row = next(item for item in reviewer_response.json()["items"] if item["id"] == correction.pk)
+        self.assertNotIn("commission_adjustment_suggestions", reviewer_row["before_after"])
 
     def _apply_next_purchase_price_correction(self, receipt, price="12.000"):
         preview = preview_cost_correction(self.user, self.correction_data(receipt, purchase_price=price))

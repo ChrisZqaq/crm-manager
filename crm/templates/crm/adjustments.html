@@ -96,7 +96,7 @@
 {% endif %}
 
 {% if can_view_correction %}
-<section>
+<section class="cost-correction-section">
   <h2>纠错审批记录</h2>
   <div id="correction-records"></div>
 </section>
@@ -129,6 +129,7 @@
     if (!response.ok) {
       const error = new Error(data?.error?.message || `操作失败（HTTP ${response.status}），请重试。`);
       error.code = data?.error?.code;
+      error.status = response.status;
       error.fields = data?.error?.fields || {};
       throw error;
     }
@@ -664,6 +665,184 @@
       host.append(empty);
     }
   }
+  const blockedCommissionSuggestions = new Map();
+  const commissionAmountPattern = /^-?\d+\.\d{3}$/;
+  function commissionSuggestionSnapshot(suggestion) {
+    return JSON.stringify([
+      suggestion.cost_correction_id,
+      suggestion.expected_amount_version,
+      suggestion.expected_approved_amount_version,
+      suggestion.approved_amount,
+      suggestion.target_amount,
+      suggestion.delta_amount,
+    ]);
+  }
+  function appendCommissionValue(container, label, value, className='') {
+    const node = document.createElement('span');
+    node.className = `commission-suggestion-value ${className}`.trim();
+    const caption = document.createElement('small'); caption.textContent = label;
+    const amount = document.createElement('strong'); amount.textContent = `¥${value}`;
+    node.append(caption, amount); container.append(node);
+  }
+  function signedCommissionDelta(value) {
+    if (value.startsWith('-') || /^0\.0+$/.test(value)) return value;
+    return `+${value}`;
+  }
+  function renderCommissionSuggestionBlocked(orderRow, message, refresh) {
+    orderRow.classList.add('is-blocked');
+    const status = document.createElement('p');
+    status.className = 'commission-suggestion-feedback';
+    status.setAttribute('role', 'status');
+    status.textContent = message || '建议已变化，请刷新纠错记录。';
+    const button = document.createElement('button');
+    button.type = 'button'; button.className = 'commission-suggestion-refresh'; button.textContent = '刷新建议';
+    button.addEventListener('click', refresh);
+    orderRow.replaceChildren(orderRow.firstElementChild, status, button);
+  }
+  function renderCommissionDecisionResult(orderRow, result) {
+    const resultNode = document.createElement('div');
+    resultNode.className = 'commission-suggestion-result';
+    resultNode.setAttribute('aria-live', 'polite');
+    const badge = document.createElement('strong');
+    badge.className = 'commission-suggestion-badge';
+    badge.textContent = result.decision === 'adjust' ? '已确认调整' : '已保持原额';
+    const current = document.createElement('span');
+    current.textContent = `当前核定 ¥${result.approved_amount}`;
+    const calculated = document.createElement('span');
+    calculated.textContent = `系统新计算 ¥${result.calculated_amount}`;
+    const decision = document.createElement('span');
+    decision.textContent = result.decision === 'adjust'
+      ? `调整差额 ${signedCommissionDelta(result.delta_amount)}`
+      : '本次不调整金额';
+    resultNode.append(badge, current, calculated, decision);
+    if (result.offline_transfer_required && !result.offline_transfer_performed) {
+      const offline = document.createElement('span'); offline.className = 'commission-suggestion-offline';
+      offline.textContent = '待线下处理'; resultNode.append(offline);
+    }
+    const operation = document.createElement('span');
+    operation.className = 'commission-suggestion-operation';
+    operation.textContent = result.sequence ? `操作序号 ${result.sequence}`
+      : result.adjustment_id ? `差额记录 ${result.adjustment_id}` : '';
+    if (operation.textContent) resultNode.append(operation);
+    orderRow.replaceChildren(orderRow.firstElementChild, resultNode);
+  }
+  function renderCommissionSuggestions(record, host) {
+    if (record.status !== 'applied' || !Array.isArray(record.before_after?.commission_adjustment_suggestions)) return;
+    const correctionId = Number(record.id);
+    if (!Number.isSafeInteger(correctionId) || correctionId < 1) return;
+    const section = document.createElement('section');
+    section.className = 'commission-suggestions';
+    const heading = document.createElement('h4'); heading.textContent = '提成差额';
+    const note = document.createElement('p'); note.className = 'commission-suggestions-note';
+    note.textContent = '按订单决定，金额由系统计算。';
+    section.append(heading, note);
+    let hasRows = false;
+    for (const suggestion of record.before_after.commission_adjustment_suggestions) {
+      const orderId = Number(suggestion?.order_id);
+      const suggestionCorrectionId = Number(suggestion?.cost_correction_id);
+      const expectedAmountVersion = Number(suggestion?.expected_amount_version);
+      const expectedApprovedAmountVersion = Number(suggestion?.expected_approved_amount_version);
+      if (
+        !Number.isSafeInteger(orderId) || orderId < 1 || suggestionCorrectionId !== correctionId
+        || !Number.isSafeInteger(expectedAmountVersion) || expectedAmountVersion < 1
+        || !Number.isSafeInteger(expectedApprovedAmountVersion) || expectedApprovedAmountVersion < 1
+        || !commissionAmountPattern.test(suggestion.approved_amount)
+        || !commissionAmountPattern.test(suggestion.target_amount)
+        || !commissionAmountPattern.test(suggestion.delta_amount)
+      ) continue;
+      hasRows = true;
+      const orderRow = document.createElement('article'); orderRow.className = 'commission-suggestion-row';
+      const identity = document.createElement('div'); identity.className = 'commission-suggestion-identity';
+      const link = document.createElement('a'); link.href = `/orders/${orderId}/`;
+      link.textContent = `订单 ${orderId}`; identity.append(link);
+      const values = document.createElement('div'); values.className = 'commission-suggestion-values';
+      appendCommissionValue(values, '当前核定', suggestion.approved_amount, 'is-current');
+      const arrow = document.createElement('span'); arrow.className = 'commission-suggestion-arrow';
+      arrow.setAttribute('aria-hidden', 'true'); arrow.textContent = '→'; values.append(arrow);
+      appendCommissionValue(values, '系统新计算', suggestion.target_amount, 'is-target');
+      const delta = document.createElement('span'); delta.className = 'commission-suggestion-delta';
+      delta.textContent = `差额 ${signedCommissionDelta(suggestion.delta_amount)}`;
+      if (suggestion.delta_amount.startsWith('-')) delta.classList.add('is-negative');
+      else if (!/^0\.0+$/.test(suggestion.delta_amount)) delta.classList.add('is-positive');
+      values.append(delta);
+      orderRow.append(identity, values);
+      const identityKey = `${correctionId}:${orderId}`;
+      const snapshot = commissionSuggestionSnapshot(suggestion);
+      const blocked = blockedCommissionSuggestions.get(identityKey);
+      if (blocked && blocked.snapshot === snapshot) {
+        renderCommissionSuggestionBlocked(orderRow, blocked.message, refreshCommissionSuggestions);
+      } else {
+        if (blocked) blockedCommissionSuggestions.delete(identityKey);
+        const actions = document.createElement('div'); actions.className = 'commission-suggestion-actions';
+        const decisions = [
+          ['adjust', '确认调整', 'commission-adjust-confirm'],
+          ['keep', '保持原额', 'commission-keep-confirm'],
+        ];
+        let pending = false;
+        for (const [decision, label, className] of decisions) {
+          const button = document.createElement('button');
+          button.type = 'button'; button.className = className; button.textContent = label;
+          button.addEventListener('click', async () => {
+            if (pending) return;
+            pending = true;
+            actions.querySelectorAll('button').forEach(item => { item.disabled = true; });
+            button.textContent = '处理中…';
+            const body = {
+              cost_correction_id: suggestionCorrectionId,
+              expected_amount_version: expectedAmountVersion,
+              expected_approved_amount_version: expectedApprovedAmountVersion,
+              decision,
+            };
+            const keyBody = {order_id: orderId, ...body};
+            const scope = `commission-adjustment-${correctionId}-${orderId}`;
+            try {
+              const result = await write(
+                scope,
+                `/api/v1/orders/${orderId}/commission-adjustment-confirm`,
+                body,
+                null,
+                keyBody,
+              );
+              if (!result) return;
+              renderCommissionDecisionResult(orderRow, result);
+              show(decision === 'adjust'
+                ? '提成差额已确认；资金仍需按线下流程处理。'
+                : '已保持原核定金额，本次不批准资金调整。');
+            } catch (error) {
+              if (error.status === 401 || error.status === 403 || error.status === 404 || error.status === 409) {
+                blockedCommissionSuggestions.set(identityKey, {snapshot, message: error.message});
+                renderCommissionSuggestionBlocked(orderRow, error.message, refreshCommissionSuggestions);
+              } else {
+                actions.querySelectorAll('button').forEach((item, index) => {
+                  item.disabled = false;
+                  item.textContent = decisions[index][1];
+                });
+                const feedback = document.createElement('p'); feedback.className = 'commission-suggestion-feedback';
+                feedback.setAttribute('role', 'status'); feedback.textContent = error.message || '操作未能确认，请用相同选择重试。';
+                actions.append(feedback);
+              }
+              show(error.message || '操作未能确认，请用相同选择重试。');
+            } finally {
+              pending = false;
+            }
+          });
+          actions.append(button);
+        }
+        orderRow.append(actions);
+      }
+      section.append(orderRow);
+    }
+    if (hasRows) host.append(section);
+  }
+  async function refreshCommissionSuggestions() {
+    await loadCorrections();
+    const host = document.getElementById('correction-records');
+    const actionable = host?.querySelector('.commission-suggestion-actions button:not(:disabled)');
+    const blocked = host?.querySelector('.commission-suggestion-row.is-blocked');
+    show(actionable ? '纠错影响已刷新，请核对当前建议。'
+      : blocked ? '部分建议当前不可确认，请查看行内提示。'
+        : '纠错影响已刷新；没有待处理的提成差额。');
+  }
   if (correctionForm) {
     correctionKind.addEventListener('change', fillSourceSelect);
     correctionSource.addEventListener('change', drawCorrectionSource);
@@ -749,6 +928,7 @@
       host.replaceChildren();
       for (const row of result.items || []) {
         const box = document.createElement('article');
+          box.className = 'cost-correction-record';
         const heading = document.createElement('h3');
         const sourceList = correctionSources[row.source_kind === 'receipt' ? 'receipts' : 'openings'] || [];
         const source = sourceList.find(item => item.id === row.source_id);
@@ -758,6 +938,7 @@
         const reason = document.createElement('p'); reason.textContent = '原因：' + row.reason;
         box.append(heading, reason);
         renderChangeSections(row.before_after?.changes || {}, box);
+        renderCommissionSuggestions(row, box);
         if (row.can_approve) {
           const approve = document.createElement('button');
           approve.type = 'button'; approve.textContent = '审批并生效';

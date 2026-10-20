@@ -659,3 +659,44 @@ body.page-expanded tbody tr:hover { background: color-mix(in srgb, var(--surface
 .page-theme-picker span { margin-right: 2px; }
 .page-theme-picker button { min-height: 40px !important; padding: 6px 12px; background: var(--surface); }
 .page-theme-picker button[aria-pressed="true"] { border: 2px solid var(--brand); color: var(--brand); }
+
+/* Inline decisions in the existing cost-correction impact list. */
+.legacy-content > .cost-correction-section { min-width: 0; max-width: 100%; }
+.legacy-content > .cost-correction-section #correction-records { min-width: 0; width: 100%; }
+.legacy-content #correction-records .cost-correction-record { min-width: 0; padding: 16px; border: 1px solid var(--line); border-radius: var(--radius-card); background: var(--surface); box-shadow: var(--shadow-card); }
+.legacy-content #correction-records .commission-suggestions { min-width: 0; margin-top: 18px; border-top: 1px solid var(--line); padding-top: 16px; }
+.legacy-content #correction-records .commission-suggestions h4 { margin: 0; font-size: 16px; }
+.legacy-content #correction-records .commission-suggestions-note { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+.legacy-content #correction-records .commission-suggestion-row { display: grid; min-width: 0; grid-template-columns: minmax(90px, 1fr) minmax(0, 1.8fr) auto; align-items: center; gap: 14px; border-bottom: 1px solid var(--line); padding: 16px 0; }
+.legacy-content #correction-records .commission-suggestion-identity { min-width: 0; }
+.legacy-content #correction-records .commission-suggestion-identity a { color: var(--brand); font-weight: 600; }
+.legacy-content #correction-records .commission-suggestion-values { display: flex; min-width: 0; flex-wrap: wrap; align-items: center; gap: 10px; }
+.legacy-content #correction-records .commission-suggestion-value { display: grid; min-width: 0; gap: 2px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.legacy-content #correction-records .commission-suggestion-value small { color: var(--muted); font-size: 12px; }
+.legacy-content #correction-records .commission-suggestion-value strong { font-size: 17px; }
+.legacy-content #correction-records .commission-suggestion-value.is-current strong { color: var(--muted); font-size: 15px; font-weight: 500; }
+.legacy-content #correction-records .commission-suggestion-arrow { color: var(--muted); }
+.legacy-content #correction-records .commission-suggestion-delta { border-radius: 6px; padding: 5px 8px; background: var(--soft-indigo); color: var(--ink); font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.legacy-content #correction-records .commission-suggestion-delta.is-negative { background: var(--danger-bg); color: var(--danger); }
+.legacy-content #correction-records .commission-suggestion-delta.is-positive { background: var(--success-bg); color: var(--success); }
+.legacy-content #correction-records .commission-suggestion-actions { display: flex; align-items: center; gap: 8px; }
+.legacy-content #correction-records .commission-suggestion-actions button,
+.legacy-content #correction-records .commission-suggestion-refresh { min-height: 44px; white-space: nowrap; }
+.legacy-content #correction-records .commission-adjust-confirm { border-color: var(--brand); background: var(--brand); color: #fff; }
+.legacy-content #correction-records .commission-adjust-confirm:hover { border-color: var(--brand-deep); background: var(--brand-deep); }
+.legacy-content #correction-records .commission-suggestion-feedback { margin: 0; color: var(--warning); font-size: 13px; }
+.legacy-content #correction-records .commission-suggestion-result { display: flex; min-width: 0; flex-wrap: wrap; align-items: center; gap: 8px 12px; color: var(--ink); font-size: 13px; font-variant-numeric: tabular-nums; }
+.legacy-content #correction-records .commission-suggestion-badge,
+.legacy-content #correction-records .commission-suggestion-offline { border-radius: 5px; padding: 4px 8px; background: var(--success-bg); color: var(--success); }
+.legacy-content #correction-records .commission-suggestion-offline { background: var(--warning-bg); color: var(--warning); }
+.legacy-content #correction-records .commission-suggestion-operation { flex-basis: 100%; color: var(--muted); font-size: 12px; }
+@media (max-width: 760px) {
+  .legacy-content > .cost-correction-section { width: calc(100vw - 48px); max-width: calc(100vw - 48px); }
+  .legacy-content > .cost-correction-section #correction-records,
+  .legacy-content > .cost-correction-section .cost-correction-record { width: 100%; max-width: 100%; }
+  .legacy-content #correction-records .cost-correction-record { padding: 12px; }
+  .legacy-content #correction-records .commission-suggestion-row { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .legacy-content #correction-records .commission-suggestion-identity { display: flex; justify-content: space-between; gap: 10px; }
+  .legacy-content #correction-records .commission-suggestion-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .legacy-content #correction-records .commission-suggestion-actions button { width: 100%; padding-inline: 8px; }
+}
