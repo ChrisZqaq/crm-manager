@@ -4,7 +4,7 @@
 
 - 依据固定基线 `71d23f9` 与负责人唯一应用写入窗口。仅改详情页模板专用时间上下文、详情模板消费者、回归及本记录；`initial.commission_review.first_earned_at` 的API ISO字符串合同保持不变。详情页从已缓存的复核记录取原始datetime，经 `timezone.localtime` 按 `Asia/Shanghai` 提供模板专用值，继续使用原格式 `Y-m-d H:i`；空值仍显示“—”。
 - 隔离测试 `D15PermissionBoundaryTests.test_order_detail_formats_first_earned_at_in_shanghai_and_keeps_empty_and_permission_states` 覆盖UTC `2026-10-20T01:07:00Z` 显示为上海 `2026-10-20 09:07`、API仍返回UTC ISO字符串、空时间显示“—”、核定金额展示及无查看权限时金额/时间隐藏。唯一测试通过，Django system check 与目标文件 `git diff --check` 通过；独立临时测试库已由Django创建并销毁。默认测试库 `test_aluola_crm_dev` 已存在，本轮未删除或触碰。
-- 差额网页闭环只读核对：现有详情页有“复核当前提成”和“标记线下处理完成”按钮，没有新API对应的 `adjust`/`keep` 决定按钮或当前有效建议行。最小接入建议放在现有订单详情提成差额区，以一行显示核定金额→建议计算金额及差额，并放两个决定按钮；请求带 `cost_correction_id`、`expected_amount_version`、`expected_approved_amount_version`、`decision`、`operation_key`，使用已有确认API。已记录调整流水继续沿用现有详情数据展示，不建新页面。本项未实施，等待UI最小设计确认及负责人后续写入安排。
+- 差额网页闭环只读核对：现有订单详情页只有“复核当前提成”和“标记线下处理完成”，没有 `adjust`/`keep` 决定按钮或当前有效建议行。最小接入位置是 `crm/templates/crm/adjustments.html` 已生效纠错记录的现有影响明细（`row.before_after?.changes`）旁，读取同一纠错记录的 `row.before_after?.commission_adjustment_suggestions`，一行显示核定金额→建议计算金额及差额，并放两个决定按钮。请求带 `cost_correction_id`、`expected_amount_version`、`expected_approved_amount_version`、`decision`、`operation_key`，调用 `/api/v1/orders/{order_id}/commission-adjustment-confirm`。保留现有纠错记录及其影响明细，不建新页面。本项未实施，等待UI最小设计确认及负责人后续写入安排。
 - 固定后应用停写，交QA独立定向验收并同步负责人；未推送或部署。
 
 ## UI-STYLE-EXPAND-1013 两类最小返工固定交付（2026-10-14）
