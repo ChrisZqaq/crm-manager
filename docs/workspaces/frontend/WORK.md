@@ -1,5 +1,12 @@
 # 前端当前工作
 
+## COMMISSION-ADJUSTMENT-INLINE-REWORK-1020 定向返修（2026-10-20）
+
+- 依据：原固定应用 `81c15fd`、QA在独立环境 `19178` 的两项缺陷及负责人唯一最小返修窗口。仅修改 `crm/templates/crm/adjustments.html` 与 `crm/test_phase5.py`；未改服务、模型、权限、API、CSS布局、依赖或已批准界面范围。
+- 刷新提成建议时，只有纠错列表GET成功才清除本页对先前409/撤权等结果的阻断记忆并以服务端列表重绘。失败时保留原阻断状态和错误提示，不显示刷新成功，也不自动重试决定；服务端过滤掉的建议不会生成按钮。成功提示依据决定API回执中的 `offline_transfer_required`、`offline_transfer_performed` 与 `decision`，零差额调整不再误报待线下处理。
+- 定向验证：`InventoryAdjustmentPhase5Tests.test_adjustments_page_renders_structured_chinese_forms` 1项通过（独立临时PostgreSQL测试库，自动销毁）；`manage.py check`、`git diff --check`通过。此处回归锁定页面脚本的刷新成功/失败与资金回执分支；浏览器真实付款状态恢复、撤权/过期过滤、刷新失败和零差额操作留给QA对本固定版本定向复测，未声称通过。
+- 应用固定提交 `6024205a9024200b5d61f968b105fcbb375552a8`（父提交 `50fa0e1`；应用逻辑基线为 `81c15fd`）。本固定版停止应用写入，交QA及负责人；不推送、不部署。
+
 ## COMMISSION-ADJUSTMENT-INLINE-1020 局部提成差额接入（2026-10-20）
 
 - 依据 `5cf1f73` 应用基线、负责人最新文档批准提交 `87b61b7`、唯一前端写入窗口及 UI 已批准原型 [HANDOFF](../ui/commission-adjustment-inline-v1/HANDOFF.md)。仅在库存调整页现有已生效纠错影响记录内展示订单当前核定金额、系统建议金额、差额和逐单 `adjust`/`keep`；调用既有无尾斜杠决定API。没有新页面/导航、金额编辑、历史API、服务/模型/权限/日志/依赖改动。客户端只提交纠错ID、双版本、决定和现有幂等操作键，不自行计算金额；普通复核者无按钮，过期/无权状态要求刷新，成功文案依据服务端结果区分核定变化和待线下资金处理。
