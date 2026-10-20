@@ -1,6 +1,6 @@
 # CRM Manager 文档入口
 
-更新：2026-10-19。运行应用71cf9f6、迁移0015；此前SKU规格删除、运营页/Admin主题、Astra修复及HTTP重试验收保持。当前开展新版业务数据受控重建预检及[人工流程/UI简化方案](project/WORKFLOW_SIMPLIFICATION_20261019.md)审查；旧业务数据及正式账号保留，新版尚未导入，历史状态与客商等缺项待收口。“调货”已确认为外部采购后销售。原15SKU期初已入账并核对过，不代表新版585SKU及历史流水已导入。导入对账通过后才按用户要求关停云端CRM；尚未正式员工入口切换。当前状态见[开发计划](project/DEVELOPMENT_PLAN.md)，未决项见[问题账](project/ISSUE_LOG.md)。
+更新：2026-10-20。当前优先CRM本身上线准备；企微及其他移动入口开发暂缓。云测试eefc490/0017、HTTPS和密码登录已验证；本机仍71cf9f6/0015。实际出库成本、提成差额及简化界面已完成限定验收并包含在云测试版。正式库仍原15SKU期初及正式账号，新版业务数据尚未导入，员工入口尚未切换。当前状态与任务见[开发计划](project/DEVELOPMENT_PLAN.md)，未决项见[问题账](project/ISSUE_LOG.md)。
 
 ## 所有人最小阅读集
 
@@ -20,7 +20,7 @@
 - **business/**：[项目共识](business/PROJECT_CONSENSUS.md)、[商品](business/PRODUCT_CATALOG.md)、[采购](business/PURCHASE_RECEIVING.md)、[销售履约](business/SALES_FULFILLMENT.md)、[权限](business/ACCESS_CONTROL.md)、[客户/报表](business/CUSTOMERS_REPORTS.md)、[期初/导出](business/INITIAL_DATA.md)。
 - **specs/**：[PRD](specs/PRD.md)、[SPEC](specs/SPEC.md)、[数据库](specs/DATABASE_DESIGN.md)、[成本算法](specs/COST_ENGINE.md)、[API](specs/API_CONTRACT.md)、[验收](specs/ACCEPTANCE.md)。业务基线ad06ea3已批准，后续明确增量见对应文档。
 - **project/**：只维护当前会话、任务、问题和授权，不存角色聊天全文。
-- **2026-10-19已确认调整**：[实际出库成本、提成差额及UI目标](project/COST_COMMISSION_REVISION_20261019.md)。已在6024205实现并完成本轮限定验收；[发布记录](project/RELEASE_COST_WORKFLOW_20261020.md)列明分版本证据及限制，既存旧单和已部署71cf9f6口径另行保留，运行库迁移与业务切换未执行。
+- **2026-10-19已确认调整**：[实际出库成本、提成差额及UI目标](project/COST_COMMISSION_REVISION_20261019.md)。已在6024205实现并完成本轮限定验收，云测试eefc490已包含；[发布记录](project/RELEASE_COST_WORKFLOW_20261020.md)列明分版本证据及限制，旧单成本口径保留；云测试迁移至0017，正式库新版迁移与业务切换未执行。
 - **workspaces/**：ROLE/WORK和角色产物，不是已确认业务的副本；原型不等于批准、交付声明不等于验收。
 - **templates/**：[当前12列期初模板](templates/期初盘点模板-简化版.xlsx)，原期初模板及用户已有未提交修改保留、不覆盖或提交。
 - **archive/**：[旧阶段记录](archive/DEVELOPMENT_PLAN_HISTORY.md)、[旧问题证据](archive/ISSUE_LOG_HISTORY.md)、[旧协作记录](archive/COORDINATION_HISTORY.md)、[文档审查](archive/DOCUMENT_REVIEW.md)、[协作方法参考](archive/PROJECT_WORKING_METHOD.md)。仅查证具体历史时读取。
