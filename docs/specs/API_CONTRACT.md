@@ -1,6 +1,6 @@
 # 第一版网页与API合同
 
-> **2026-10-19成本与提成目标更新（已确认，未实施）：** 毛利/提成按实际出库扣减成本计算，下单仅显示当前成本参考；采购纠错不自动改已审核提成，由系统计算差额、老板确认调整并留原记录。下文有关下单固定成本、增量换仓重锁成本及纠错自动调整已审核提成的旧段落，仅描述现有运行71cf9f6行为，不再作为新实施依据。新决定及待收口范围以[本次调整](../project/COST_COMMISSION_REVISION_20261019.md)为准；其它已确认规则继续有效。
+> **2026-10-20成本口径：** 本文已按实际出库成本及独立提成差额确认规则校准。候选应用 `0ad1b40`（含后端 `1f48aa4`、连续纠错补丁 `368c5cd`）已通过分项QA/UI，完整网页链及最终发布仍待；已部署版仍为 `71cf9f6`/0015。既存旧单保留下单快照语义，新单采用实际出库成本；依据与范围见[本次调整](../project/COST_COMMISSION_REVISION_20261019.md)。
 
 > 2026-10-09增量开发合同已收口，见本文新增章节及[本轮需求](../project/USER_REVISION_20261009.md)。获批UI见revision-v1/HANDOFF；下列增量是开发目标，尚未实现或发布。既有金额、库存及权限规则继续有效，旧阶段验收状态以开发计划为准。
 
@@ -124,7 +124,7 @@ POST `/api/v1/images`支持JPEG／PNG／WebP，每张≤10MB，服务端验证�
 
 库存报表读取当前实时库存余额、成本、可售量、限制数量与原因，不接受销售日期筛选。筛选为`warehouse_id`、`sku_id`、`brand_id`及`low_stock=true/false`。
 
-销售默认`scope=delivered`，按快递发货时间或现场交付时间筛选，排除已取消订单；`scope=unshipped`显式查看未交付订单，不并入已交付销售，也不适用交付日期周期。筛选可组合使用`sku_id`、`brand_id`、`warehouse_id`、`salesperson_id`、`customer_id`、`channel_id`、`province`和`city`。省市来自订单地址快照。各行按SKU、仓库、销售、客户、渠道、地区及售卖单位分组；不同单位不混加，订单行收入、下单成本和运费仅汇总一次，毛利按收入减下单成本和出库运费计算。
+销售默认`scope=delivered`，按快递发货时间或现场交付时间筛选，排除已取消订单；`scope=unshipped`显式查看未交付订单，不并入已交付销售，也不适用交付日期周期。筛选可组合使用`sku_id`、`brand_id`、`warehouse_id`、`salesperson_id`、`customer_id`、`channel_id`、`province`和`city`。省市来自订单地址快照。各行按SKU、仓库、销售、客户、渠道、地区及售卖单位分组；不同单位不混加，订单行收入、按口径销售成本和运费仅汇总一次；新单使用实际出库成本，旧单保留下单快照。分组增加cost_basis区分口径，未出库新单成本/毛利为空且不以0填充，Excel保持空白。
 
 收款核对表按系统记录的首次成功登记收款凭证时间筛选，复用滚动周期及自定义北京时间日期边界；修改截图、金额、账户或重新核对不改变该时间。支持与销售/提成一致的`period/start_date/end_date`，响应提供`first_evidence_registered_at`、明确日期口径、实际起止日期及`date_filter_available=true`。历史记录仅在存在可验证的成功`payment_register`操作记录时回填，否则保留空值，仅在全部周期中显示，不归入日期区间；不使用`received_at`、订单时间或更新时间替代。可按订单维度、核对`status`、`account_id`及`paused=true/false`筛选。金额列区分订单应收、登记收款与差额；`received_at`仍是可空的登记实际收款时间。图片只返回受控编号，内容仍走原单据权限接口。
 
@@ -230,3 +230,13 @@ UI-LIST-FILTERS集中核对补充（待实施）：orders.filter_options另含 `
 ### UI-HOME-REFINE今日新增客户（2026-10-12，ac2f248已实现并独立验收）
 
 现有GET customers新增可选include_created_today=true|false（使用现有布尔参数校验）；仅true时顶层增加整数created_today_total，默认响应不变。复用客户total完全相同的权限、当前owner、默认排除归档及既有q/owner_id/include_archived过滤后的QuerySet，在分页前按created_at北京时间当天零点至单次捕获的当前时刻计数；分页items不增加创建时间，不新增端点/表/权限，不前端全库计数。该数表示当前授权和状态范围内今天创建的客户，不是按创建人归因。工作台同一请求customers?page_size=1&include_created_today=true消费total及created_today_total，无view_customer不请求、不伪造0。用户已明确23%仅草图，不新增增长指标；本接口已实现，工作台接入的本轮发布状态见开发计划。
+
+
+## 实际出库成本与独立提成差额（2026-10-20候选）
+
+- 新建订单显式cost_basis=actual_outflow；既存order_snapshot不批量转换。订单预览行`current_unit_cost_reference`为3位当前成本字符串；`unit_cost_snapshot`、`order_cost_amount`及订单`cost_amount`、`margin_amount`、`commission_estimate`在未出库为JSON null。权限不允许的提成字段仍直接省略，不能将null混成权限占位。
+- `GET /api/v1/inventory?sku_id=…&warehouse_id=…`同一库存行`average_cost`供选品即时参考，不需全单预览；on_hand=0时null、无余额items为空，真实零成本为`"0.000"`。不允许客户端按参考均价反算正式成本。
+- 发货／现场交付后新单正式成本由库存实际扣减金额生成；报表和导出同源，`cost_basis_label`区分新旧口径，未出库报表金额用空字符串／Excel空白，不把未形成利润计零。
+- `POST /api/v1/orders/{order_id}/commission-adjustment-confirm` **无尾斜杠**，仅OWNER老板组或is_superuser，仍校验订单可见、完成、当前付款通过；普通review_commission与approve_costcorrection双权限不授予该动作。请求：`operation_key`、`cost_correction_id`、`expected_amount_version`、`expected_approved_amount_version`、`decision=adjust|keep`，不接收金额。
+- 成功直接返回operation result（无额外envelope）：document_id/order_id/sequence/version/status/decision、approved_amount_before/calculated_amount/approved_amount/delta_amount、amount_version/approved_amount_version、adjustment_id、offline_transfer_required、offline_transfer_performed。非零adjust才有adjustment_id及required=true；performed恒false，完成线下资金仍用既有标记，不由该动作转账。keep的delta表示计算差额，不是已批准资金调整。
+- 成本纠错批准本身不调整已核定提成；影响JSON包含老板可见的版本化建议。独立操作服务端重算差额，同键同输入返回原结果，同键异输入拒绝；旧版本或旧建议返回409 stale_suggestion，已决定新键拒绝重复决定。连续未决定成本纠错可用最新建议替代旧建议；普通运费穿插仍走REREVIEW，不借此恢复旧核定资格。

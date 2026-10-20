@@ -1,6 +1,6 @@
 # 数据库设计
 
-> **2026-10-19成本与提成目标更新（已确认，未实施）：** 毛利/提成按实际出库扣减成本计算，下单仅显示当前成本参考；采购纠错不自动改已审核提成，由系统计算差额、老板确认调整并留原记录。下文有关下单固定成本、增量换仓重锁成本及纠错自动调整已审核提成的旧段落，仅描述现有运行71cf9f6行为，不再作为新实施依据。新决定及待收口范围以[本次调整](../project/COST_COMMISSION_REVISION_20261019.md)为准；其它已确认规则继续有效。
+> **2026-10-20成本口径：** 本文已按实际出库成本及独立提成差额确认规则校准。候选应用 `0ad1b40`（含后端 `1f48aa4`、连续纠错补丁 `368c5cd`）已通过分项QA/UI，完整网页链及最终发布仍待；已部署版仍为 `71cf9f6`/0015。既存旧单保留下单快照语义，新单采用实际出库成本；依据与范围见[本次调整](../project/COST_COMMISSION_REVISION_20261019.md)。
 
 > 2026-10-09增量开发合同已收口，见本文新增章节及[本轮需求](../project/USER_REVISION_20261009.md)。获批UI见revision-v1/HANDOFF；下列增量是开发目标，尚未实现或发布。既有金额、库存及权限规则继续有效，旧阶段验收状态以开发计划为准。
 
@@ -9,13 +9,13 @@
 
 ## 1. 设计原则
 
-一个数据库。商品档案表达商品身份，仓库余额表达当前库存，单据及流水解释库存来源，订单保留成交与成本快照。四张报表查询这些数据，不再保存四份手工账。
+一个数据库。商品档案表达商品身份，仓库余额表达当前库存，单据及流水解释库存来源，订单保留成交快照及明确的销售成本口径。四张报表查询这些数据，不再保存四份手工账。
 
 优先使用 Django 原生用户、分组、权限、会话。固定三类普通角色映射到分组，管理员使用原生超级用户；不自建密码表或权限规则引擎。
 
 业务记录使用内部主键，SKU另有唯一稳定的业务编号；业务编号、条码、物流号均为文本。日期时间建议保存时区信息，展示及报表按 Asia/Shanghai。
 
-已确认报表时间筛选按北京时间，滚动近1、3、6、12个月或自定义日期，首尾当天包含；以实际起止时间查询，不为每个快捷期间存一份报表数据。提成未计入按订单提交日期、已计入按正式计入日期；已计入提成纠错差额按老板批准纠错日期，不改变原计入日期、不与修正后提成重复汇总。
+已确认报表时间筛选按北京时间，滚动近1、3、6、12个月或自定义日期，首尾当天包含；以实际起止时间查询，不为每个快捷期间存一份报表数据。提成未计入按订单提交日期、已计入按正式计入日期；已计入提成纠错差额按老板独立确认提成调整日期，不改变原计入日期、不与修正后提成重复汇总。
 
 已确认SKU编号规则为IP前缀＋至少4位流水号，按IP人工编号、格式校验及全局唯一；语言规格不编码，使用后不改号、不复用。数据库外键使用独立内部ID。未来新编号规则可用于新SKU，历史编号保持有效；不为此预建编号规则引擎或改号工具。
 
@@ -63,22 +63,22 @@ SKU增加可空专用预警阈值及提醒关闭标记；一个全局默认阈�
 
 建议流水使用明确的可空来源外键（期初行、采购行、销售行、拆箱单、赠送行、盘点行、破损处理），数据库约束每条只关联一种来源。防重复按一次业务操作标识＋来源明细（或拆箱单）＋余额＋事件种类约束，不能仅按来源明细＋事件种类唯一：同一订单可以多次合法改量，同一破损记录也可分次处理。跨仓拆箱的两端共用操作标识，但各有对应余额流水。这样可定位来源，不使用任意表名＋ID代替实际关系。
 
-历史重算还必须保留订单提交及修改时的必要业务输入：当时各明细的仓库SKU、数量、成交价，以及该次为固定／沿用／重新固定成本。仅有当前订单行和占货差量不足以重建历史。建议复用流水所属的业务操作记录保存最小输入快照和确定顺序，单据可多次操作，每次操作可有多条流水；不记录普通浏览、地址或备注编辑，不建立全量审计或事件溯源框架。具体结构与重算版本方案仍待总审。
+历史重算还必须保留订单提交及修改时的必要业务输入：当时各明细的仓库SKU、数量、成交价，以及该次成本口径及旧快照单的固定／沿用／重新固定方式。仅有当前订单行和占货差量不足以重建历史。建议复用流水所属的业务操作记录保存最小输入快照和确定顺序，单据可多次操作，每次操作可有多条流水；不记录普通浏览、地址或备注编辑，不建立全量审计或事件溯源框架。具体结构与重算版本方案仍待总审。
 
-成本账存金额和数量，平均单位成本由二者计算。已确认订单单位成本先四舍五入保存3位，订单行成本为该快照×数量，减量沿用同一单价；库存中间平均计算保留高精度。实际出库按发货或现场交付时移动平均成本扣减，独立于订单成本快照；扣减结果保存3位，清空时扣完剩余成本，数量金额一同归零，不更改订单成本或提成。破损退款按处理时移动平均成本扣减，同样应用归零规则，不回溯原入库或重算历史订单提成。库存余额是查询加速数据，必须能用有效单据和流水核对。
+成本账存金额和数量，均价由二者计算。新单cost_basis=actual_outflow，未出库正式成本、毛利、提成及行成本可空；出库事务以库存流水实际扣减总额确定订单成本，同仓SKU按数量分摊明细、末行承接尾差。旧order_snapshot记录保留原3位单位快照及行成本，不批量改算。库存中间精度50、保存3位，清空扣尽剩余成本；破损退款仍按处理时均价扣减，不回溯旧销售。余额必须与有效单据流水一致。
 
 ## 4. 销售、收款、物流及提成
 
 | 建议表 | 关键字段与关系 | 约束／说明 |
 | --- | --- | --- |
 | sales_order | 销售user_id、可空customer_id、渠道、履约状态、交付方式、收货信息及省市快照、成交／成本／毛利／提成金额、提交／发货／完成时间、版本 | 快照不随客户地址变化；销售地区统计按订单快照；不把核对状态混入履约状态 |
-| sales_order_line | order_id、sku_id、warehouse_id、数量、成交单价金额、订单单位成本及成本金额快照、出库库存成本金额 | 同SKU多仓分行；已确认分别保留订单下单成本与实际出库扣减成本 |
+| sales_order_line | order_id、sku_id、warehouse_id、数量、成交单价金额、可空unit_cost_snapshot及order_cost_amount、cost_mode | 新单未出库为空；出库后order_cost_amount为实际成本分摊，单位快照仍空；库存扣减证据在InventoryMovement，不另加出库成本字段 |
 | payment_account | 名称、支付方式、责任=对公／老板私账、启用状态 | 通过Django Admin维护；不保存账户登录秘密 |
 | payment_record | order_id、account_id、销售登记金额、收款图片关联、系统首次凭证登记时间、可空实际收款时间、差额原因、核对状态、问题原因、核对人时间、问题暂停标记、期望及已核版本 | order_id唯一，一单一笔；核对绑定订单应收金额及收款信息版本，不绑定地址备注等无关版本；有关内容修改后原通过结果失效 |
 | shipment | order_id、承运方、运输编号 | 一单多编号；跨越／顺丰运单号、货拉拉平台订单号 |
 | shipment_warehouse | shipment_id、warehouse_id | 关联多个供货仓库，组合唯一；只能关联本订单实际供货仓库 |
 | commission_review | order_id、对应金额版本、最后批准金额、复核人时间、原计入时间 | 一单当前复核记录；三条件满足时首次计入；已计入普通修改待重审仍保留原日期与旧批准金额，再次通过更新批准金额，不把新计算值当已批准 |
-| commission_adjustment | approval_operation_id、order_id、原因类型(initial/rereview)、原值、新值、差额、确认人时间、销售确认完成人时间 | 当前阶段记录首次核定及重审差额；差额为新值减上次批准值；多次批准分别记录，不转账，不重复加到已批准提成汇总；采购／期初纠错关联留后续阶段 |
+| commission_adjustment | approval_operation_id、order_id、原因类型(initial/rereview/cost_correction)、原值、新值、差额、确认人时间、销售确认完成人时间 | 当前阶段记录首次核定及重审差额；差额为新值减上次批准值；多次批准分别记录，不转账，不重复加到已批准提成汇总；成本纠错仅独立确认非零调整才写本表，待决定建议在纠错JSON，keep决定在BusinessOperation |
 
 阶段4当前实现：`sales_order.status`约束允许`awaiting_payment`、`ready_to_ship`、`shipped`、`completed`、`cancelled`；付款核对状态独立于履约状态，订单保留`payment_version`、`amount_version`、`shipped_at`及`completed_at`。销售订单行有稳定主键和`active`标记，修改移除行不物理删除；每次业务操作保留当时SKU、仓库、数量、成交价、单位成本、行成本及固定／沿用／重算模式。占货流水以销售订单为来源；履约出库按库存移动平均成本记流水并释放占货。
 
@@ -164,7 +164,7 @@ erDiagram
 | damaged_record补全 | balance_id、receipt_line/opening_line二选一、original_quantity、remaining_quantity、version | 来源明确，remaining不超过原数量；余额破损数为当前剩余明细合计；原来源更正不得使已处理数量无依据 |
 | damaged_resolution补全 | record_id、kind、quantity、refund_amount可空、deducted_cost、difference、unreturned_freight、operator_id、confirmed_at | exchange退款字段为空；refund实退必填、quantity≤未处理量；difference=扣减成本－退款；不重复相加运费损失 |
 | sales_order补全 | delivery_mode=shipment/on_site；status为awaiting_payment/ready_to_ship/shipped/completed/cancelled；customer_name及收件省市地址快照；payment_version、amount_version、version；shipped_at、completed_at | 快递必填完整收件，现场散客可空；订单版本用于并发修改及履约；付款状态独立 |
-| sales_order_line补全 | 稳定行ID、active、quantity、unit_price、revenue_amount、unit_cost_snapshot、order_cost_amount、outbound_freight=0、cost_mode | quantity>0；修改不物理删除行；减量及只改价沿用原成本快照，增量、新增行、SKU或仓库变化重算整单；出库成本另按实际库存加权平均记录 |
+| sales_order_line补全 | 稳定行ID、active、quantity、unit_price、revenue_amount、unit_cost_snapshot、order_cost_amount、outbound_freight=0、cost_mode | quantity>0；修改不物理删除行；新单未出库成本为空、修改只处理占货及收入；出库后按实际成本分摊；旧快照单仍按原修改规则 |
 | payment_record补全 | expected_payment_version、verified_version可空、status=pending/problem/passed、paused=false | 订单一对一；图片至少一张才能进入待出库；problem原因非空；更新凭证不清除已有暂停，核对通过才能解除 |
 | commission_review补全 | order一对一、approved_amount可空、approved_amount_version可空、first_earned_at可空、reviewer_id及reviewed_at | 未批准金额为空不默认0；首次三条件齐备才写first_earned_at；已计入重审旧批准金额保留，不能只按当前条件抹掉旧月份金额 |
 | commission_adjustment补全 | approval_operation_id、order_id、kind=initial/rereview、old_amount、new_amount、delta、confirmed_at、completed_by/time可空 | 批准操作＋订单唯一；delta=new-old；阶段5再扩展成本纠错关联；销售完成仅影响线下处理标记 |
@@ -195,3 +195,8 @@ erDiagram
 - 新建客户/订单/地址/占货/客户开票更新须同事务；商品产品及其SKU创建同事务，复用模型/表单约束，BusinessOperation以现有control目标及结果ID解释幂等，不增产品历史平台或多套审计。
 
 2026-10-16商品简化：迁移0015删除SKU的box_spec、inner_box_spec、pack_spec三列；不改SKU身份、外键、售卖单位、包类型、别名或库存/成本。迁移前备份；删除的文字不能靠反向迁移找回，恢复需使用对应备份并评估后续写入。既有业务流水JSON原始快照保留，不重写历史。
+
+
+## 2026-10-20候选迁移0016
+
+`SalesOrder.cost_basis` 只允许order_snapshot/actual_outflow，迁移默认旧口径以保留既存数据，新建服务显式写actual_outflow。订单cost_amount/margin_amount/commission_estimate和行unit_cost_snapshot/order_cost_amount允许null，未形成金额不以0冒充。无新表。纠错和差额确认分别原子生效，原核定与前后金额可追溯；接口与版本规则见API_CONTRACT及COST_ENGINE。迁移仅在隔离合成库验证，运行库0015尚未更改。
