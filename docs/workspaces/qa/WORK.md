@@ -1,6 +1,11 @@
 # 测试当前工作
+### 当前唯一任务（2026-10-21）
+- 任务/基线：`CRM-OPENING-CANDIDATE-1021`；固定应用 `eefc4900df1007a2191ff63d3577afdc681e45d1`，候选已冻结。
+- 输入：`/Users/chrisz/Desktop/阿罗拉卡牌进销存V2-1020-2320.xlsx` 与 `.local/initial_data/候选期初导入_1020-2320_两表制_非最终_20261021.xlsx`；私有证据位于 `.local/CRM-OPENING-CANDIDATE-1021/private/`。
+- 边界：仅候选只读对账；不登录/刷新last_login、不preview/confirm/重放、不写库、不碰正式云库/入口、不跑合成业务或清理；旧UI评审已关闭，本轮不恢复、不再联系UI/前端。
+- 当前结论：固定候选商品/库存对账通过；差异和限制见本WORK末尾，已向负责人报告。
 
-更新：2026-10-20；当前任务CRM-RESTORE-DRILL-1020，等待部署交付与负责人明确复核窗口，尚未启动环境或测试。本期数据方向已改为最新库存成本期初，旧历史Excel留存不迁CRM，等待用户重新导出文件；文件到达前不启动数据/业务测试或准备新环境。此前HTTP-COMPAT-RETRY-1013的固定前端提交 `e59e15e4dea2009bf041d06672b1b1f8a2f3cd2c` 已完成独立浏览器＋真实PostgreSQL定向验收，证据见本WORK末节及[浏览器/数据库证据](http-compat-retry-1013/browser-evidence.json)。该结论仅覆盖前次范围，不表示CRM整体验收或发布授权。各阶段记录保留为历史。
+更新：2026-10-21；CRM-RESTORE-DRILL-1020独立只读复核已由负责人接受。恢复资源交部署保管，可能与候选库共用私有集群，当前不停止或清理；待候选manifest明确后再由负责人排定精确清理。已收到固定候选交付并打开只读对账窗口，当前唯一任务见顶部5行说明；数据专员写入/确认过程中QA不查看、不对账。数据口径按最新INITIAL_DATA：2320完整流水回放移动加权成本，无流水SKU仅建档不建库存，三项限制数量0；不触云正式库/入口、不跑合成业务、不自行做期初写入。此前HTTP-COMPAT-RETRY-1013的固定前端提交 `e59e15e4dea2009bf041d06672b1b1f8a2f3cd2c` 已完成独立浏览器＋真实PostgreSQL定向验收，证据见本WORK末节及[浏览器/数据库证据](http-compat-retry-1013/browser-evidence.json)。该结论仅覆盖前次范围，不表示CRM整体验收或发布授权。各阶段记录保留为历史。
 
 最近导航b6bc1e8独立浏览器、定向1项和只目录权限四目标403探针通过，负责人已验收发布f477c07；此前库及临时资产清理。
 
@@ -982,8 +987,44 @@ DB快照：决定仅有订单1/6/5各1条（序号81/84/85）；订单2/3/4/7/8/
 
 企微OAuth目前没有配置真实CorpID/AgentID/Secret，相关入口在测试环境会返回503；按用户暂停接入要求，不作为本次密码登录上线的阻断项，也不要求真实企微联调。结论只向负责人报告；只读汇总，无代码/环境/数据库变更。
 
-### CRM-RESTORE-DRILL-1020｜等待隔离恢复交付与复核窗口（2026-10-20）
+2026-10-21续记：按最新`INITIAL_DATA.md`，用户确认有流水SKU按最新2320完整流水回放移动加权成本，无流水SKU仅保商品档案且不建库存，预留/囤货/破损三项均为0；数据专员正在制作私有两表候选。准确切换冻结点及其后变动仍须界定。旧历史交易不导CRM，QA不执行期初写入或业务烟测。
 
-负责人已派发QA只读复核，当前**未启动**：等待部署工程师固定本机隔离恢复副本的资源证据，并由负责人另行给出明确复核窗口。恢复副本的客户端兼容阻断由部署工程师排查。QA不搭环境、不读取或恢复备份、不连接真实恢复副本；正式库、原备份及共享环境保持不动。新版期初文件到达前，也不启动数据/业务测试或准备新环境。
+### CRM-RESTORE-DRILL-1020｜独立只读复核完成（2026-10-21；资源交部署保管）
 
-收到窗口后仅核查交付的manifest、表行数/指纹及迁移合同，确认0015→0017迁移证据、账号hash/角色/库存保留情况，并报告恢复点年龄与附件为空等覆盖限制。不在恢复副本写入合成交易，不将本次隔离演练表述为持续备份达标或正式切换验收。
+依据部署工程师提供的私有manifest、隔离Unix socket连接和资源归属；固定应用提交`eefc4900df1007a2191ff63d3577afdc681e45d1`。部署工程师仍是隔离实例与文件唯一保管/清理责任人。QA未重做恢复/迁移、未创建账号/登录应用/刷新`last_login`，未写业务或代码，未连接正式库/共享PG；完成后不自行停止或清理。
+
+**备份及指纹：**10/19配对源manifest记录基线迁移`0015_remove_sku_packaging_specs`、43张CRM/auth表434行、媒体0文件；DB dump与媒体归档的实际字节数及SHA-256均与manifest吻合。静态`business-current-fingerprint.json`与baseline相同；恢复后现场只读逻辑数据流经本地内存指纹程序计算，43表/434行与10/19 current及部署交付的`fingerprint_after.json`逐表count/SHA完全一致，没有把原始行或dump写到文件。身份表指纹涵盖`auth_user`（不含易变`last_login`）、组/权限/成员关系；库存及库存流水也逐表相同。
+
+**现场SQL及迁移：**隔离集群首次出现停止状态后由部署工程师仅启动原PG17.11私有集群；QA使用部署指定Unix socket连接到`aluola_crm_business`，数据库角色为owner。每个psql会话使用`PGOPTIONS='-c default_transaction_read_only=on'`并包在`BEGIN READ ONLY`/`ROLLBACK`内；`inet_server_addr()`为NULL，当前只读事务确认为on；活跃实例在55491没有TCP监听。读取`data_directory`因owner权限不足被PostgreSQL拒绝，未申请权限；准确路径采用部署工程师进程侧现场确认值。
+
+`django_migrations`同时记录0015、0016、0017。43张基线表/434行；10用户（9 active、1 staff、1 superuser）、3组、8组成员关系、129组权限、0直接用户权限；13商品、15 SKU、15库存余额、15库存流水、1期初批次/15明细、0销售单，与10/19 manifest聚合一致。`auth_user`/组权限/库存表指纹与恢复点逐表一致，确认密码hash、角色关系及已有库存值未变。0016新增的`SalesOrder.cost_basis`为NOT NULL，`crm_order_cost_basis_valid`约束已验证；0017新增`AccountProfile.wecom_userid`可空，`crm_profile_wecomid_ci`为非空部分唯一lower索引。固定应用快照追比eefc490共624个可用tracked blobs匹配、无内容差异；2个缺项仅为`docs/templates`中的Excel模板，两个迁移文件均匹配。
+
+**备份覆盖限制与资源状态：**恢复源manifest仅记录日期2026-10-19、没有精确备份时刻；10-21核验时恢复点至少约一天龄，无法证明RPO≤1小时或周期/异地备份达标。源媒体归档和恢复目录均为0文件，因此没有覆盖非空附件恢复。数据目录、socket、数据库与媒体仍由部署工程师保管并保持现状；候选空库可能共用本任务私有集群，当前不停止或清理，待候选manifest明确后由负责人排定精确清理。QA不申请额外权限、不补模板副本、不复测旧矩阵。
+
+### BUSINESS-DATA-REBUILD-1019｜固定候选只读独立对账（2026-10-21）
+
+依据：负责人开启 `CRM-OPENING-CANDIDATE-1021` 窗口；本次截止点依据用户确认“2320版后无新增进出库”，不以源工作簿最后登记时间推定。候选确认结果固定应用 `eefc4900df1007a2191ff63d3577afdc681e45d1`／迁移0017。源工作簿SHA-256 `92c97a52a86da7a58f0f7281ea5ca5c22426cde0ef2fc0549ccdad26624eb3be`、两表候选SHA-256 `a4ab9c84d767e635c7afaf1c6528442b2dc50400d326bb8341f578e1f5e96b29` 均与固定清单一致。源XLSX的五张表错误声明dimension=A1；只读重置维度后读取完整585条商品及162条流水，未改源文件。
+
+独立档案对账：源与两表均为585个唯一SKU，重复、缺项、孤儿和字段差异均为0；按CRM契约映射 `补充包→booster`、`周边→merchandise`、`礼盒·预组→gift_set`，源中出现的类型均匹配。源侧有585个独立产品身份，数据库实际Product 585、SKU 585；单位、单位码、别名、条码及启用状态与源/两表一致。
+
+独立库存重算：源流水162行覆盖114个SKU，按期初及正常入库单价、调货入库成本单价作为入库成本，逐次按移动加权成本重算出库，3位小数ROUND_HALF_UP。结存104个SKU为正、10个为零、0个为负；另有471个SKU从未出现在流水中。候选104行的SKU集合、数量与WAC单位成本全部匹配（差异0）；585个目录SKU中481个无余额，正好由471个无流水及10个流水结存为零组成。客户预留、囤货、破损均为0。源中另有2条“调货”出库记录的旧成本单价与WAC重算不同；若把这两条旧值当出库成本，会改变2个SKU结存成本。用户已明确采用完整流水移动加权成本，候选按重算结果匹配，此项作为源记录差异报告，不作为候选行差异，也未把旧流水导入CRM。
+
+候选库现场核验：PostgreSQL 17.11、manifest指定PGDATA及socket存在；经Unix socket连入，`inet_server_addr()`为空、`listen_addresses`为空，所有查询在 `BEGIN READ ONLY` 中执行并ROLLBACK。实际Product/SKU/仓库/OpeningBatch/OpeningLine/InventoryBalance/InventoryMovement/BusinessOperation分别为585/585/1/1/104/104/104/1。单一期初批次及BusinessOperation均为序号1；控制记录 `last_sequence=1`、`opening_completed=true`、`opening_enabled=false`。104条流水逐条关联期初行，数量、成本及限制差异0；采购、销售、收款、客户、提成和其他历史业务表均为0。临时actor账号行保留但inactive、非staff、非superuser、无组、无直接权限。未登录、未刷新last_login、未重放幂等操作、未写库、未触云端或清理资源；幂等/新键结果仅读取此前固定confirm及before-after证据。
+
+认证复核：候选11个账号中，10个原账号的密码哈希、状态、角色、201项权限目录、3组、8项成员关系、129项组权限及0项直接用户权限与私有auth_fixture一致，字段/关系差异0；临时actor为唯一额外账号。私有fixture比较显示10个原账号的 `date_joined` 和 `last_login` 时间均存在小于1毫秒的精度差；QA没有登录。用现有候选连接角色无法直连源恢复库，因此认证比对基线为专员提供的私有auth_fixture，不声称完成源恢复库现场直连比较。
+
+证据状态：source/two-table manifest、候选manifest、preview summary、confirm result、before-after及SKU标记文件指纹均复核通过。preview summary交接消息曾误报55位摘要指纹，数据专员修正私有记录后当前64位指纹匹配，源及两表文件指纹未变。候选manifest是confirm前的准备快照；confirmed状态以独立confirm result、before-after及只读现场查询为准。当前仓库HEAD为009d209，但 `crm/config/scripts` 与eefc490无代码差异；候选确认仍以eefc490为固定版本。
+
+结论：本机固定候选的商品档案、期初数量/WAC、库存流水及控制状态对账通过；负责人下一步可按既定授权开启云端正式窗口。保留两项已披露限制：2条源“调货”出库成本单价与WAC重算差异，以及认证时间戳小于1毫秒精度差／未能直连源恢复库。QA没有操作正式库或页面入口。
+
+### CRM-FORMAL-OPENING-1021｜正式PG14云库独立只读对账（2026-10-21）
+
+按负责人开窗指令，固定正式源工作簿与两表候选SHA-256分别为 `92c97a52a86da7a58f0f7281ea5ca5c22426cde0ef2fc0549ccdad26624eb3be` 与 `a4ab9c84d767e635c7afaf1c6528442b2dc50400d326bb8341f578e1f5e96b29`；本机及云端eefc490应用归档、云端confirm结果和before/after文件指纹均匹配交付记录。远端安全提取的manifest身份为正式新库、PostgreSQL 14.24、迁移0017，且记录未启动新Web单元、未改nginx/DNS。未读取 `business.env`、actor凭据、preview token或私有operation-key文件。
+
+独立脚本 `.local/CRM-FORMAL-OPENING-1021/private/verify_opening.py` 直接从固定源工作簿复算，并将两表候选与正式数据库逐SKU对账。目录585行/585个唯一SKU、源流水162行、期末正库存104个；源与两表商品字段差异0，按期初/正常入库单价、调货入库成本单价、出库移动加权成本及3位小数ROUND_HALF_UP复算后，与两表104个正库存SKU的数量和单位成本差异0。源中2条历史调货出库成本字段与获批WAC规则复算不同，属于源字段差异；不输出对应SKU或任何实际成本。候选库存行、数据库OpeningLine、InventoryBalance及opening InventoryMovement逐行关联差异0；批次/操作各1且序号1，动作、actor、batch关联、结果、movement到line/balance关联及UUID格式核对通过。481个SKU无余额，预留/囤货/破损限制均为0；采购、销售、收款、客户、提成及其他历史业务记录为0。
+
+账号复核对照既有私有fresh-source fixture：原10账号密码哈希、状态、角色、组成员、直接权限、权限目录及组权限差异0；fixture时间精度造成20个时间字段差，秒级一致、最大差943微秒。正式库共11账号、9个有效账号（原10账号中的9个有效账号）、1个staff和1个superuser；临时actor已停用、无组、无直接权限且无 `crm.confirm_opening` 权限。没有登录员工账号。
+
+云端实际身份为 `aluola_crm_formal_opening_20261021`／`aluola_crm_formal_opening_1021_app`、PG14.24、迁移0017；核查前无其他active客户端会话。SQL使用 `PGOPTIONS=default_transaction_read_only=on`，首条SQL为 `BEGIN READ ONLY`，最终 `ROLLBACK`。由于按要求不读取数据库密码，SQL经 `ssh tx` 在云主机Unix socket以OS postgres peer建立会话，事务内 `SET ROLE` 到指定普通业务role；查询中 `current_user` 为该role，`session_user` 为postgres。数据库 `listen_addresses=localhost`、`ssl=on`；另以无认证、不发送SQL的本机PostgreSQL SSL协商确认TLS 1.3可用。实际数据查询走Unix socket，未声称该查询会话本身使用TLS。
+
+结论：固定正式云库的商品/SKU、期初WAC、库存流水、控制状态及账号权限对账通过；没有写正式数据、调用应用预览/确认、登录账号、改环境/服务或清理资源。私有汇总记录保存在 `.local/CRM-FORMAL-OPENING-1021/private/qa_result_private_20261021.json`。由于SQL会话通过peer后 `SET ROLE`，没有验证普通role使用密码进行TCP直接认证；内容权限以普通role执行，网络认证路径属于本轮限制。

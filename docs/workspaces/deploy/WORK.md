@@ -1,5 +1,9 @@
 # 部署工程师当前任务与交付状态
 
+补充状态（2026-10-21 CRM-FORMAL-OPENING-1021）：负责人已派发云端正式入账准备并授权仅建立独立新业务库；本阶段已完成，正式预览/确认、服务启动与HTTPS上游切换未执行。等待负责人结合本机候选QA结论另开数据窗口。
+
+当前状态（2026-10-21）：候选库已交期初数据专员，部署侧停止候选写入并待命；企业微信暂停；无后续自动任务。
+
 2026-10-08，任务DEPLOY-AUDIT-1：用户授权GPT-6 Luna通过本机 `ssh tx` 检查腾讯云服务器部署条件并向负责人报告。
 
 状态：DEPLOY-DEV-ENV基线于2026-10-08完成；最新DEPLOY-IP-TEST配置、服务器内验证及本机无代理公网复验已通过。服务保持运行供用户测试；本轮其余远端变更已停止。下方DEPLOY-AUDIT-1、DEPLOY-PREP-PLAN及首次暂停记录均为历史状态。
@@ -445,4 +449,35 @@ Nginx新增独立配置`/etc/nginx/sites-available/aluola-crm-iptest.conf`及启
 
 **兼容客户端与数据库恢复：**共享`.local/postgresql-17/bin/pg_restore`由`--without-zlib`构建，未用于本次恢复。负责人授权后，仅在本任务自有`.local/CRM-RESTORE-DRILL-1020/`基于官方17.11源码构建zlib兼容`pg_restore`；源码包SHA256为`dd27f2b3c59e73ed14aa3324901242bf69a032a6347805f274e6260322d42979`，与官方校验文件一致。私有客户端版本17.11，归档目录496项，完整数据流解码到`/dev/null`成功。用现有PostgreSQL 17.11服务端程序初始化任务私有集群`pgdata/`，只启Unix socket（无TCP监听），恢复到隔离集群内同名`aluola_crm_business`库；查询确认`data_directory`指向任务目录且`inet_server_addr() IS NULL`。从实际`django_migrations`确认起点0015，固定应用快照为`eefc4900df1007a2191ff63d3577afdc681e45d1`，仅应用`0016_cost_at_outflow`和`0017_accountprofile_wecom_userid`。
 
-**演练验收：**Django `check`通过，`makemigrations --check --dry-run`显示无模型差异，`migrate --check`通过。迁移完成后CRM最新迁移为0017；`cost_basis`非空且合法值约束存在，`wecom_userid`可空且大小写不敏感唯一索引存在。用户10/active 9、商品13、SKU15，与恢复前聚合一致；43张CRM/auth表共434行，忽略`auth_user.last_login`、迁移表/session表以及0016新增字段后，逐表行指纹全部与10月19日恢复点一致。媒体归档`gzip -t`通过，解到任务私有目录后文件数为0，与manifest一致。未创建业务单或合成记录，未连接正式数据库或远端服务，未修改共享venv、共享PG客户端或应用运行环境。隔离集群保持运行供QA只读复核；目录为`.local/CRM-RESTORE-DRILL-1020/`。由于媒体基线为空，本演练只验证了0文件恢复；不证明附件有数据时的恢复正确性，也不证明生产RPO/连续备份目标达成。
+**演练验收：**Django `check`通过，`makemigrations --check --dry-run`显示无模型差异，`migrate --check`通过。迁移完成后CRM最新迁移为0017；`cost_basis`非空且合法值约束存在，`wecom_userid`可空且大小写不敏感唯一索引存在。用户10/active 9、商品13、SKU15，与恢复前聚合一致；43张CRM/auth表共434行，忽略`auth_user.last_login`、迁移表/session表以及0016新增字段后，逐表行指纹全部与10月19日恢复点一致。媒体归档`gzip -t`通过，解到任务私有目录后文件数为0，与manifest一致。未创建业务单或合成记录，未连接正式数据库或远端服务，未修改共享venv、共享PG客户端或应用运行环境。QA只读复核确认通过；之后原隔离PG集群已停止。任务目录`.local/CRM-RESTORE-DRILL-1020/`仍保留供审计；其中PGDATA/socket/客户端构建与QA副本均为部署任务自有，未删除共享`.local/postgresql-17/bin`或源备份。终端安全规则拒绝删除整个任务目录的命令，未尝试其他删除方式。由于媒体基线为空，本演练只验证了0文件恢复；不证明附件有数据时的恢复正确性，也不证明生产RPO/连续备份目标达成。
+
+## CRM-OPENING-CANDIDATE-1021 本机两表期初候选空库准备（2026-10-21）
+
+按负责人限定，仅建立本机隔离候选环境并保留现有正式账号；不改应用、正式库、QA恢复库或服务器，不启动Web、不预览/确认期初，不导入商品或库存。
+
+- **候选制品与应用：**候选工作簿`.local/initial_data/候选期初导入_1020-2320_两表制_非最终_20261021.xlsx`SHA-256为`a4ab9c84d767e635c7afaf1c6528442b2dc50400d326bb8341f578e1f5e96b29`，与固定清单一致；来源流水工作簿SHA-256为`92c97a52a86da7a58f0f7281ea5ca5c22426cde0ef2fc0549ccdad26624eb3be`。仅校验制品散列，未读取/导入工作簿业务行。候选应用快照通过`git archive`取自固定`eefc4900df1007a2191ff63d3577afdc681e45d1`，目录`.local/CRM-OPENING-CANDIDATE-1021/app/`；没有改代码。
+- **新隔离环境：**独立PostgreSQL 17.11集群位于`.local/CRM-OPENING-CANDIDATE-1021/pgdata/`，Unix socket目录`.local/CRM-OPENING-CANDIDATE-1021/socket/`，端口标识55492；`listen_addresses=''`，实连确认无TCP地址。候选库`aluola_crm_opening_candidate_1021`由`aluola_crm_opening_candidate_app`拥有，仅本机socket trust连接；数据库连接文件和私有Django settings overlay分别位于`private/connection.env`、`private/candidate_settings.py`，媒体目录指向候选私有`media/`。未启动Web服务或新增公网入口。
+- **固定版本及空库状态：**仅从空库迁移固定`eefc490/0017`；`check`、`makemigrations --check --dry-run`及`migrate --check`通过。商品、SKU、仓库、库存余额、库存流水、期初批次/明细和业务操作均0行；仅迁移初始化的`BusinessControl`一行（last_sequence=0、opening_completed=false、opening_enabled=true）及4项语言选项非空。没有复用旧库期初开关或复制旧商品/库存/流水/业务操作。
+- **账号保留与临时actor：**从QA已完成复核的10/19隔离副本，在PostgreSQL只读事务内使用Django `dumpdata --natural-foreign --natural-primary`导出10个auth用户、3个组、201条权限；源无`AccountProfile`记录。自然键`loaddata`后按username逐账号比较全部账号字段、密码散列、状态、组成员、直接权限及profile，结果匹配。发现fixture时间序列化将`last_login`与`date_joined`亚秒截断，随后仅从只读源按username精确复制这两字段到候选库，复核全部匹配；源库无写入。密码散列没有输出。另建本机候选临时actor，独立用户名明确标示候选用途，active、非staff、非superuser、无组、仅一条`crm.confirm_opening`直接权限（该权限同时是`preview_opening`和`confirm_opening`的要求）。高熵凭据仅存私有`private/opening_actor_credentials.json`（600）；后续数据阶段结束需停用该actor。
+- **交付边界：**私有manifest为`.local/CRM-OPENING-CANDIDATE-1021/private/manifest.json`，连接设置为同目录`connection.env`，账号fixture为`auth_fixture.json`，均在700私有目录且文件600。候选库与连接信息已交负责人及期初数据专员；此后部署工程师停止候选DB写入，等待数据专员收到负责人另行明确的preview/confirm窗口。候选文件标明非最终，不代表正式切换冻结点；正式库/入口/数据操作均未触碰。
+
+## CRM-FORMAL-OPENING-1021 云端新业务库准备（2026-10-21）
+
+依据负责人派发与用户确认“没有新增进出库了，可以入账”，本阶段仅准备正式期初目标环境；生产 `confirm_opening`、员工入口开放及当前测试入口上游切换必须等待本机候选QA和负责人新窗口。本节不记录账号名、密码或数据库密码散列。
+
+- **源库与fresh恢复点：**只读实查云端原 `aluola_crm_business` 使用 PostgreSQL 14.24、CRM迁移0015。当前10个auth用户、9 active；13 Product、15 SKU、销售单/收货单0，原期初批次1、库存余额/流水各15、业务操作1。品牌2、仓库1，供应商/渠道/收款账户均0；原媒体目录0文件。源库没有其他连接，未写入或关闭。执行云端PG14 `pg_dump -Fc -Z0 --create`并打包原媒体到本机 `.local/CRM-FORMAL-OPENING-1021/backup/`：数据库252217字节，SHA-256 `d092955aa5658432b2714dc3dd0195f2ac5ae6c55c4280ae16446243c00986d8`，496项TOC且完整归档解码通过；媒体归档131字节、0文件，`gzip -t`通过，SHA-256 `a71dfaf6e5912c41b43672722881b439cf667484cdf8aa1d7511a00d28275a71`。本机目录700、文件600；源库及媒体保持原样。
+- **账号和基础映射：**在只读事务中按username及权限自然键对比云源与本机候选；原10用户所有非PK字段（含密码散列）、3组、201权限、129组权限关系、8用户组关系、直接用户权限和profile均相符。新库先用自然键fixture装载；发现fixture时间序列化把`last_login`/`date_joined`微秒截断，随后只从云源只读提取并精确更新新库两列，最终逐用户字段及角色/权限比较完全一致。另将源与候选中2条Brand自然字段（name/prefix/enabled）和1条Warehouse自然字段（name/address/enabled）对比完全一致后，仅复制这两类已存在基础配置。其余来源基础配置不猜、不新造。
+- **新库与固定应用：**确认全新的云端名称 `aluola_crm_formal_opening_20261021` 及 `aluola_crm_formal_opening_1021_app` 创建前均不存在；新建UTF8、`en_US.UTF-8`数据库，由专用普通LOGIN角色拥有，无SUPERUSER/CREATEDB/CREATEROLE/REPLICATION/BYPASSRLS。PUBLIC数据库CONNECT及目标public schema CREATE已撤销，仅保留应用角色权限。连接使用现成PG14 `127.0.0.1` SCRAM规则，未改`pg_hba`或监听（PG仍仅`localhost`）。本地固定commit `eefc4900df1007a2191ff63d3577afdc681e45d1`归档SHA-256 `14508d47295c5f5e79da4001150871ce0ec15d6535214cfbdde015de666a6d84`，远端归档散列匹配；仅在新任务路径展开应用。复用既有Python 3.12 venv，`manage.py migrate`到0017通过；`check`、`makemigrations --check --dry-run`和`migrate --check`通过。初次采用Unix socket连接被PG peer规则拒绝，改用已存在的127.0.0.1 SCRAM路径后通过；没有改共享认证配置。
+- **新库状态：**10个原用户及3组/201权限全保留，另建一个临时期初操作员（active、非staff、非superuser、无组、有效权限仅`crm.confirm_opening`）。云端专用Django环境、密钥、DB口令和actor口令仅放 `/opt/aluola-crm-formal-opening-20261021/private/`，文件600、目录700；应用代码/媒体/日志路径独立于测试项目。Brand2、Warehouse1、语言选项4；Supplier、Channel、PaymentAccount、Product、SKU、Customer、销售/收货、OpeningBatch/Line、库存余额/流水、业务操作均0；BusinessControl仅初始1行，`last_sequence=0`、`opening_completed=false`、`opening_enabled=true`。旧15SKU库及其原期初状态未改。
+- **操作边界及证据：**没有创建或启动新systemd unit/Web进程，没有改Nginx/DNS/公网来源、`aluola-crm-dev.service`、18888、原`business.env`或共享服务。fresh备份、本机/云端私有manifest、固定应用归档、`auth_fixture`、新配置与actor凭据路径见 `.local/CRM-FORMAL-OPENING-1021/private/manifest.json` 和云端同任务目录；密码及原auth值未输出。只准备了未执行的 `backup_pair.sh` 与 `backup_plan.md`：每30分钟DB+媒体配对、24小时半小时点/7日每日点、外部目标拉取及PG14隔离恢复方案；没有安装/启用timer或cron、NAS/对象存储、收费资源或新密钥。脚本仅`bash -n`通过。
+- **上线前仍须解决：**本机候选库QA逐SKU独立对账、负责人另开正式preview/confirm及云端逐行对账；用户对服务器外备份去向和员工唯一临时密码重置/安全交付的回复尚未到，连续备份/RPO≤1小时尚未建立。当前源库没有Channel、PaymentAccount、Supplier；按代码模型，销售单必须有Channel、收款记录必须有PaymentAccount、采购收货必须有Supplier及Warehouse。仓库已从旧库复制1个，其他实际业务名称/收款方式须管理员在获准窗口提供；不以合成配置代替。故本阶段数据库准备成功，但不足以宣称已上线。
+
+## CRM-FORMAL-OPENING-1021 入账后配对恢复点（2026-10-21）
+
+依据负责人在正式 `confirm_opening` 固定并停写后发放的单次窗口，只为新业务库保存数据库/媒体配对恢复点；QA期间不写业务数据、账号、服务或入口，不启动定时备份。
+
+- **目标身份与快照状态：**新库 `aluola_crm_formal_opening_20261021`，应用角色 `aluola_crm_formal_opening_1021_app`，PostgreSQL 14.24，CRM迁移 `0017_accountprofile_wecom_userid`，连接地址为 `127.0.0.1`。独立只读事务核对 `BusinessControl` 为 sequence=1、`opening_completed=true`、`opening_enabled=false`；Product/SKU 585/585、OpeningBatch/Line 1/104、InventoryBalance/Movement 104/104、BusinessOperation 1、零库存SKU 481；Receipt/ReceiptImage/SalesOrder/PaymentRecord均0。账户聚合11个用户、9 active（不记录用户名/字段）；确认结果记录临时actor已停用且移除确认权限。数据库开始备份时无其他连接。
+- **数据库恢复点：**云端私有路径 `/opt/aluola-crm-formal-opening-20261021/private/recovery-point-20261021-post-confirm/aluola_crm_formal_opening_post_confirm_20261021.dump`，587,517字节，SHA-256 `f9efac61b53744fe249aa5181f835700b3e27b5df8ed0a8790977ccfd49df7ab`。PG14 `pg_restore --list`为497项，完整归档解码到`/dev/null`成功。
+- **媒体恢复点及附件引用：**云端配对文件 `media_post_confirm_20261021.tar.gz`，110字节，SHA-256 `6073fa4f7b67659231730c7c5b02d7e3969f695038ad17a0461d9ef8d27295fc`；`gzip -t`通过，归档1个根目录项、实际媒体0文件、无符号链接。只读查询 `ReceiptImage`为0行，绑定收货/付款及未绑定引用均0；因此无缺失的绑定附件或需保留的临时附件，未引用媒体也为0。
+- **本机私有副本及配置对应：**相同两份制品已复制到本机忽略目录 `.local/CRM-FORMAL-OPENING-1021/recovery-point-20261021-post-confirm/`；云端目录与本机目录均700，恢复文件和manifest均600。数据库、媒体及manifest远/本机SHA逐一一致。私有manifest `recovery_manifest.json` SHA-256 `ddcaf84a807f58578c6a6a1852280c84e5da5dfae6e14f8d0f123d7ef611db33`，关联固定应用 `eefc4900df1007a2191ff63d3577afdc681e45d1`及应用包SHA `14508d47295c5f5e79da4001150871ce0ec15d6535214cfbdde015de666a6d84`，记录私有settings/env/media根路径；manifest未含凭据值。配置文件仍在原受限路径，未变更。
+- **边界：**未在本轮执行完整恢复演练；完整解码验证了数据库归档可读性，未验证将其恢复后逐表对账。本恢复点是单次入账后配对快照，不表示连续/异地备份计划已配置、RPO目标已达成或服务器外容灾已验收。未改正式库内容、临时actor、服务、Nginx/HTTPS、18888、测试库或密码；只读云QA仍由QA负责。
