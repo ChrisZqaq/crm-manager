@@ -13,7 +13,7 @@ from .forms import (
     SKUAdminForm,
     WarehouseAdminForm,
 )
-from .models import Brand, BusinessControl, Channel, PaymentAccount, PermissionChange, Product, ProductLanguageOption, SKU, Supplier, Warehouse
+from .models import AccountProfile, Brand, BusinessControl, Channel, PaymentAccount, PermissionChange, Product, ProductLanguageOption, SKU, Supplier, Warehouse
 from .permissions import ROLE_NAMES, ROLE_OWNER
 
 
@@ -171,7 +171,7 @@ class EmployeeAdmin(NoAdminHistory, UserAdmin):
             return ((None, {"fields": (
                 "username", "password1", "password2", "first_name", "last_name", "email", "groups",
             )}),)
-        fields = ["username", "first_name", "last_name", "email", "is_active", "groups"]
+        fields = ["username", "first_name", "last_name", "email", "is_active", "groups", "wecom_userid"]
         if request.user.is_superuser:
             fields.extend(("is_staff", "is_superuser"))
         return (("员工", {"fields": tuple(fields)}),)
@@ -197,6 +197,15 @@ class EmployeeAdmin(NoAdminHistory, UserAdmin):
         if not obj.is_superuser:
             obj.is_staff = True
         super().save_model(request, obj, form, change)
+        if "wecom_userid" in form.cleaned_data:
+            value = form.cleaned_data["wecom_userid"]
+            profile = AccountProfile.objects.filter(user=obj).first()
+            if profile is None:
+                if value:
+                    AccountProfile.objects.create(user=obj, wecom_userid=value)
+            elif profile.wecom_userid != value:
+                profile.wecom_userid = value
+                profile.save(update_fields=("wecom_userid",))
 
     def save_related(self, request, form, formsets, change):
         super().save_related(request, form, formsets, change)

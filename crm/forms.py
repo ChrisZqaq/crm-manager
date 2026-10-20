@@ -5,7 +5,7 @@ from django.contrib.auth.models import Group, Permission
 from django.core.exceptions import ValidationError
 
 from .catalog import duplicate_barcode_candidates
-from .models import Product, SKU, Warehouse
+from .models import AccountProfile, Product, SKU, Warehouse
 from .permissions import MANAGEABLE_PERMISSIONS, ROLE_NAMES
 
 
@@ -151,16 +151,46 @@ class EmployeeAddForm(UserCreationForm):
         return user
 
 
-class EmployeeChangeForm(forms.ModelForm):
+def _wecom_userid_field():
+    return forms.CharField(
+        label="企业微信成员ID",
+        required=False,
+        max_length=64,
+        validators=AccountProfile._meta.get_field("wecom_userid").validators,
+    )
+
+
+class WeComBindingFormMixin:
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance.pk:
+            profile = AccountProfile.objects.filter(user_id=self.instance.pk).first()
+            self.initial["wecom_userid"] = profile.wecom_userid if profile else ""
+
+    def clean_wecom_userid(self):
+        value = self.cleaned_data["wecom_userid"] or ""
+        if not value:
+            return None
+        profiles = AccountProfile.objects.filter(wecom_userid__iexact=value)
+        if self.instance.pk:
+            profiles = profiles.exclude(user_id=self.instance.pk)
+        if profiles.exists():
+            raise ValidationError("该企业微信成员ID已绑定其他CRM账号。")
+        return value
+
+
+class EmployeeChangeForm(WeComBindingFormMixin, forms.ModelForm):
     groups = forms.ModelMultipleChoiceField(label="普通角色", queryset=role_group_queryset(), required=False)
+    wecom_userid = _wecom_userid_field()
 
     class Meta:
         model = User
-        fields = ("username", "first_name", "last_name", "email", "is_active", "groups")
+        fields = ("username", "first_name", "last_name", "email", "is_active", "groups", "wecom_userid")
 
 
-class AdministratorChangeForm(forms.ModelForm):
+class AdministratorChangeForm(WeComBindingFormMixin, forms.ModelForm):
     groups = forms.ModelMultipleChoiceField(label="普通角色", queryset=role_group_queryset(), required=False)
+    wecom_userid = _wecom_userid_field()
 
     class Meta:
         model = User
@@ -173,6 +203,7 @@ class AdministratorChangeForm(forms.ModelForm):
             "is_staff",
             "is_superuser",
             "groups",
+            "wecom_userid",
         )
 
 

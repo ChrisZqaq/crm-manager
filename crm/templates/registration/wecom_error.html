@@ -1,0 +1,39 @@
+{% load static %}
+<!doctype html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#302C6C">
+  <title>企业微信登录 · 阿罗拉潮玩空间</title>
+  <link rel="stylesheet" href="{% static 'crm/login.css' %}">
+</head>
+<body class="login-page">
+  <main class="login-main">
+    <div class="login-shell">
+      <section class="brand-panel" aria-label="阿罗拉品牌">
+        <div class="brand-center">
+          <div class="logo-box"><img src="{% static 'crm/brand-logo.png' %}" alt="阿罗拉潮玩空间" width="2354" height="966"></div>
+          <p class="brand-label">门店业务管理</p>
+          <div class="accent-line" aria-hidden="true"></div>
+        </div>
+        <div class="brand-foot">ALOLA · 阿罗拉潮玩空间</div>
+      </section>
+      <section class="form-panel" aria-labelledby="login-heading">
+        <p class="eyebrow">阿罗拉潮玩空间</p>
+        <h1 id="login-heading">企业微信登录</h1>
+        <p role="alert">{{ message }}</p>
+        {% if logout_required %}
+          <form method="post" action="{% url 'logout' %}">
+            {% csrf_token %}
+            <button class="submit" type="submit">退出当前 CRM 账号</button>
+          </form>
+          <p>退出后，请从企业微信工作台重新打开 CRM。</p>
+        {% else %}
+          <a href="{% url 'login' %}">返回账号密码登录</a>
+        {% endif %}
+      </section>
+    </div>
+  </main>
+</body>
+</html>

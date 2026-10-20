@@ -1,10 +1,14 @@
 import json
 import re
+import secrets
+import time
 import uuid
+from urllib.parse import urlsplit
 
+from django.conf import settings
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
-from django.contrib.auth import get_user_model
+from django.contrib.auth import get_user_model, login
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.http import FileResponse, Http404, HttpResponse, JsonResponse
@@ -12,13 +16,15 @@ from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.urls import reverse
-from django.views.decorators.http import require_http_methods, require_POST, require_safe
+from django.utils.http import url_has_allowed_host_and_scheme
+from django.views.decorators.http import require_GET, require_http_methods, require_POST, require_safe
 from PIL import Image, UnidentifiedImageError
 import warnings
 from io import BytesIO
 
 from .catalog import CatalogQueryError, paginate, search_products, search_skus, search_warehouses
 from .models import (
+    AccountProfile,
     Brand,
     BusinessControl,
     Channel,
@@ -101,11 +107,118 @@ from .sales import (
     update_customer,
 )
 from .reports import REPORTS, _date_criteria, build_report, page_report_data, workbook_bytes
+from .wecom import WeComError, authorization_url, authorized_userid
 
 
 @login_required
 def home(request):
     return render(request, "crm/workbench.html")
+
+
+WECOM_STATE_SESSION_KEY = "wecom_oauth_state"
+WECOM_STATE_TTL_SECONDS = 300
+
+
+def _wecom_response(response):
+    response["Cache-Control"] = "no-store"
+    response["Referrer-Policy"] = "no-referrer"
+    return response
+
+
+def _wecom_error(request, message, status, logout_required=False):
+    return _wecom_response(render(
+        request,
+        "registration/wecom_error.html",
+        {"message": message, "logout_required": logout_required},
+        status=status,
+    ))
+
+
+def _safe_wecom_next(value):
+    if isinstance(value, str) and value.startswith("/") and not value.startswith("//") and "\\" not in value:
+        try:
+            parts = urlsplit(value)
+        except ValueError:
+            parts = None
+        if (
+            parts is not None
+            and not parts.scheme
+            and not parts.netloc
+            and not parts.fragment
+            and url_has_allowed_host_and_scheme(value, settings.ALLOWED_HOSTS, require_https=True)
+        ):
+            return value
+    return reverse("home")
+
+
+@require_GET
+def wecom_login_start(request):
+    request.get_host()
+    state = secrets.token_urlsafe(32)
+    try:
+        destination = authorization_url(state)
+    except WeComError:
+        return _wecom_error(request, "企业微信登录暂不可用，请联系管理员。", status=503)
+    request.session[WECOM_STATE_SESSION_KEY] = {
+        "state": state,
+        "expires_at": time.time() + WECOM_STATE_TTL_SECONDS,
+        "next": _safe_wecom_next(request.GET.get("next", "")),
+    }
+    return _wecom_response(redirect(destination))
+
+
+@require_GET
+def wecom_login_callback(request):
+    request.get_host()
+    states = request.GET.getlist("state")
+    codes = request.GET.getlist("code")
+    pending = request.session.get(WECOM_STATE_SESSION_KEY)
+    if (
+        len(states) != 1
+        or not isinstance(pending, dict)
+        or not isinstance(pending.get("state"), str)
+        or not pending["state"].isascii()
+        or not isinstance(pending.get("expires_at"), (int, float))
+    ):
+        return _wecom_error(request, "企业微信登录请求已失效，请重新打开入口。", status=400)
+    if not states[0] or len(states[0]) > 128 or not states[0].isascii():
+        return _wecom_error(request, "企业微信登录请求校验失败，请重新打开入口。", status=400)
+    if not secrets.compare_digest(pending["state"], states[0]):
+        return _wecom_error(request, "企业微信登录请求校验失败，请重新打开入口。", status=400)
+    if pending["expires_at"] < time.time():
+        request.session.pop(WECOM_STATE_SESSION_KEY, None)
+        return _wecom_error(request, "企业微信登录请求已过期，请重新打开入口。", status=400)
+
+    request.session.pop(WECOM_STATE_SESSION_KEY, None)
+    next_url = _safe_wecom_next(pending.get("next"))
+    if len(codes) != 1 or not codes[0] or len(codes[0].encode("utf-8")) > 512:
+        return _wecom_error(request, "企业微信授权未完成，请重新打开入口。", status=400)
+    try:
+        userid = authorized_userid(codes[0])
+    except WeComError:
+        return _wecom_error(request, "企业微信认证服务暂不可用，请稍后重试。", status=502)
+    if not userid:
+        return _wecom_error(request, "此企业微信账号未绑定已启用的CRM员工账号，请联系管理员。", status=403)
+    try:
+        profile = AccountProfile.objects.select_related("user").get(wecom_userid__iexact=userid)
+    except (AccountProfile.DoesNotExist, AccountProfile.MultipleObjectsReturned):
+        return _wecom_error(request, "此企业微信账号未绑定已启用的CRM员工账号，请联系管理员。", status=403)
+
+    user = profile.user
+    if not user.is_active:
+        return _wecom_error(request, "此企业微信账号未绑定已启用的CRM员工账号，请联系管理员。", status=403)
+    if request.user.is_authenticated:
+        if request.user.pk != user.pk:
+            return _wecom_error(
+                request,
+                "当前CRM账号与企业微信账号不一致。请先退出当前CRM账号，再从企业微信工作台重新打开。",
+                status=409,
+                logout_required=True,
+            )
+        return _wecom_response(redirect(next_url))
+
+    login(request, user, backend="django.contrib.auth.backends.ModelBackend")
+    return _wecom_response(redirect(next_url))
 
 
 def _request_id(request):

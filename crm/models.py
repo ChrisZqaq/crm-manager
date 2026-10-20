@@ -1,7 +1,9 @@
 from django.conf import settings
 from django.core.exceptions import ValidationError
+from django.core.validators import RegexValidator
 from django.db import models
 from django.db.models import F, Q
+from django.db.models.functions import Lower
 
 
 def validate_aliases(value):
@@ -603,7 +605,26 @@ class Channel(models.Model):
 
 class AccountProfile(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="crm_profile")
+    wecom_userid = models.CharField(
+        max_length=64,
+        null=True,
+        blank=True,
+        validators=[RegexValidator(
+            regex=r"\A[A-Za-z0-9][A-Za-z0-9_.@-]{0,63}\Z",
+            message="企微成员ID须为1至64字节，以字母或数字开头，且只含字母、数字、下划线、减号、@或点。",
+            code="invalid_wecom_userid",
+        )],
+    )
     version = models.PositiveIntegerField(default=1)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                Lower("wecom_userid"),
+                condition=Q(wecom_userid__isnull=False),
+                name="crm_profile_wecomid_ci",
+            ),
+        ]
 
 
 class PaymentAccount(models.Model):

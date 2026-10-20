@@ -88,6 +88,17 @@ MEDIA_ROOT = BASE_DIR / ".local/private-media"
 LOGIN_URL = "/accounts/login/"
 LOGIN_REDIRECT_URL = "/"
 LOGOUT_REDIRECT_URL = "/accounts/login/"
+USE_X_FORWARDED_HOST = False
+SECURE_PROXY_SSL_HEADER = (
+    ("HTTP_X_FORWARDED_PROTO", "https")
+    if os.environ.get("DJANGO_TRUSTED_PROXY_SSL_HEADER") == "1"
+    else None
+)
+
+WECOM_CORP_ID = os.environ.get("WECOM_CORP_ID", "")
+WECOM_AGENT_ID = os.environ.get("WECOM_AGENT_ID", "")
+WECOM_CORP_SECRET = os.environ.get("WECOM_CORP_SECRET", "")
+WECOM_CALLBACK_URL = os.environ.get("WECOM_CALLBACK_URL", "")
 
 LOGGING = {
     "version": 1,
