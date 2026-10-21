@@ -577,3 +577,11 @@ UV_PROJECT_ENVIRONMENT=/Users/chrisz/.cache/aluola-crm-uiquery1-venv CRM_DB_NAME
 - 环境边界：`USE_X_FORWARDED_HOST=False`；`SECURE_PROXY_SSL_HEADER` 仅由显式 `DJANGO_TRUSTED_PROXY_SSL_HEADER=1` 打开，须等反代确实覆盖 `X-Forwarded-Proto` 且 Gunicorn 只监听 loopback 才可设置。本轮未启用全局 Secure Cookie，不改 Nginx、域名、DNS、TLS、企微应用、运行数据库或部署；未使用真实CorpID、AgentID、Secret、成员身份或平台网络。平台调用全部 mock。上线前仍须确认反代访问日志不保存 OAuth 查询参数，并在目标 HTTPS vhost 单独核实 session/CSRF Cookie 的 Secure 属性与原 HTTP 18888 行为；当前 Nginx 访问日志配置未在本任务修改或验证。
 - 验证：Django `check` 通过；`makemigrations --check --dry-run` 为无额外模型差异；使用现有 Python 3.12.13、PostgreSQL 专用 socket 和随机合成测试数据库运行企微与密码登录 CSRF/安全 next、角色生效、员工管理权限共18项，全部通过，Django 自动销毁本轮测试库。另确认绑定大小写唯一、多个 `NULL`、state错/过期/重放、伪造转发头不启用、session 撤权、显式退出均覆盖。未跑全量测试、浏览器或真实OAuth。初次尝试名下已有的旧测试库未确认归属，未接受删除提示、未触碰该库；后续回归换用空闲随机库名。
 - 固定提交后应用停写，交独立 QA 按该固定版本复核后同步负责人。现实域名/HTTPS/企业微信配置与代理日志要求未满足前，不声称真实企微可用，也不执行运行库迁移或入口切换。
+
+### PASSWORD-SELF-CHANGE-1021｜登录用户自助改密
+
+- 依据：负责人按用户明确授权，开启独立最小应用写入窗口。基线为 `f654cd6` 文档提交；应用代码与固定/验收版 `eefc490` 一致。本轮只增认证路由、共享侧栏入口、改密/完成模板、必要回归及本 WORK；不改任何现有用户密码、角色、业务流程或数据库模型。
+- 复用 Django `PasswordChangeView` / `PasswordChangeDoneView` 及 `PasswordChangeForm`：输入旧密码、新密码和确认；继承现有登录保护、CSRF 与 `AUTH_PASSWORD_VALIDATORS`。改密成功由原生视图更新当前 session auth hash，保留本次登录；完成页明确显示“密码已修改”。两个页面都要求登录。
+- 所有登录用户可在共享侧栏账号区看到“修改密码”入口。模板使用 `crm/password_change_*.html` 唯一路径，避免 Django Admin 已有 `registration/password_change_*.html` 抢先覆盖并展示后台布局。没有增加强制改密、密码重置/邮件或身份平台，也无迁移与新依赖。
+- 验证：`manage.py check`、`makemigrations --check --dry-run` 和 `git diff --check` 通过。专属 Unix-socket-only PG17 测试集群（端口55493）上 7 项通过：匿名不能访问改密/完成页；共享侧栏入口对普通登录用户可见；旧密码错误及新密码校验失败均不改密码；成功改密只更新本人、其他用户密码不变、当前 session 保持并进入 CRM 完成页；POST 保持 CSRF 保护；既有密码登录 CSRF 与安全 `next` 回归通过。Django 自动销毁测试库；确认本任务测试库已不存在，停止并清理仅由本轮创建的集群/目录。未使用或改动云dev、运行副本、正式/候选业务库；未部署或推送。
+- 固定交付后停止应用写入，等负责人安排只测本改动的 QA；用户已明确原初始密码可继续使用，本轮没有重置或触碰它们。

@@ -24,6 +24,8 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("accounts/login/", auth_views.LoginView.as_view(template_name="registration/login.html"), name="login"),
     path("accounts/logout/", auth_views.LogoutView.as_view(), name="logout"),
+    path("accounts/password/change/", auth_views.PasswordChangeView.as_view(template_name="crm/password_change_form.html"), name="password_change"),
+    path("accounts/password/change/done/", auth_views.PasswordChangeDoneView.as_view(template_name="crm/password_change_done.html"), name="password_change_done"),
     path("accounts/wecom/login/", views.wecom_login_start, name="wecom-login"),
     path("accounts/wecom/callback/", views.wecom_login_callback, name="wecom-callback"),
     path("", views.home, name="home"),
