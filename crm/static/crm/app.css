@@ -302,11 +302,14 @@ body.page-expanded .order-form input:not([type="checkbox"]):not([type="radio"]):
 .order-customer-fields, .order-address-fields, .order-invoice-fields { display: grid; min-width: 0; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
 .order-customer-fields { align-items: start; align-content: start; }
 .order-customer-picker { display: grid; min-width: 0; grid-column: span 2; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 8px; }
-.order-customer-lookup { display: grid; min-width: 0; grid-column: 1; grid-row: 1; gap: 8px; }
+.order-customer-lookup { position: relative; display: grid; min-width: 0; grid-column: 1; grid-row: 1; gap: 8px; }
+.order-customer-input { display: flex; min-width: 0; align-items: center; gap: 6px; }
+.order-customer-input input { flex: 1; }
+.order-customer-input button { width: 44px; flex: 0 0 44px; padding: 0; }
 .order-customer-picker #new-customer { grid-column: 2; grid-row: 1; }
 .order-customer-picker #existing-customer { grid-column: 1; grid-row: 1; justify-self: start; }
 .order-customer-picker #walk-in-customer { grid-column: 1 / -1; grid-row: 2; justify-self: start; }
-.order-customer-results { max-height: 280px; overflow: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); box-shadow: var(--shadow-card); }
+.order-customer-results { position: absolute; z-index: 20; top: calc(100% + 4px); right: 0; left: 0; max-height: 280px; overflow: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); box-shadow: var(--shadow-card); }
 .order-customer-results [role="option"] { display: flex; min-height: 44px; align-items: center; padding: 8px 12px; cursor: pointer; overflow-wrap: anywhere; }
 .order-customer-results [role="option"] + [role="option"] { border-top: 1px solid var(--line); }
 .order-customer-results [role="option"][aria-selected="true"] { background: color-mix(in srgb, var(--brand) 10%, var(--surface)); }
@@ -328,13 +331,13 @@ body.page-expanded .order-form input:not([type="checkbox"]):not([type="radio"]):
 .order-form > #preview { justify-self: start; }
 .order-form #lines { min-width: 0; }
 .order-section-heading, .sku-row-heading { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 10px; }
-.order-line { display: grid; min-width: 0; grid-template-columns: minmax(180px, 2.3fr) minmax(120px, 1.2fr) minmax(75px, .65fr) minmax(100px, 1fr) minmax(85px, .8fr) auto; gap: 10px; align-items: start; margin: 10px 0; border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
+.order-line { display: grid; min-width: 0; grid-template-columns: minmax(140px, 1.8fr) minmax(100px, 1.2fr) minmax(132px, 1.4fr) minmax(86px, 1fr) minmax(64px, .7fr) auto; gap: 6px; align-items: start; margin: 10px 0; border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
 .order-line label { display: grid; min-width: 0; gap: 5px; }
 .order-line select, .order-line input { width: 100%; min-width: 0; }
-.order-line [data-availability] { min-height: 1.4em; overflow-wrap: anywhere; font-size: 11px; }
+.order-line [data-availability], .order-line [data-current-cost] { min-height: 1.4em; overflow-wrap: anywhere; font-size: 11px; }
 .line-subtotal { display: grid; gap: 5px; white-space: nowrap; }
 .line-subtotal output { min-height: 44px; display: flex; align-items: center; font-variant-numeric: tabular-nums; }
-.order-line [data-remove] { color: var(--danger); white-space: nowrap; }
+.order-line [data-remove] { margin-top: 27px; color: var(--danger); white-space: nowrap; }
 .order-preview { position: sticky; top: 20px; overflow-wrap: anywhere; }
 .order-editor > #preview-result { grid-column: 2; grid-row: 1; }
 .order-preview pre { max-width: 100%; overflow: auto; white-space: pre-wrap; font: inherit; }
@@ -460,7 +463,7 @@ body.page-expanded .order-form input:not([type="checkbox"]):not([type="radio"]):
   .order-editor > #preview-result { grid-column: 1; grid-row: 2; }
   .order-line { grid-template-columns: minmax(0, 1fr); }
   .order-line .line-sku, .order-line .line-warehouse, .order-line .line-quantity, .order-line .line-price { grid-column: 1; }
-  .order-line .line-remove { justify-self: start; }
+  .order-line .line-remove { justify-self: start; margin-top: 0; }
   .order-customer-fields, .order-address-fields, .order-invoice-fields, .catalog-create-form .form-grid, .catalog-create-form .catalog-sku-row > .form-grid { grid-template-columns: minmax(0, 1fr); }
   .order-customer-picker { grid-column: 1; grid-template-columns: minmax(0, 1fr) auto; }
   .order-search-row { grid-template-columns: minmax(0, 1fr); }
