@@ -339,3 +339,10 @@ UI-QUERY-1契约冻结（负责人同步，2026-10-08；后端仍实施中，不
 - 私有合成环境浏览器实测取消新客户草稿后，已选客户、保存地址、收件字段、发票勾选/抬头/代码均恢复；客户模式切换清空搜索状态。50+结果弹层保持280px内滚动，键盘活动项在滚动视口内完全可见。390px视口无根横溢，搜索弹层和44px清除按钮在客户控件范围内。
 - `manage.py check`、`crm.test_ui.ApprovedWorkbenchAndPaymentUITests.test_order_editor_and_admin_management_render`（1项）、`git diff --check`通过。隔离样本无SKU/仓库/库存，因此长商品名与非空库存/成本的商品行目测未完成；未直接写库存余额，也未操作QA环境。
 - 应用固定后停止应用写入；不推送、不部署。QA/UI另行固定版验收。
+
+### ORDER-CUSTOMER-CONTROLS-1021｜无客户查看权限初始化回归
+
+- 负责人发布前审查发现：无 `view_customer` 的订单创建者仍需脚本内部隐藏 `#customer` select；原模板把它与客户搜索控件一起条件渲染，导致脚本初始化报错。只将内部 select 移至客户权限块外；搜索框、候选列表与已有客户入口继续按 `view_customer` 门控。权限 UI 测试增加隐藏 select 存在断言。CSS未改。
+- 私有隔离账号只授 `add_salesorder`、库存/目录/渠道只读权限，无 `view_customer`。真实浏览器初始化为散客，读取到合成渠道，页面无 JS 错误；本次服务日志没有客户 API 请求。当前私有库没有 SKU/仓库，未自行构造库存/预览数据，交QA用其既有合成库存验证商品选择及预览。
+- `manage.py check`、`crm.test_ui.ApprovedWorkbenchAndPaymentUITests.test_order_editor_and_admin_management_render`（1项）、`git diff --check`通过。
+- 应用提交后停止写入；不推送、不部署，交QA定向验证后由负责人验收。
