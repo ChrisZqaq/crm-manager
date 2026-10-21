@@ -16,8 +16,8 @@
       <div class="order-customer-fields">
         <div class="order-customer-picker" id="existing-customer-field">
           {% if perms.crm.view_customer %}<div id="customer-lookup" class="order-customer-lookup"><label for="customer-query">客户<span class="order-customer-input"><input id="customer-query" type="text" inputmode="search" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="customer-options" aria-haspopup="listbox" placeholder="搜索姓名、公司或联系方式" autocomplete="off"><button id="clear-customer" type="button" aria-label="清除所选客户" hidden>×</button></span></label>
-          <select id="customer" hidden><option value="">请选择客户</option></select>
           <div id="customer-results" class="order-customer-results" hidden><div id="customer-options" role="listbox" aria-label="客户搜索结果"></div><button id="more-customers" type="button" hidden>加载更多客户</button></div></div>{% endif %}
+          <select id="customer" hidden><option value="">请选择客户</option></select>
           {% if not order and perms.crm.add_customer %}<button id="new-customer" type="button">+ 新建客户</button>{% endif %}
           {% if perms.crm.view_customer %}<button id="existing-customer" class="link-button" type="button" hidden>选择已有客户</button>{% endif %}
           {% if not order %}<button id="walk-in-customer" class="link-button" type="button">散客（不建档）</button>{% endif %}

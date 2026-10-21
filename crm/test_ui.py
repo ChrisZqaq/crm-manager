@@ -169,6 +169,7 @@ class ApprovedWorkbenchAndPaymentUITests(TestCase):
         response = self.client.get("/orders/new/")
         self.assertEqual(response.status_code, 200)
         self.assertNotContains(response, 'id="customer-query"')
+        self.assertContains(response, '<select id="customer" hidden>', html=False)
 
     def test_customer_recent_orders_are_only_requested_with_order_permission(self):
         self.client.force_login(self.basic)
