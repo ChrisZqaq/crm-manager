@@ -322,3 +322,13 @@ UI-QUERY-1契约冻结（负责人同步，2026-10-08；后端仍实施中，不
 - 合成环境使用私有 PostgreSQL/数据库和 `127.0.0.1:19176`，确认操作只影响合成样本。验收后专用服务、数据库文件与样本均已停止并清理；未使用 8001/8765 或共享业务库。
 - 收款图片真实浏览器上传本轮未测，未选择或上传文件。此前独立 QA 报告记录的文件选择限制仍未解除，证据见 `docs/workspaces/ui/review-workflow-f6fba53/REPORT.md`；不得把收款表单布局通过描述成真实上传通过。
 - 状态：应用固定，待负责人安排独立 QA/UI 复验并验收；不推送、不部署。
+
+## ORDER-CUSTOMER-CONTROLS-1021 固定交付
+
+- 依据：负责人派发及开发计划中的用户批准方案；公共基线 `94e3527`（本地代码起点 `aa3dcd7` 仅有文档变化）。固定应用提交 `2987d94ad83ba67a52e87bda1940e961a9fae2c5`。仅修改 `crm/templates/crm/order_form.html`、`crm/static/crm/app.css`、`crm/templates/crm/base.html` 和 `crm/test_ui.py`。
+- 客户输入整合为可搜索选择框，支持姓名/公司/联系方式/别名搜索、下拉候选、键盘方向键/回车/ESC、清空与分页。显式“+ 新建客户”及弱化的“散客（不建档）”入口保留；新客户仅在原订单确认时随订单原子保存。新客草稿可取消，恢复此前客户、开票资料、收件地址及收件栏展开状态；模式切换清空隐藏的客户ID。联系方式与别名用单行输入，详细地址保持多行。
+- 表单控件样式限定在订单编辑器；普通输入/选择/按钮目标高44px，地址文本区82px。分辨率 1280×720 实测输入、下拉和按钮均44px、客户输入与“新建客户”按钮同高同顶；商品行SKU/仓库/数量/单价输入顶端对齐，数量帮助文案单独排在下方。390×844 实测 `innerWidth=390`、`clientWidth=375`、`scrollWidth=375`，无页面横向溢出；客户搜索结果弹层右边界237px，列表项最小44px。
+- 合成浏览器操作：别名检索命中1项；52项搜索先呈现50项，点击分页后达到52项并隐藏末页按钮；按钮未禁用。ESC只收起列表并保留查询，方向键加回车成功选择。依次验证已有客户→新建草稿→取消→散客→返回已有客户；取消后已选客户、保存地址及开票勾选/字段值均恢复。未确认或创建订单，未触碰正式数据/服务。
+- 验证通过：隔离环境 `manage.py check`；`crm.test_ui.ApprovedWorkbenchAndPaymentUITests.test_order_editor_and_admin_management_render`（1项）；`git diff --check`；桌面/窄屏浏览器几何和模式操作复核。浏览器当前无 error/warn 记录。完整业务链和固定版独立验收仍由QA/UI完成。
+- QA/UI可复用的私有合成环境仍运行：PostgreSQL 17 数据目录 `.local/ORDER-CUSTOMER-CONTROLS-1021/postgres/data`，端口 `19231`、socket `/tmp/oc-customer-1021`、数据库 `oc_customer_controls_1021`；Django入口 `http://127.0.0.1:19232/orders/new/`。若进程停止，用隔离配置启动：`.local/postgresql-17/bin/pg_ctl -D .local/ORDER-CUSTOMER-CONTROLS-1021/postgres/data -l .local/ORDER-CUSTOMER-CONTROLS-1021/log/postgres.log -o "-h '' -k /tmp/oc-customer-1021 -p 19231" start`；`env CRM_DB_NAME=oc_customer_controls_1021 CRM_DB_USER=oc_controls_1021 CRM_DB_PASSWORD= CRM_DB_HOST=/tmp/oc-customer-1021 CRM_DB_PORT=19231 .venv/bin/python manage.py runserver 127.0.0.1:19232 --noreload`。本轮不清理该库或服务；合成账号由负责人/QA私下接收。
+- 状态：应用提交后停止写入；等待QA/UI独立复验及负责人审查。未推送、未部署。
