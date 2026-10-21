@@ -294,9 +294,25 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
 .legacy-content.order-editor > form#order-form.order-form { display: grid; min-width: 0; grid-template-columns: minmax(0, 1fr); align-items: start; gap: 14px; border: 0; padding: 0; background: transparent; box-shadow: none; }
 .order-form label { display: grid; min-width: 0; gap: 5px; }
 .order-form input, .order-form select, .order-form textarea { width: 100%; min-width: 0; }
+.order-form input:not([type="checkbox"]):not([type="hidden"]), .order-form select, .order-form button:not(.workflow-step) { min-height: 44px; }
+body.page-expanded .order-form input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="reset"]), body.page-expanded .order-form select:not([multiple]) { min-height: 44px; }
+.order-form [hidden] { display: none !important; }
 .order-section { display: grid; min-width: 0; gap: 12px; }
 .order-section h2 { margin: 0; font-size: 16px; }
 .order-customer-fields, .order-address-fields, .order-invoice-fields { display: grid; min-width: 0; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.order-customer-fields { align-items: start; align-content: start; }
+.order-customer-picker { display: grid; min-width: 0; grid-column: span 2; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 8px; }
+.order-customer-lookup { display: grid; min-width: 0; grid-column: 1; grid-row: 1; gap: 8px; }
+.order-customer-picker #new-customer { grid-column: 2; grid-row: 1; }
+.order-customer-picker #existing-customer { grid-column: 1; grid-row: 1; justify-self: start; }
+.order-customer-picker #walk-in-customer { grid-column: 1 / -1; grid-row: 2; justify-self: start; }
+.order-customer-results { max-height: 280px; overflow: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); box-shadow: var(--shadow-card); }
+.order-customer-results [role="option"] { display: flex; min-height: 44px; align-items: center; padding: 8px 12px; cursor: pointer; overflow-wrap: anywhere; }
+.order-customer-results [role="option"] + [role="option"] { border-top: 1px solid var(--line); }
+.order-customer-results [role="option"][aria-selected="true"] { background: color-mix(in srgb, var(--brand) 10%, var(--surface)); }
+.order-customer-results #more-customers { margin: 6px; }
+.order-customer-picker #customer-search-status { grid-column: 1 / -1; grid-row: 3; min-height: 1.2em; margin: 0; }
+.order-subsection #new-customer-summary { margin: 0; }
 .order-search-grid { display: grid; min-width: 0; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .order-search-row { display: grid; min-width: 0; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 8px; }
 .order-search-actions { display: flex; gap: 6px; }
@@ -306,19 +322,18 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
 .order-delivery-fields details { min-width: 0; border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
 .order-delivery-fields summary { cursor: pointer; font-weight: 600; }
 .order-address-fields { grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: start; margin-top: 12px; }
-.order-form #new-customer-fields[hidden], .order-form #invoice-details[hidden], .order-form #delivery-fields[hidden] { display: none; }
 .order-invoice-fields { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 10px; }
 .order-checkbox { display: flex !important; grid-template-columns: auto 1fr; align-items: center; gap: 8px !important; }
 .order-checkbox input { width: auto; }
 .order-form > #preview { justify-self: start; }
 .order-form #lines { min-width: 0; }
 .order-section-heading, .sku-row-heading { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 10px; }
-.order-line { display: grid; min-width: 0; grid-template-columns: minmax(140px, 1.9fr) minmax(100px, 1.2fr) minmax(75px, .9fr) minmax(86px, 1fr) minmax(70px, .8fr) minmax(64px, auto); gap: 10px; align-items: end; margin: 10px 0; border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
+.order-line { display: grid; min-width: 0; grid-template-columns: minmax(180px, 2.3fr) minmax(120px, 1.2fr) minmax(75px, .65fr) minmax(100px, 1fr) minmax(85px, .8fr) auto; gap: 10px; align-items: start; margin: 10px 0; border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
 .order-line label { display: grid; min-width: 0; gap: 5px; }
 .order-line select, .order-line input { width: 100%; min-width: 0; }
 .order-line [data-availability] { min-height: 1.4em; overflow-wrap: anywhere; font-size: 11px; }
 .line-subtotal { display: grid; gap: 5px; white-space: nowrap; }
-.line-subtotal output { min-height: 38px; display: flex; align-items: center; font-variant-numeric: tabular-nums; }
+.line-subtotal output { min-height: 44px; display: flex; align-items: center; font-variant-numeric: tabular-nums; }
 .order-line [data-remove] { color: var(--danger); white-space: nowrap; }
 .order-preview { position: sticky; top: 20px; overflow-wrap: anywhere; }
 .order-editor > #preview-result { grid-column: 2; grid-row: 1; }
@@ -414,6 +429,11 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
 .catalog-create-actions { display: grid; justify-items: start; gap: 8px; }
 .catalog-create-actions p { margin: 0; }
 
+@media (max-width: 900px) {
+  .order-editor { grid-template-columns: minmax(0, 1fr); }
+  .order-editor > #preview-result { grid-column: 1; grid-row: 2; }
+}
+
 @media (max-width: 760px) {
   .order-editor { grid-template-columns: minmax(0, 1fr); }
   .order-preview { position: static; grid-row: 2; }
@@ -442,6 +462,7 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
   .order-line .line-sku, .order-line .line-warehouse, .order-line .line-quantity, .order-line .line-price { grid-column: 1; }
   .order-line .line-remove { justify-self: start; }
   .order-customer-fields, .order-address-fields, .order-invoice-fields, .catalog-create-form .form-grid, .catalog-create-form .catalog-sku-row > .form-grid { grid-template-columns: minmax(0, 1fr); }
+  .order-customer-picker { grid-column: 1; grid-template-columns: minmax(0, 1fr) auto; }
   .order-search-row { grid-template-columns: minmax(0, 1fr); }
   .order-search-actions { justify-content: flex-start; }
   .order-review-facts { grid-template-columns: 1fr; gap: 2px; }

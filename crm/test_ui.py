@@ -150,8 +150,11 @@ class ApprovedWorkbenchAndPaymentUITests(TestCase):
         self.client.force_login(self.order_writer)
         response = self.client.get("/orders/new/")
         self.assertEqual(response.status_code, 200)
-        for marker in ('id="customer-mode"', 'id="requires-invoice"', 'id="more-skus"', 'data-availability', 'id="order-review-facts"', 'id="order-review-lines"', 'id="order-review-bar"', 'data-quantity-error', '当前成本参考：选择仓库与SKU后显示'):
+        for marker in ('id="customer-query"', 'id="new-customer"', 'id="new-customer-summary"', 'id="requires-invoice"', 'id="more-skus"', 'data-availability', 'id="order-review-facts"', 'id="order-review-lines"', 'id="order-review-bar"', 'data-quantity-error', '当前成本参考：选择仓库与SKU后显示'):
             self.assertContains(response, marker)
+        self.assertNotContains(response, 'id="customer-mode"')
+        self.assertNotContains(response, "匹配客户")
+        self.assertContains(response, 'id="contact" inputmode="tel"', html=False)
 
         self.client.force_login(self.admin)
         response = self.client.get("/admin/")
@@ -165,7 +168,7 @@ class ApprovedWorkbenchAndPaymentUITests(TestCase):
         self.client.force_login(self.order_writer_without_customers)
         response = self.client.get("/orders/new/")
         self.assertEqual(response.status_code, 200)
-        self.assertNotContains(response, 'id="search-customers"')
+        self.assertNotContains(response, 'id="customer-query"')
 
     def test_customer_recent_orders_are_only_requested_with_order_permission(self):
         self.client.force_login(self.basic)
