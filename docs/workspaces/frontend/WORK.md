@@ -332,3 +332,10 @@ UI-QUERY-1契约冻结（负责人同步，2026-10-08；后端仍实施中，不
 - 验证通过：隔离环境 `manage.py check`；`crm.test_ui.ApprovedWorkbenchAndPaymentUITests.test_order_editor_and_admin_management_render`（1项）；`git diff --check`；桌面/窄屏浏览器几何和模式操作复核。浏览器当前无 error/warn 记录。完整业务链和固定版独立验收仍由QA/UI完成。
 - QA/UI可复用的私有合成环境仍运行：PostgreSQL 17 数据目录 `.local/ORDER-CUSTOMER-CONTROLS-1021/postgres/data`，端口 `19231`、socket `/tmp/oc-customer-1021`、数据库 `oc_customer_controls_1021`；Django入口 `http://127.0.0.1:19232/orders/new/`。若进程停止，用隔离配置启动：`.local/postgresql-17/bin/pg_ctl -D .local/ORDER-CUSTOMER-CONTROLS-1021/postgres/data -l .local/ORDER-CUSTOMER-CONTROLS-1021/log/postgres.log -o "-h '' -k /tmp/oc-customer-1021 -p 19231" start`；`env CRM_DB_NAME=oc_customer_controls_1021 CRM_DB_USER=oc_controls_1021 CRM_DB_PASSWORD= CRM_DB_HOST=/tmp/oc-customer-1021 CRM_DB_PORT=19231 .venv/bin/python manage.py runserver 127.0.0.1:19232 --noreload`。本轮不清理该库或服务；合成账号由负责人/QA私下接收。
 - 状态：应用提交后停止写入；等待QA/UI独立复验及负责人审查。未推送、未部署。
+
+### ORDER-CUSTOMER-CONTROLS-1021｜负责人授权修复轮
+
+- 仅在原批准文件范围修复客户搜索弹层覆盖布局、搜索状态切换后清理，以及商品行列宽/删除按钮对齐。应用改动为 CSS 与一处状态清理；未改业务/API/模型/依赖。
+- 私有合成环境浏览器实测取消新客户草稿后，已选客户、保存地址、收件字段、发票勾选/抬头/代码均恢复；客户模式切换清空搜索状态。50+结果弹层保持280px内滚动，键盘活动项在滚动视口内完全可见。390px视口无根横溢，搜索弹层和44px清除按钮在客户控件范围内。
+- `manage.py check`、`crm.test_ui.ApprovedWorkbenchAndPaymentUITests.test_order_editor_and_admin_management_render`（1项）、`git diff --check`通过。隔离样本无SKU/仓库/库存，因此长商品名与非空库存/成本的商品行目测未完成；未直接写库存余额，也未操作QA环境。
+- 应用固定后停止应用写入；不推送、不部署。QA/UI另行固定版验收。
