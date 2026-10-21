@@ -481,3 +481,31 @@ Nginx新增独立配置`/etc/nginx/sites-available/aluola-crm-iptest.conf`及启
 - **媒体恢复点及附件引用：**云端配对文件 `media_post_confirm_20261021.tar.gz`，110字节，SHA-256 `6073fa4f7b67659231730c7c5b02d7e3969f695038ad17a0461d9ef8d27295fc`；`gzip -t`通过，归档1个根目录项、实际媒体0文件、无符号链接。只读查询 `ReceiptImage`为0行，绑定收货/付款及未绑定引用均0；因此无缺失的绑定附件或需保留的临时附件，未引用媒体也为0。
 - **本机私有副本及配置对应：**相同两份制品已复制到本机忽略目录 `.local/CRM-FORMAL-OPENING-1021/recovery-point-20261021-post-confirm/`；云端目录与本机目录均700，恢复文件和manifest均600。数据库、媒体及manifest远/本机SHA逐一一致。私有manifest `recovery_manifest.json` SHA-256 `ddcaf84a807f58578c6a6a1852280c84e5da5dfae6e14f8d0f123d7ef611db33`，关联固定应用 `eefc4900df1007a2191ff63d3577afdc681e45d1`及应用包SHA `14508d47295c5f5e79da4001150871ce0ec15d6535214cfbdde015de666a6d84`，记录私有settings/env/media根路径；manifest未含凭据值。配置文件仍在原受限路径，未变更。
 - **边界：**未在本轮执行完整恢复演练；完整解码验证了数据库归档可读性，未验证将其恢复后逐表对账。本恢复点是单次入账后配对快照，不表示连续/异地备份计划已配置、RPO目标已达成或服务器外容灾已验收。未改正式库内容、临时actor、服务、Nginx/HTTPS、18888、测试库或密码；只读云QA仍由QA负责。
+
+## CRM-GO-LIVE-1021 正式入口切换/回退候选清单（2026-10-21，只读准备）
+
+负责人授权仅准备私有执行清单，不安装或启动正式unit、不改Nginx或入口。候选清单已保存在本机 `.local/CRM-FORMAL-OPENING-1021/private/go_live_runbook.md` 与云端 `/opt/aluola-crm-formal-opening-20261021/private/go_live_runbook.md`；SHA-256两边均为 `f048aeae2c55893b6d6ecee3afa71eab24f5971cd5f8373a2878c366fdf87427`，云端文件600。只读核实当前CRM HTTPS的两处反代均指向dev `127.0.0.1:18765`，18888与dev unit保持原状；`127.0.0.1:18766`当时无监听，列为候选loopback端口，执行前仍需复查。清单包括独立business unit草案、原CRM HTTPS vhost仅两处上游切换、验收和恢复原dev路由步骤，明确未应用。
+
+云端正式库独立只读QA已PASS，dev合成烟测仍进行中。清单把烟测最终PASS、服务器外备份去向/方式确认与验证、员工唯一临时密码整改及真实Channel/PaymentAccount配置列为硬门槛；目前用户相关答复/配置尚未齐备，负责人未给切换窗口，故未执行任何unit/vhost/数据库/密码变更。18888继续保留dev。
+
+## CRM-GO-LIVE-1021 私有业务unit loopback就绪（2026-10-21）
+
+依据负责人单独开启的“私有服务就绪”窗口，在不改HTTPS/18888入口的前提下安装并启动正式业务loopback unit；无员工登录、业务POST、密码/账号/基础配置变更。
+
+- 启动前复核：`127.0.0.1:18766`空闲；`aluola-crm-dev.service`和Nginx active；主机2 vCPU、总RAM 2,058,960,896字节、available 1,260,597,248字节、swap已用106,696,704字节、根盘可用37,724,327,936字节。既有venv、应用、private settings/env、媒体目录可读且权限符合预期。
+- 安装 `/etc/systemd/system/aluola-crm-business.service`，SHA-256 `fb830e0c19c4f5ec62cb011e2606fa1b6272d84c06a241157539b52bf4456099`，root:root 644；私有候选文本在任务本机/云private目录600。`systemd-analyze verify`及daemon-reload通过；unit active/running、disabled（未设开机启动），主进程与worker RSS约25/60MiB，cgroup当前约57,544,704字节；仅监听`127.0.0.1:18766`。`18888`配置和dev unit未改，Nginx仍active。
+- 以正式settings及 `PGOPTIONS=-c default_transaction_read_only=on`运行Django `check`、`migrate --check`并直接只读读取DB：通过；身份 `aluola_crm_formal_opening_20261021` / `aluola_crm_formal_opening_1021_app`，PG14.24，0017；Product/SKU 585/585、余额/流水104/104、BusinessControl 1行，sequence=1、开账完成且入口关闭。
+- 私有HTTP匿名探针：Host `127.0.0.1`下首页302至本服务登录页，登录页200/2485字节；固定版admin CSS文件对Nginx worker `www-data`可读（22120字节）。没有员工登录或业务写入。Host为 `crm.onenesscyber.tech` 时新服务返回400。
+- **HTTPS切换阻断已查实：**正式settings只允许 `localhost,127.0.0.1`，`CSRF_TRUSTED_ORIGINS`为空，session/CSRF Secure cookie均false，`SECURE_PROXY_SSL_HEADER=None`。本轮未改private env/settings；因此当前新服务只能作loopback就绪验证，不能切CRM HTTPS上游。已将状态与硬门槛同步至本机/云private `go_live_runbook.md`，新SHA-256两侧均为 `8c444f741ca748c5050c5768ec38ae2ea5824699d3710909c18f9750429dd152`，云端600。
+
+下一步等待dev合成烟测最终交付及负责人对HTTPS settings修复范围、用户备份/密码答案、真实Channel/PaymentAccount配置和切换窗口的安排。本任务完成loopback服务核验后停止配置写入；未切换入口、未启周期备份、未改正式DB内容。
+
+## CRM-GO-LIVE-1021 正式私有HTTPS settings（2026-10-21）
+
+负责人授权在仅新业务应用范围内补齐HTTPS settings/env，并只重启 `aluola-crm-business.service`；没有改Nginx、dev settings/unit、数据库业务数据、账号密码或其他服务。
+
+- 对 `/opt/aluola-crm-formal-opening-20261021/private/business.env` 设置 `DJANGO_ALLOWED_HOSTS=crm.onenesscyber.tech,localhost,127.0.0.1`、`DJANGO_TRUSTED_PROXY_SSL_HEADER=1`；原 `DJANGO_DEBUG=0` 且既有 `DJANGO_SECRET_KEY` 非空、非默认值（只核布尔，不输出值）。`formal_settings.py`增加单一可信源 `https://crm.onenesscyber.tech`、session/CSRF Secure Cookie、Domain=None、SameSite=Lax及 `SECURE_SSL_REDIRECT=True`；保留 `USE_X_FORWARDED_HOST=False`。settings/env权限600；变更前副本仅在云private/`rollback-https-settings-20261021/`（目录700、文件600），用于本unit配置回退，不含在WORK/Git。
+- settings安全断言、Django `check`、`migrate --check`通过。对实际新unit直接loopback请求，Host为CRM域名并附 `X-Forwarded-Proto: https` 时匿名登录页200；实际响应CSRF cookie属性为Secure、host-only、SameSite=Lax、Path=/。session cookie设置已从有效Django settings验证（Secure/host-only/Lax），本轮未员工登录，因此没有session cookie签发/浏览器验收。未附可信XFP的根页301重定向到 `https://crm.onenesscyber.tech`；伪造登录表单并使用不可信Origin被CSRF中间件403拒绝，无登录及业务写入。
+- 新unit只监听 `127.0.0.1:18766`，active、disabled未设开机启动。dev unit和Nginx保持active，CRM HTTPS vhost两处上游仍为 `127.0.0.1:18765`，18888继续dev；未做真实Nginx→正式服务HTTPS/浏览器联调。正式库只读复核仍为目标库/普通app role/PG14.24/0017，585 Product/SKU、104余额/流水、BusinessControl seq1/已完成/入口关闭，BusinessOperation 1。
+- 重启后第一次紧接着探测时尚未出现监听、HTTP连接拒绝；自动回滚只恢复本unit的settings/env并重启原服务，dev/Nginx未受影响。按监听就绪等待后重试通过，最终配置已再次应用；配置前副本保留以便回退。服务器最新单次快照：2 vCPU、available RAM 1,233,686,528字节、swap已用106,696,704字节、根盘可用37,723,369,472字节；新unit cgroup内存57,241,600字节，无memory limit。峰值资源仍未知。
+- 私有切换/回退清单已同步更新为仅用新Django Secure Cookie、不再保留dev vhost的 `proxy_cookie_path` Secure补丁，当前SHA-256两侧均 `ce3b51204fd2e5454b3787b8945191a64acbb788f41375828e140412c75fb526`，云端600。HTTPS上游仍待真实HTTPS端到端验收、dev最终烟测交付、外部备份/员工密码及真实业务基础配置条件和负责人切换窗口；本阶段停止后续环境写入。

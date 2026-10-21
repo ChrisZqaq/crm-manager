@@ -1028,3 +1028,23 @@ DB快照：决定仅有订单1/6/5各1条（序号81/84/85）；订单2/3/4/7/8/
 云端实际身份为 `aluola_crm_formal_opening_20261021`／`aluola_crm_formal_opening_1021_app`、PG14.24、迁移0017；核查前无其他active客户端会话。SQL使用 `PGOPTIONS=default_transaction_read_only=on`，首条SQL为 `BEGIN READ ONLY`，最终 `ROLLBACK`。由于按要求不读取数据库密码，SQL经 `ssh tx` 在云主机Unix socket以OS postgres peer建立会话，事务内 `SET ROLE` 到指定普通业务role；查询中 `current_user` 为该role，`session_user` 为postgres。数据库 `listen_addresses=localhost`、`ssl=on`；另以无认证、不发送SQL的本机PostgreSQL SSL协商确认TLS 1.3可用。实际数据查询走Unix socket，未声称该查询会话本身使用TLS。
 
 结论：固定正式云库的商品/SKU、期初WAC、库存流水、控制状态及账号权限对账通过；没有写正式数据、调用应用预览/确认、登录账号、改环境/服务或清理资源。私有汇总记录保存在 `.local/CRM-FORMAL-OPENING-1021/private/qa_result_private_20261021.json`。由于SQL会话通过peer后 `SET ROLE`，没有验证普通role使用密码进行TCP直接认证；内容权限以普通role执行，网络认证路径属于本轮限制。
+
+### CRM-GO-LIVE-SMOKE-1021｜云dev合成数据烟测（2026-10-21）
+
+按序复核HTTPS仍指向 `crm.onenesscyber.tech` → `127.0.0.1:18765`，应用文件与固定 `eefc490` 归档91/91一致，数据库为 `aluola_crm_dev`、PostgreSQL 14.24、迁移0017；未切站点或改环境。使用既有owner/sales/warehouse角色完成正常登录及合成引用读取。只在合成采购和订单付款记录分别上传同一张无个人信息的QA PNG。
+
+真实操作链：合成采购入库2件、创建订单22件并占满可用库存、登记收款、owner核验通过、warehouse现场交付完成、owner复核提成；随后完成采购成本更正审批，sales角色提成调整返回403，owner调整成功且 `offline_transfer_performed=false`。操作序号2–10连续，无重复提交。订单、收款状态均完成/通过。
+
+筛选销售报表按北京时间当日、salesperson及SKU查询，API与XLSX均为1行、销售额合计均为440.000；未留存包含客户字段的导出文件。匿名导出401。warehouse角色导出返回200；固定版本的销售报表使用 `view_salesorder` 权限，该角色具有该权限，记录为配置允许，不作越权拒绝结论。筛选核对和无权限边界结果保存在 `.local/CRM-GO-LIVE-SMOKE-1021/private/qa_result_20261021.json`。
+
+证据为真实认证API及导出文件内存解析；CUA连接CRM页面超时，因此不声称页面视觉、真实浏览器操作或390视口已验证。没有触碰正式数据库/正式账号，没有应用代码、配置、服务或权限变更，也未清理烟测数据。下一项按负责人顺序，在固定提交 `94e35273159ee36623d65afea145619c46ab3c9e` 的隔离副本与合成库检查本人改密流程。
+
+### PASSWORD-SELF-CHANGE-1021｜固定版独立改密验收（2026-10-21）
+
+依据固定提交 `94e35273159ee36623d65afea145619c46ab3c9e`（父 `ce0dae9`），以 `git archive` 建立 `.local/QA-PASSWORD-SELF-CHANGE-1021/source`。使用本任务自己的PG17 Unix socket集群和合成数据库，`listen_addresses` 为空、不监听TCP；迁移完成，`manage.py check` 通过。另起的Django HTTP服务只绑定 `127.0.0.1`，完成后已停止，PG集群已停止并移除本任务的短socket别名。
+
+全流程只创建两个合成用户（销售、仓管）并验证：匿名访问改密及完成页均302回登录；带有效CSRF的匿名POST仍被登录保护且密码不变，已登录无CSRF的POST为403；错误旧密码、确认不一致、弱密码均返回表单错误且不改密码。有效改密后跳转完成页，原会话仍对应本人且可访问工作台；旧密码不能登录，新密码能登录；另一合成用户仍可登录，双方组、直接权限、有效权限保持不变。
+
+本地HTTP实际渲染确认 `lang=zh-Hans`、侧栏“修改密码”入口、中文说明/按钮及表单字段“旧密码／新密码／新密码确认”。这证明Django模板响应内容，不代表真实浏览器视觉验收。完整14项结果保存在 `.local/QA-PASSWORD-SELF-CHANGE-1021/private/qa_result.json`。
+
+执行中一次本地检查断言未匹配“新密码确认”的正确中文标签；另一次测试脚本参数顺序错误，只对本任务隔离库里的合成用户进行了改密。重置两个合成账号后，完整定向流程通过；未触碰任何现有员工、云dev或正式数据库/密码，未改应用源代码/配置/权限，也未部署或推送。
