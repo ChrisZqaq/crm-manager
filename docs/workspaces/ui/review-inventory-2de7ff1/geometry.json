@@ -1,0 +1,511 @@
+{
+  "desktop": {
+    "client": 1265,
+    "filters": [
+      {
+        "h": 42,
+        "label": null,
+        "name": "warehouse_id",
+        "w": 170,
+        "x": 222,
+        "y": 129.5
+      },
+      {
+        "h": 42,
+        "label": null,
+        "name": "brand_id",
+        "w": 170,
+        "x": 402,
+        "y": 129.5
+      },
+      {
+        "h": 42,
+        "label": null,
+        "name": "series",
+        "w": 170,
+        "x": 582,
+        "y": 129.5
+      },
+      {
+        "h": 42,
+        "label": null,
+        "name": "low_stock",
+        "w": 170,
+        "x": 762,
+        "y": 129.5
+      }
+    ],
+    "scroll": 1265,
+    "tables": [
+      {
+        "cls": "",
+        "first": [
+          {
+            "align": "left",
+            "padding": "8px",
+            "right": 361.21875,
+            "text": "盒"
+          },
+          {
+            "align": "right",
+            "padding": "8px",
+            "right": 497.4375,
+            "text": "21"
+          },
+          {
+            "align": "right",
+            "padding": "8px",
+            "right": 633.65625,
+            "text": "21"
+          },
+          {
+            "align": "right",
+            "padding": "8px",
+            "right": 858.7109375,
+            "text": "0"
+          },
+          {
+            "align": "right",
+            "padding": "8px",
+            "right": 1083.765625,
+            "text": "0"
+          },
+          {
+            "align": "right",
+            "padding": "8px",
+            "right": 1220,
+            "text": "0"
+          }
+        ],
+        "head": [
+          {
+            "align": "left",
+            "padding": "8px",
+            "right": 361.21875,
+            "text": "单位"
+          },
+          {
+            "align": "right",
+            "padding": "8px",
+            "right": 497.4375,
+            "text": "在库"
+          },
+          {
+            "align": "right",
+            "padding": "8px",
+            "right": 633.65625,
+            "text": "可售"
+          },
+          {
+            "align": "right",
+            "padding": "8px",
+            "right": 858.7109375,
+            "text": "订单占用"
+          },
+          {
+            "align": "right",
+            "padding": "8px",
+            "right": 1083.765625,
+            "text": "客户预留"
+          },
+          {
+            "align": "right",
+            "padding": "8px",
+            "right": 1220,
+            "text": "破损"
+          }
+        ],
+        "parent": {
+          "cls": "table-scroll",
+          "label": null,
+          "role": null,
+          "scroll": 995,
+          "tabindex": null,
+          "tag": "DIV",
+          "w": 995
+        },
+        "w": 995
+      },
+      {
+        "cls": "",
+        "first": [
+          {
+            "align": "left",
+            "padding": "12px",
+            "right": 306,
+            "text": "筛选仓库甲"
+          },
+          {
+            "align": "left",
+            "padding": "12px",
+            "right": 419.4375,
+            "text": "SYN-A-0001"
+          },
+          {
+            "align": "left",
+            "padding": "12px",
+            "right": 1054.1171875,
+            "text": "筛选测试IP甲 / 宝可梦TCG稀有收藏礼盒特别版合成演示（超长商品名称用于横向滚动检查）"
+          },
+          {
+            "align": "left",
+            "padding": "12px",
+            "right": 1108.1171875,
+            "text": "盒"
+          },
+          {
+            "align": "left",
+            "padding": "12px",
+            "right": 1162.1171875,
+            "text": "5"
+          },
+          {
+            "align": "left",
+            "padding": "12px",
+            "right": 1216.1171875,
+            "text": "0"
+          },
+          {
+            "align": "left",
+            "padding": "12px",
+            "right": 1270.1171875,
+            "text": "0"
+          },
+          {
+            "align": "left",
+            "padding": "12px",
+            "right": 1324.1171875,
+            "text": "0"
+          },
+          {
+            "align": "left",
+            "padding": "12px",
+            "right": 1378.1171875,
+            "text": "0"
+          },
+          {
+            "align": "left",
+            "padding": "12px",
+            "right": 1432.1171875,
+            "text": "5"
+          },
+          {
+            "align": "left",
+            "padding": "12px",
+            "right": 1516.1171875,
+            "text": "617.280"
+          },
+          {
+            "align": "left",
+            "padding": "12px",
+            "right": 1600.1171875,
+            "text": "123.456"
+          },
+          {
+            "align": "left",
+            "padding": "12px",
+            "right": 1687.375,
+            "text": "是（≤5）"
+          },
+          {
+            "align": "left",
+            "padding": "12px",
+            "right": 1992.375,
+            "text": "开启\n专用阈值\n保存"
+          }
+        ],
+        "head": [
+          {
+            "align": "left",
+            "padding": "12px",
+            "right": 306,
+            "text": "仓库"
+          },
+          {
+            "align": "left",
+            "padding": "12px",
+            "right": 419.4375,
+            "text": "SKU"
+          },
+          {
+            "align": "left",
+            "padding": "12px",
+            "right": 1054.1171875,
+            "text": "产品"
+          },
+          {
+            "align": "left",
+            "padding": "12px",
+            "right": 1108.1171875,
+            "text": "单位"
+          },
+          {
+            "align": "left",
+            "padding": "12px",
+            "right": 1162.1171875,
+            "text": "在库"
+          },
+          {
+            "align": "left",
+            "padding": "12px",
+            "right": 1216.1171875,
+            "text": "占用"
+          },
+          {
+            "align": "left",
+            "padding": "12px",
+            "right": 1270.1171875,
+            "text": "预留"
+          },
+          {
+            "align": "left",
+            "padding": "12px",
+            "right": 1324.1171875,
+            "text": "囤货"
+          },
+          {
+            "align": "left",
+            "padding": "12px",
+            "right": 1378.1171875,
+            "text": "破损"
+          },
+          {
+            "align": "left",
+            "padding": "12px",
+            "right": 1432.1171875,
+            "text": "可售"
+          },
+          {
+            "align": "left",
+            "padding": "12px",
+            "right": 1516.1171875,
+            "text": "库存金额"
+          },
+          {
+            "align": "left",
+            "padding": "12px",
+            "right": 1600.1171875,
+            "text": "平均成本"
+          },
+          {
+            "align": "left",
+            "padding": "12px",
+            "right": 1687.375,
+            "text": "低库存"
+          },
+          {
+            "align": "left",
+            "padding": "12px",
+            "right": 1992.375,
+            "text": "SKU提醒设置"
+          }
+        ],
+        "parent": {
+          "cls": "table-scroll",
+          "label": null,
+          "role": null,
+          "scroll": 1785,
+          "tabindex": null,
+          "tag": "DIV",
+          "w": 1031
+        },
+        "w": 1785.375
+      }
+    ],
+    "w": 1280
+  },
+  "desktopRight": {
+    "active": "",
+    "client": 1031,
+    "scroll": 1785,
+    "scrollLeft": 754.5,
+    "setting": [
+      {
+        "h": 13,
+        "right": 957.875,
+        "tag": "INPUT",
+        "x": 944.875,
+        "y": 443.296875
+      },
+      {
+        "h": 42,
+        "right": 1163.875,
+        "tag": "INPUT",
+        "x": 1067.875,
+        "y": 428.796875
+      },
+      {
+        "h": 44,
+        "right": 1225.875,
+        "tag": "BUTTON",
+        "x": 1173.875,
+        "y": 427.796875
+      }
+    ]
+  },
+  "mobile": {
+    "client": 375,
+    "filters": [
+      {
+        "h": 42,
+        "name": "warehouse_id",
+        "w": 319,
+        "x": 28,
+        "y": 169.5
+      },
+      {
+        "h": 42,
+        "name": "brand_id",
+        "w": 319,
+        "x": 28,
+        "y": 249
+      },
+      {
+        "h": 42,
+        "name": "series",
+        "w": 319,
+        "x": 28,
+        "y": 328.5
+      },
+      {
+        "h": 42,
+        "name": "low_stock",
+        "w": 319,
+        "x": 28,
+        "y": 408
+      }
+    ],
+    "h": 844,
+    "scroll": 375,
+    "tables": [
+      {
+        "parent": {
+          "client": 313,
+          "right": 344,
+          "scroll": 700,
+          "x": 31
+        },
+        "w": 700
+      },
+      {
+        "parent": {
+          "client": 349,
+          "right": 362,
+          "scroll": 1785,
+          "x": 13
+        },
+        "w": 1785.375
+      }
+    ],
+    "w": 390
+  },
+  "mobileRight": {
+    "client": 349,
+    "left": 1436.5,
+    "root": 375,
+    "scroll": 1785,
+    "settings": [
+      {
+        "h": 13,
+        "right": 81.875,
+        "tag": "INPUT",
+        "x": 68.875,
+        "y": 415.296875
+      },
+      {
+        "h": 42,
+        "right": 287.875,
+        "tag": "INPUT",
+        "x": 191.875,
+        "y": 400.796875
+      },
+      {
+        "h": 44,
+        "right": 349.875,
+        "tag": "BUTTON",
+        "x": 297.875,
+        "y": 399.796875
+      }
+    ],
+    "summaryEdges": [
+      {
+        "data": [
+          {
+            "align": "left",
+            "padding": "8px",
+            "right": -248.171875,
+            "text": "盒"
+          },
+          {
+            "align": "right",
+            "padding": "8px",
+            "right": -152.34375,
+            "text": "21"
+          },
+          {
+            "align": "right",
+            "padding": "8px",
+            "right": -56.515625,
+            "text": "21"
+          },
+          {
+            "align": "right",
+            "padding": "8px",
+            "right": 101.8125,
+            "text": "0"
+          },
+          {
+            "align": "right",
+            "padding": "8px",
+            "right": 260.140625,
+            "text": "0"
+          },
+          {
+            "align": "right",
+            "padding": "8px",
+            "right": 356,
+            "text": "0"
+          }
+        ],
+        "head": [
+          {
+            "align": "left",
+            "padding": "8px",
+            "right": -248.171875,
+            "text": "单位"
+          },
+          {
+            "align": "right",
+            "padding": "8px",
+            "right": -152.34375,
+            "text": "在库"
+          },
+          {
+            "align": "right",
+            "padding": "8px",
+            "right": -56.515625,
+            "text": "可售"
+          },
+          {
+            "align": "right",
+            "padding": "8px",
+            "right": 101.8125,
+            "text": "订单占用"
+          },
+          {
+            "align": "right",
+            "padding": "8px",
+            "right": 260.140625,
+            "text": "客户预留"
+          },
+          {
+            "align": "right",
+            "padding": "8px",
+            "right": 356,
+            "text": "破损"
+          }
+        ]
+      }
+    ]
+  }
+}

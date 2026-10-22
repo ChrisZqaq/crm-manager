@@ -241,15 +241,15 @@ UI-LIST-FILTERS集中核对补充（待实施）：orders.filter_options另含 `
 - 成功直接返回operation result（无额外envelope）：document_id/order_id/sequence/version/status/decision、approved_amount_before/calculated_amount/approved_amount/delta_amount、amount_version/approved_amount_version、adjustment_id、offline_transfer_required、offline_transfer_performed。非零adjust才有adjustment_id及required=true；performed恒false，完成线下资金仍用既有标记，不由该动作转账。keep的delta表示计算差额，不是已批准资金调整。
 - 成本纠错批准本身不调整已核定提成；影响JSON包含老板可见的版本化建议。独立操作服务端重算差额，同键同输入返回原结果，同键异输入拒绝；存在当前有效成本纠错建议时旧review-commission返回409 cost_correction_decision_required（老板/超管也须显式走新决定）；旧版本或旧建议返回409 stale_suggestion，已决定新键拒绝重复决定。连续未决定成本纠错可用最新建议替代旧建议；普通运费穿插仍走REREVIEW，不借此恢复旧核定资格。
 
-### 库存系列筛选增量（2026-10-22，UI-INVENTORY-1021实施中）
+### 库存系列筛选增量（2026-10-22，2de7ff1已发布）
 
-正式360b7fc尚不支持该增量，发布状态以开发计划为准。库存明细、库存报表及其Excel增加可选`series`，精确匹配商品档案现有系列，与原仓库/IP/SKU/低库存条件共同生效；未传或空值不限制系列，包含未设置系列的库存。保留原`sku_id`接口，不增加空系列专用查询值或新端点。系列含义与销售报表`series=day`日序列参数按资源区分，不混用。
+该增量已在2de7ff1正式发布，独立验收与发布证据见开发计划。库存明细、库存报表及其Excel增加可选`series`，精确匹配商品档案现有系列，与原仓库/IP/SKU/低库存条件共同生效；未传或空值不限制系列，包含未设置系列的库存。保留原`sku_id`接口，不增加空系列专用查询值或新端点。系列含义与销售报表`series=day`日序列参数按资源区分，不混用。
 
 复用库存报告已有`filter_options`，新增`series:[{id,label}]`；两字段均为非空系列原文字符串，不产生持久编号。选项来自当前授权可见库存数据的非空系列去重，不能从分页结果抽样。库存页以系列替换SKU下拉；独立库存报表页本轮不改控件。单位摘要和Excel使用完整授权筛选集，分页只裁剪明细。
 
 ### 老板作为客户负责人（2026-10-22实施中）
 
-客户创建、转交及相关负责人选项的合法目标扩展为启用销售或老板；保留原授权，普通销售仍只能为本人建档，不能借owner_id获取其他客户。老板/管理员代建可明确选择老板或销售，不新增销售主管角色/目录或端点；老板保留代他人建客能力。订单销售归属仍为当前实际下单人，报表及历史订单不因客户归属而改变。当前正式360b7fc尚未包含本增量。
+客户创建、转交及相关负责人选项的合法目标扩展为启用销售或老板；保留原授权，普通销售仍只能为本人建档，不能借owner_id获取其他客户。老板/管理员代建可明确选择老板或销售，不新增销售主管角色/目录或端点；老板保留代他人建客能力。订单销售归属仍为当前实际下单人，报表及历史订单不因客户归属而改变。当前正式2de7ff1尚未包含本增量。
 
 ### 客户联系方式选填（2026-10-22用户确认，实施中）
 

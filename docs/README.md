@@ -1,6 +1,6 @@
 # CRM Manager 文档入口
 
-更新：2026-10-22。CRM已上线：[正式HTTPS入口](https://crm.onenesscyber.tech/)，固定应用360b7fc/0017，正式585 SKU/104正库存与原员工账号保留；渠道及收款账户已配置，自行改密可用；订单客户选择及控件修复已发布，见[本轮发布记录](project/RELEASE_ORDER_CONTROLS_20261022.md)。独立数据/业务烟测/改密验收、三角色真实登录及只读核验完成，Mac自动异地备份及实际恢复已验证；图片为空与本轮未做浏览器视觉的限制见[上线记录](project/CLOUD_GO_LIVE_20261021.md)。原IP18888仍为独立测试库，本机演示未更新；企微等暂缓。当前安排见[开发计划](project/DEVELOPMENT_PLAN.md)。
+更新：2026-10-22。CRM已上线：[正式HTTPS入口](https://crm.onenesscyber.tech/)，固定应用2de7ff1/0017，正式585 SKU/104正库存与原员工账号保留；渠道及收款账户已配置，自行改密可用；库存系列筛选及对齐修复已发布，见[库存发布记录](project/RELEASE_INVENTORY_20261022.md)；订单客户选择及控件修复已发布，见[本轮发布记录](project/RELEASE_ORDER_CONTROLS_20261022.md)。独立数据/业务烟测/改密验收、三角色真实登录及只读核验完成，Mac自动异地备份及实际恢复已验证；图片为空与本轮未做浏览器视觉的限制见[上线记录](project/CLOUD_GO_LIVE_20261021.md)。原IP18888仍为独立测试库，本机演示未更新；企微等暂缓。当前安排见[开发计划](project/DEVELOPMENT_PLAN.md)。
 
 ## 所有人最小阅读集
 

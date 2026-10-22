@@ -1106,3 +1106,17 @@ UI设计师已在1280×900真实浏览器完成补验：选择指定SKU与仓库
 - `crm.test_phase6.ReportPhase6Tests.test_workbench_day_over_day_uses_beijing_dates_and_decimal_rounding`：销售报表`series=day`的逐日金额、北京时间边界及`day_over_day`摘要通过，库存系列参数未影响销售日序列。
 
 未跑全套Django测试、浏览器验收或部署烟测；没有改应用文件、真实/共享数据或数据库模式。测试报告见 `.local/QA-UI-INVENTORY-1021-BACKEND/private/qa_result.json`。Django服务未启动；临时测试库自动销毁；本任务PG已停止，私有固定源码、空基库和证据保留以便复核。
+
+### UI-INVENTORY-1021-FRONTEND｜库存系列筛选前端固定版独立复验（2026-10-22）
+
+依据固定应用提交 `2de7ff1f217c14211610501ce0338f5cfca88a3a`；开始时HEAD与固定SHA一致，`crm/`、`config/`、`manage.py`及依赖文件无应用漂移。使用 `git archive` 固定源码副本 `.local/QA-UI-INVENTORY-1021-FRONTEND/source`，本轮未改应用代码。
+
+在该副本运行 `manage.py test crm.test_ui --verbosity 2`：8项全部通过，Django system check无问题；Django自动创建并销毁临时测试库。另为真实HTTP检查在本任务私有PostgreSQL 17.11 Unix socket集群 `/tmp/qaif1022:55543` 创建隔离库 `qa_ui_inventory_frontend`，绑定本机的Django服务为 `127.0.0.1:19234`。53条库存均为合成数据：系列甲51条、系列乙及空系列各1条，覆盖2个IP、2个仓库、两个单位及多种占用/预留/囤货/破损值；没有连接共享或线上库，也未触碰UI设计师使用的19233端口。
+
+真实浏览器与HTTP/API检查通过：筛选表单有IP和系列控件，没有SKU筛选控件；以IP甲+系列甲筛选后总数51。第2页的上一页链接、第一页的下一页链接及“导出筛选结果”URL均保留系列参数。库存报表API以 `page_size=1` 返回1条明细，但 `summary.by_unit` 与全部51条合成余额逐单位汇总完全一致；过滤选项的ID和label均为字符串，空系列未生成专用选项。筛选导出GET返回XLSX 200，含51条系列甲明细，筛选说明包含系列值。
+
+桌面1280×900页面根宽1265/1265，无页面级溢出；单位汇总表头与首行单元格列边界逐列一致。明细表在1031px容器内宽1192px。手机390×844实际覆盖成功，页面根和body均375/375，无页面级溢出；筛选控件纵向排列且容器宽351px，单位汇总表与明细表分别在313px/349px容器内横向滚动。两种视口均捕获本会话截图，浏览器控制台warning/error为空；截图保存被浏览器策略拦截，遵循用户接受的会话内截图方案，几何与API结果保存在 `.local/QA-UI-INVENTORY-1021-FRONTEND/private/visual_evidence.json`、`http_evidence.json`、`qa_result.json`。
+
+提醒设置仅作只读核验：有 `view_inventorybalance` 与 `manage_global_low_stock` 的合成用户看到全局设置表单，无管理权限但有查看权限的用户看不到表单；两者设置GET均为200。只读复核 `low_stock_settings_api` 中PATCH需 `manage_global_low_stock`，本轮没有发送PATCH或保存设置。未跑全套业务测试、未做部署/发布。
+
+复核收尾时共享工作树已出现未提交的应用改动（`crm/sales.py`、`crm/views.py`、`crm/test_phase3.py`及客户/订单模板）。开始验收时这些应用路径相对固定提交无差异；本轮测试始终运行在独立归档副本，未读取、修改或验证这些后出现的工作树改动。固定版结论不覆盖这些改动；后续应用写入安排需由负责人确认唯一写入者。
