@@ -191,7 +191,7 @@ UI-LIST-FILTERS集中核对补充（待实施）：orders.filter_options另含 `
 | 接口 | 约定 |
 | --- | --- |
 | 客户GET/POST/PATCH | note1/note2及invoice_title/invoice_credit_code/invoice_email取代旧生日/兴趣/爱好字段；沿用版本、幂等、归属范围。删除birthdays及me/preferences生日端点、生日筛选和页面动作；不能留可用兼容开关。q补别名。 |
-| orders/preview、orders、amend/preview、amend | 输入增requires_invoice及invoice_title/invoice_credit_code/invoice_email；新增订单可用new_customer替代customer_id，两者互斥，均空即散客。new_customer使用客户基本字段（不接addresses，若传入则返回400及new_customer.addresses字段错误，不静默忽略），姓名/contact必填，非销售代建仍明确owner_id。快递地址仅来自order.address_snapshot，原样保存订单快照及新客首条CustomerAddress，客户姓名/contact与收件人/contact分别输入、不推断相同；后续多地址仍用客户API。开票仅抬头必填；散客开票拒绝。新客只在确认事务内创建，预览只读，失败全部回滚，同键重放同客同单。实际改变已有客户开票资料才须change_customer及当前维护范围；选择与客户现有资料相同的值仅存快照，不要求更新权限。requires_invoice=false清本单快照但不清客户资料，不能借订单越权。订单GET返回需求和快照。 |
+| orders/preview、orders、amend/preview、amend | 输入增requires_invoice及invoice_title/invoice_credit_code/invoice_email；新增订单可用new_customer替代customer_id，两者互斥，均空即散客。new_customer使用客户基本字段（不接addresses，若传入则返回400及new_customer.addresses字段错误，不静默忽略），姓名必填、contact选填（2026-10-22更新），非销售代建仍明确owner_id。快递地址仅来自order.address_snapshot，原样保存订单快照及新客首条CustomerAddress，客户姓名/contact与收件人/contact分别输入、不推断相同；后续多地址仍用客户API。开票仅抬头必填；散客开票拒绝。新客只在确认事务内创建，预览只读，失败全部回滚，同键重放同客同单。实际改变已有客户开票资料才须change_customer及当前维护范围；选择与客户现有资料相同的值仅存快照，不要求更新权限。requires_invoice=false清本单快照但不清客户资料，不能借订单越权。订单GET返回需求和快照。 |
 | GET inventory | 可传order_id辅助编辑（必须有相应订单维护范围）；基础available保持真实未占可售，额外available_for_order=available＋该订单此仓此SKU原活动占货。普通查询不改变口径；预览/确认使用共享相同计算，最终锁内校验。 |
 | GET product-languages | 登录商品查看范围，返回id/name选项；普通录商品不支持新增选项。老板/超级管理员在原生管理后台维护。商品读取language仍为名称，筛选language仍接受名称，期初文字精确解析现有选项，未知值报行字段错误。 |
 | POST products | 产品共有字段含language_id，skus数组为实际SKU字段；operation_key。同事务创建产品及SKU，至少一个SKU，所有行复用现有格式、语言、单位/条码重复确认和模型校验，要求add_product及add_sku。结果product_id/sku_ids，同键重放不重建。保留输入并报告并发编号冲突。 |
@@ -246,3 +246,11 @@ UI-LIST-FILTERS集中核对补充（待实施）：orders.filter_options另含 `
 正式360b7fc尚不支持该增量，发布状态以开发计划为准。库存明细、库存报表及其Excel增加可选`series`，精确匹配商品档案现有系列，与原仓库/IP/SKU/低库存条件共同生效；未传或空值不限制系列，包含未设置系列的库存。保留原`sku_id`接口，不增加空系列专用查询值或新端点。系列含义与销售报表`series=day`日序列参数按资源区分，不混用。
 
 复用库存报告已有`filter_options`，新增`series:[{id,label}]`；两字段均为非空系列原文字符串，不产生持久编号。选项来自当前授权可见库存数据的非空系列去重，不能从分页结果抽样。库存页以系列替换SKU下拉；独立库存报表页本轮不改控件。单位摘要和Excel使用完整授权筛选集，分页只裁剪明细。
+
+### 老板作为客户负责人（2026-10-22实施中）
+
+客户创建、转交及相关负责人选项的合法目标扩展为启用销售或老板；保留原授权，普通销售仍只能为本人建档，不能借owner_id获取其他客户。老板/管理员代建可明确选择老板或销售，不新增销售主管角色/目录或端点；老板保留代他人建客能力。订单销售归属仍为当前实际下单人，报表及历史订单不因客户归属而改变。当前正式360b7fc尚未包含本增量。
+
+### 客户联系方式选填（2026-10-22用户确认，实施中）
+
+独立客户创建/修改及订单内new_customer的姓名仍必填，客户contact可省略或为空文本；不伪造联系方式。PATCH/修改省略contact保留原值，明确传空字符串可清空客户联系方式。姓名校验、归属权限、订单幂等/原子性保持；每个收货地址的电话及快递订单收件字段仍按原必填校验，客户contact不代填收件电话。网页与模型/表单及API约束同步，正式发布状态以开发计划为准。
