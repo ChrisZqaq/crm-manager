@@ -99,6 +99,7 @@ from .sales import (
     cancel_sales_order,
     confirm_sales_order,
     create_customer,
+    customer_owner_queryset,
     customer_queryset_for,
     preview_sales_order,
     sales_order_commission_visible_to,
@@ -1574,13 +1575,19 @@ def _require_page_permission(request, codename):
         raise PermissionDenied
 
 
+def _customer_owner_options(actor):
+    is_owner_or_admin = actor.is_superuser or actor.groups.filter(name=ROLE_OWNER).exists()
+    is_sales = actor.groups.filter(name=ROLE_SALES).exists()
+    can_select_owner = is_owner_or_admin or not is_sales or actor.has_perm("crm.change_customer_owner")
+    owners = customer_owner_queryset(get_user_model()).order_by("username") if can_select_owner else []
+    return can_select_owner, owners
+
+
 @login_required
 @require_safe
 def customers_page(request):
     _require_page_permission(request, "view_customer")
-    User = get_user_model()
-    can_select_owner = not request.user.groups.filter(name=ROLE_SALES).exists() or request.user.has_perm("crm.change_customer_owner") or request.user.is_superuser
-    salespeople = User.objects.filter(is_active=True, groups__name=ROLE_SALES).order_by("username") if can_select_owner else []
+    can_select_owner, salespeople = _customer_owner_options(request.user)
     return render(request, "crm/customers.html", {"salespeople": salespeople, "can_select_owner": can_select_owner})
 
 
@@ -1594,9 +1601,7 @@ def customer_form_page(request, customer_id=None):
         customer = customer_queryset_for(request.user, changing=True).select_related("owner").filter(pk=customer_id).first()
         if customer is None:
             raise PermissionDenied
-    User = get_user_model()
-    can_select_owner = not request.user.groups.filter(name=ROLE_SALES).exists() or request.user.has_perm("crm.change_customer_owner") or request.user.is_superuser
-    salespeople = User.objects.filter(is_active=True, groups__name=ROLE_SALES).order_by("username") if can_select_owner else []
+    can_select_owner, salespeople = _customer_owner_options(request.user)
     initial = _customer_data(customer) if customer else None
     return render(request, "crm/customer_form.html", {
         "customer": customer,
@@ -1626,9 +1631,7 @@ def order_form_page(request, order_id=None):
         if order is None:
             raise PermissionDenied
         initial = _sales_order_data(order, request.user)
-    User = get_user_model()
-    can_select_owner = not request.user.groups.filter(name=ROLE_SALES).exists() or request.user.has_perm("crm.change_customer_owner") or request.user.is_superuser
-    salespeople = User.objects.filter(is_active=True, groups__name=ROLE_SALES).order_by("username") if can_select_owner else []
+    can_select_owner, salespeople = _customer_owner_options(request.user)
     return render(request, "crm/order_form.html", {"order": order, "initial": initial, "salespeople": salespeople, "can_select_owner": can_select_owner})
 
 

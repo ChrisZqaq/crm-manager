@@ -23,6 +23,7 @@ from .models import (
 )
 from .operations import OperationError, confirm_receipt, preview_receipt
 from .permissions import ROLE_OWNER, ROLE_SALES
+from .reports import build_report
 from .sales import (
     archive_customer,
     cancel_sales_order,
@@ -612,6 +613,122 @@ class CustomerPhase3Tests(Phase3Base):
         client.force_login(self.sales)
         self.assertEqual(client.get("/customers/").status_code, 200)
         self.assertEqual(client.get(f"/customers/{customer.pk}/edit/").status_code, 200)
+
+
+class OwnerCustomerAssignmentPhase3Tests(Phase3Base):
+    def _create_customer_for(self, actor, owner, name):
+        result = create_customer(actor, self.customer_payload(
+            name=name,
+            contact=f"contact: {name}",
+            owner_id=owner.pk,
+        ), uuid4())
+        return Customer.objects.get(pk=result["customer_id"])
+
+    def test_boss_and_existing_delegators_can_assign_active_owner(self):
+        own_customer = self._create_customer_for(self.owner, self.owner, "Boss-owned")
+        self.assertEqual(own_customer.owner_id, self.owner.pk)
+
+        assigned_to_sales = self._create_customer_for(self.owner, self.sales_two, "Sales-owned")
+        self.assertEqual(assigned_to_sales.owner_id, self.sales_two.pk)
+
+        self.owner.groups.add(Group.objects.get(name=ROLE_SALES))
+        dual_role_assignment = self._create_customer_for(self.owner, self.sales, "Dual-role assignment")
+        self.assertEqual(dual_role_assignment.owner_id, self.sales.pk)
+
+        warehouse_assignment = self._create_customer_for(self.user, self.owner, "Warehouse-assigned boss")
+        self.assertEqual(warehouse_assignment.owner_id, self.owner.pk)
+
+        admin = self.User.objects.create_superuser(
+            username="admin-test", email="admin@example.test", password="test-only-password",
+        )
+        admin_assignment = self._create_customer_for(admin, self.owner, "Admin-assigned boss")
+        self.assertEqual(admin_assignment.owner_id, self.owner.pk)
+
+    def test_boss_and_admin_owner_options_render_in_customer_and_order_forms(self):
+        admin = self.User.objects.create_superuser(
+            username="admin-test", email="admin@example.test", password="test-only-password",
+        )
+        customer = self._create_customer_for(self.owner, self.sales, "Transfer candidate")
+        for actor in (self.owner, admin):
+            client = Client()
+            client.force_login(actor)
+            for path in (
+                "/customers/",
+                "/customers/new/",
+                f"/customers/{customer.pk}/edit/",
+                "/orders/new/",
+            ):
+                with self.subTest(actor=actor.username, path=path):
+                    response = client.get(path)
+                    self.assertEqual(response.status_code, 200, response.content)
+                    self.assertContains(
+                        response,
+                        f'<option value="{self.owner.pk}">{self.owner.username}</option>',
+                        html=True,
+                    )
+        warehouse_client = Client()
+        warehouse_client.force_login(self.user)
+        response = warehouse_client.get("/customers/new/")
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertContains(
+            response,
+            f'<option value="{self.owner.pk}">{self.owner.username}</option>',
+            html=True,
+        )
+
+    def test_owner_transfer_accepts_active_owner_and_rejects_inactive_owner(self):
+        customer = self._create_customer_for(self.owner, self.sales, "Transfer to boss")
+        result = transfer_customer(self.owner, customer.pk, {
+            "owner_id": self.owner.pk,
+            "expected_version": customer.version,
+            "operation_key": str(uuid4()),
+        })
+        self.assertEqual(result["owner_id"], self.owner.pk)
+
+        inactive_owner = self.User.objects.create_user(username="inactive-owner", is_active=False)
+        inactive_owner.groups.add(Group.objects.get(name=ROLE_OWNER))
+        with self.assertRaises(OperationError) as create_error:
+            self._create_customer_for(self.user, inactive_owner, "Inactive owner target")
+        self.assertEqual(create_error.exception.code, "inactive_reference")
+        with self.assertRaises(OperationError) as transfer_error:
+            transfer_customer(self.owner, customer.pk, {
+                "owner_id": inactive_owner.pk,
+                "expected_version": result["version"],
+                "operation_key": str(uuid4()),
+            })
+        self.assertEqual(transfer_error.exception.code, "inactive_reference")
+
+    def test_sales_cannot_assign_or_view_boss_owned_customers(self):
+        customer = self._create_customer_for(self.owner, self.owner, "Private boss customer")
+        client = Client()
+        client.force_login(self.sales)
+
+        response = client.get("/api/v1/customers")
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertNotIn(customer.pk, {int(item["id"]) for item in response.json()["items"]})
+
+        data = self.customer_payload(name="Sales impersonation attempt", owner_id=self.owner.pk)
+        data["operation_key"] = str(uuid4())
+        response = client.post("/api/v1/customers", data=json.dumps(data), content_type="application/json")
+        self.assertEqual(response.status_code, 403, response.content)
+        self.assertNotContains(client.get("/orders/new/"), 'id="new-customer-owner"')
+
+    def test_owner_inline_customer_order_and_report_keep_owner_as_salesperson(self):
+        self.owner.groups.add(Group.objects.get(name=ROLE_SALES))
+        payload = self.order_payload(new_customer={
+            "name": "Boss inline customer",
+            "contact": "contact: Boss inline customer",
+            "owner_id": self.owner.pk,
+        })
+        _, _, order = self.preview_and_confirm(payload, actor=self.owner)
+        self.assertEqual(order.customer.owner_id, self.owner.pk)
+        self.assertEqual(order.salesperson_id, self.owner.pk)
+
+        report = build_report(self.owner, "sales", {"period": "all"})
+        self.assertIn(
+            {"id": str(self.owner.pk), "label": self.owner.get_username()},
+            report["filter_options"]["salespeople"],
+        )
 
 
 class SalesOrderPhase3Tests(Phase3Base):

@@ -51,6 +51,13 @@ def customer_queryset_for(actor, *, changing=False):
     return queryset.filter(owner_id=actor.pk)
 
 
+def customer_owner_queryset(User):
+    return User.objects.filter(
+        is_active=True,
+        groups__name__in=(ROLE_SALES, ROLE_OWNER),
+    ).distinct()
+
+
 def sales_order_queryset_for(actor, *, changing=False):
     all_codename = "change_all_sales_orders" if changing else "view_all_sales_orders"
     queryset = SalesOrder.objects.all()
@@ -148,18 +155,25 @@ def _normalize_customer_fields(data, *, creating=False):
     return values
 
 
+def _sales_customer_owner_is_self_only(actor):
+    return (
+        actor.groups.filter(name=ROLE_SALES).exists()
+        and not actor.is_superuser
+        and not actor.groups.filter(name=ROLE_OWNER).exists()
+    )
+
+
 def _customer_owner(actor, requested_owner_id):
-    is_sales = actor.groups.filter(name=ROLE_SALES).exists()
-    if is_sales:
+    if _sales_customer_owner_is_self_only(actor):
         if requested_owner_id not in (None, "", actor.pk, str(actor.pk)):
             raise OperationError("销售人员只能为本人建立客户档案。", status=403, code="permission_denied")
         return actor
     if requested_owner_id in (None, ""):
-        raise OperationError("请指定负责该客户的销售人员。", fields={"owner_id": "此项必填。"})
+        raise OperationError("请指定客户负责人。", fields={"owner_id": "此项必填。"})
     owner_id = identifier(requested_owner_id, "owner_id")
-    owner = actor.__class__.objects.filter(pk=owner_id, is_active=True, groups__name=ROLE_SALES).first()
+    owner = customer_owner_queryset(actor.__class__).filter(pk=owner_id).first()
     if owner is None:
-        raise OperationError("请选择启用中的销售人员。", status=409, code="inactive_reference", fields={"owner_id": "销售人员不存在或未启用。"})
+        raise OperationError("请选择启用中的销售人员或老板。", status=409, code="inactive_reference", fields={"owner_id": "负责人不存在或未启用。"})
     return owner
 
 
@@ -185,7 +199,7 @@ def create_customer(actor, data, operation_key, request_id=""):
     _require(actor, "add_customer")
     values = _normalize_customer_fields(data, creating=True)
     owner_value = data.get("owner_id")
-    if actor.groups.filter(name=ROLE_SALES).exists():
+    if _sales_customer_owner_is_self_only(actor):
         normalized_owner_id = actor.pk if owner_value in (None, "", actor.pk, str(actor.pk)) else owner_value
     else:
         normalized_owner_id = identifier(owner_value, "owner_id") if owner_value not in (None, "") else None
@@ -346,9 +360,9 @@ def transfer_customer(actor, customer_id, data, request_id=""):
             customer = Customer.objects.select_for_update().filter(pk=customer_id).first()
             if customer is None:
                 raise OperationError("客户不存在。", status=404, code="not_found")
-            owner = actor.__class__.objects.filter(pk=owner_id, is_active=True, groups__name=ROLE_SALES).first()
+            owner = customer_owner_queryset(actor.__class__).filter(pk=owner_id).first()
             if owner is None:
-                raise OperationError("请选择启用中的销售人员。", status=409, code="inactive_reference")
+                raise OperationError("请选择启用中的销售人员或老板。", status=409, code="inactive_reference")
             set_operation_document_id(customer.pk)
             if customer.version != expected_version:
                 raise OperationError("客户资料已变化，请刷新后重试。", status=409, code="version_conflict")
