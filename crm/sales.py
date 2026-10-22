@@ -100,8 +100,8 @@ def _normalize_aliases(value, field="aliases"):
 
 
 def _normalize_addresses(value):
-    if not isinstance(value, list) or not value:
-        raise OperationError("客户至少需要一个完整地址。", fields={"addresses": "请填写至少一个完整地址。"})
+    if not isinstance(value, list):
+        raise OperationError("客户地址格式无效。", fields={"addresses": "请提交地址列表。"})
     result = []
     seen_ids = set()
     for index, item in enumerate(value):
@@ -157,7 +157,7 @@ def _normalize_customer_fields(data, *, creating=False):
     if "aliases" in data or creating:
         values["aliases"] = _normalize_aliases(data.get("aliases", []))
     if "addresses" in data or creating:
-        values["addresses"] = _normalize_addresses(data.get("addresses"))
+        values["addresses"] = _normalize_addresses(data.get("addresses", []))
     return values
 
 

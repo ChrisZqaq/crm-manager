@@ -25,7 +25,7 @@
     {% elif not customer and can_select_owner %}
       <label>负责人 <select id="owner_id" required><option value="">请选择负责人</option>{% for person in salespeople %}<option value="{{ person.pk }}">{{ person.get_username }}</option>{% endfor %}</select></label>
     {% endif %}
-    <fieldset><legend>收货地址（至少一个）</legend><div id="addresses"></div><button id="add-address" type="button">添加地址</button></fieldset>
+    <fieldset><legend>收货地址（选填）</legend><div id="addresses"></div><button id="add-address" type="button">添加地址</button></fieldset>
     <button class="button-primary" type="submit">保存客户</button>
   </form>
   <p id="status" role="status"></p>
@@ -53,7 +53,7 @@
       card.querySelector('[data-remove]').addEventListener('click',()=>card.remove());addresses.append(card);
     }
     async function start() {
-      try { regions=(await api('/api/v1/regions')).items;for(const item of initial?.addresses||[])addAddress(item);if(!initial?.addresses?.length)addAddress(); }
+      try { regions=(await api('/api/v1/regions')).items;for(const item of initial?.addresses||[])addAddress(item); }
       catch(error){status.textContent=error.message;}
     }
     document.getElementById('add-address').addEventListener('click',()=>addAddress());

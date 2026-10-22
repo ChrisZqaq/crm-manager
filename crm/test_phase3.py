@@ -842,6 +842,93 @@ class CustomerContactOptionalPhase3Tests(Phase3Base):
         self.assertContains(order_page, "newCustomerName.required=customerMode==='new'")
 
 
+class CustomerAddressOptionalPhase3Tests(Phase3Base):
+    def test_customer_creation_accepts_missing_or_empty_addresses_but_rejects_partial_address(self):
+        client = Client()
+        client.force_login(self.sales)
+
+        for name, addresses in (("Address key omitted", None), ("Empty address list", [])):
+            data = self.customer_payload(name=name)
+            if addresses is None:
+                data.pop("addresses")
+            else:
+                data["addresses"] = addresses
+            data["operation_key"] = str(uuid4())
+            response = client.post("/api/v1/customers", data=json.dumps(data), content_type="application/json")
+            self.assertEqual(response.status_code, 200, response.content)
+            self.assertFalse(CustomerAddress.objects.filter(customer_id=response.json()["customer_id"]).exists())
+
+        data = self.customer_payload(name="Partial address", addresses=[{"recipient": "Synthetic Recipient"}])
+        data["operation_key"] = str(uuid4())
+        response = client.post("/api/v1/customers", data=json.dumps(data), content_type="application/json")
+        self.assertEqual(response.status_code, 400, response.content)
+        self.assertIn("addresses[0].phone", response.json()["error"]["fields"])
+        self.assertFalse(Customer.objects.filter(name="Partial address").exists())
+
+    def test_edit_omission_preserves_addresses_and_empty_list_archives_without_erasing_order_snapshot(self):
+        customer = self.create_customer(actor=self.sales, name="Address history")
+        address = customer.addresses.get(is_active=True)
+        _, _, order = self.preview_and_confirm(self.order_payload(
+            customer_id=customer.pk,
+            customer_address_id=address.pk,
+            delivery_mode=SalesOrder.DeliveryMode.SHIPMENT,
+        ), actor=self.sales)
+        snapshot = (order.recipient_snapshot, order.contact_snapshot, order.province_snapshot, order.city_snapshot, order.detail_snapshot)
+        client = Client()
+        client.force_login(self.sales)
+
+        customer_data = client.get(f"/api/v1/customers/{customer.pk}").json()
+        response = client.patch(
+            f"/api/v1/customers/{customer.pk}",
+            data=json.dumps({"expected_version": customer_data["version"], "operation_key": str(uuid4()), "note1": "No address field"}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200, response.content)
+        customer_data = client.get(f"/api/v1/customers/{customer.pk}").json()
+        self.assertEqual([item["id"] for item in customer_data["addresses"]], [address.pk])
+
+        response = client.patch(
+            f"/api/v1/customers/{customer.pk}",
+            data=json.dumps({"expected_version": customer_data["version"], "operation_key": str(uuid4()), "addresses": []}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(client.get(f"/api/v1/customers/{customer.pk}").json()["addresses"], [])
+        archived_address = CustomerAddress.objects.get(pk=address.pk)
+        self.assertFalse(archived_address.is_active)
+        order.refresh_from_db()
+        self.assertEqual((order.recipient_snapshot, order.contact_snapshot, order.province_snapshot, order.city_snapshot, order.detail_snapshot), snapshot)
+
+    def test_inline_new_customer_can_be_name_only_for_onsite_orders_while_shipment_still_requires_address(self):
+        _, _, order = self.preview_and_confirm(
+            self.order_payload(new_customer={"name": "Onsite name only"}),
+            actor=self.sales,
+        )
+        self.assertEqual(order.customer.name, "Onsite name only")
+        self.assertEqual(order.customer.contact, "")
+        self.assertFalse(order.customer.addresses.exists())
+
+        with self.assertRaises(OperationError) as raised:
+            preview_sales_order(self.sales, self.order_payload(
+                delivery_mode=SalesOrder.DeliveryMode.SHIPMENT,
+                new_customer={"name": "Shipment profile only"},
+            ))
+        self.assertIn("address_snapshot", raised.exception.fields)
+
+    def test_customer_forms_label_addresses_optional_and_start_without_blank_address_row(self):
+        customer = self.create_customer(actor=self.sales)
+        client = Client()
+        client.force_login(self.sales)
+
+        standalone = client.get("/customers/new/")
+        self.assertContains(standalone, "收货地址（选填）")
+        self.assertNotIn("if(!initial?.addresses?.length)addAddress()", standalone.content.decode())
+        editor = client.get("/customers/")
+        self.assertContains(editor, "收货地址（选填）")
+        self.assertNotIn("if(!addressBox.children.length)addAddress()", editor.content.decode())
+        self.assertContains(client.get(f"/customers/{customer.pk}/edit/"), "收货地址（选填）")
+
+
 class SalesOrderPhase3Tests(Phase3Base):
     def test_changed_customer_invoice_fallback_uses_target_scope_for_confirm_and_replay(self):
         old_customer = self.create_customer(invoice_title="Old customer invoice")

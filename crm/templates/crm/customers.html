@@ -27,7 +27,7 @@
       <label>备注1<textarea name="note1"></textarea></label><label>备注2<textarea name="note2"></textarea></label>
       <label>发票抬头<input name="invoice_title" maxlength="255"></label><label>统一社会信用代码<input name="invoice_credit_code" maxlength="100"></label><label>发票邮箱<input name="invoice_email" maxlength="254"></label>
       {% if can_select_owner %}<label id="customer-owner-field">负责人<select name="owner_id"><option value="">请选择负责人</option>{% for person in salespeople %}<option value="{{ person.pk }}">{{ person.get_username }}</option>{% endfor %}</select></label>{% endif %}
-      <fieldset class="full-width"><legend>收货地址（至少一个）</legend><div id="customer-addresses"></div><button type="button" id="customer-add-address">添加地址</button></fieldset>
+      <fieldset class="full-width"><legend>收货地址（选填）</legend><div id="customer-addresses"></div><button type="button" id="customer-add-address">添加地址</button></fieldset>
     </div>
     <p id="customer-editor-status" class="dialog-status" role="status" aria-live="polite"></p>
     <div class="dialog-actions"><button type="button" data-dialog-close>取消</button><button class="button-primary" type="submit">保存客户</button></div>
@@ -92,13 +92,13 @@
     const province=row.querySelector('[data-field="province"]'),city=row.querySelector('[data-field="city"]');for(const region of regions)province.add(new Option(region.province,region.province));
     function cities(selected=''){city.replaceChildren(new Option('请选择城市',''));for(const item of regions.find(region=>region.province===province.value)?.cities||[])city.add(new Option(item.name,item.name));city.value=selected;}
     province.value=value.province||'';cities(value.city||'');province.addEventListener('change',()=>cities());for(const field of ['recipient','phone','detail'])row.querySelector(`[data-field="${field}"]`).value=value[field]||'';if(value.id)row.dataset.id=value.id;
-    row.querySelector('[data-remove]').addEventListener('click',()=>{if(addressBox.children.length>1){row.remove();resetEditorKey();}});addressBox.append(row);
+    row.querySelector('[data-remove]').addEventListener('click',()=>{row.remove();resetEditorKey();});addressBox.append(row);
   }
   async function openEditor(id=null){
     editor.reset();editorSaving=false;editor.querySelector('[type="submit"]').disabled=false;addressBox.replaceChildren();editorStatus.textContent='';editorStatus.setAttribute('role','status');editedCustomer=null;editorKey=CrmCrypto.uuidV4();
     try{if(!regions.length)regions=(await api('/api/v1/regions')).items;const ownerField=document.getElementById('customer-owner-field');if(ownerField)ownerField.hidden=Boolean(id);for(const name of ['name','contact','company','note1','note2','invoice_title','invoice_credit_code','invoice_email','aliases']){const field=editor.elements.namedItem(name);if(field)field.value='';}
       if(id){editedCustomer=await api(`/api/v1/customers/${encodeURIComponent(id)}`);for(const name of ['name','contact','company','note1','note2','invoice_title','invoice_credit_code','invoice_email'])editor.elements.namedItem(name).value=editedCustomer[name]||'';editor.elements.aliases.value=(editedCustomer.aliases||[]).join('\n');const ownerField=editor.elements.namedItem('owner_id');if(ownerField)ownerField.value=editedCustomer.owner_id||'';for(const address of editedCustomer.addresses||[])addAddress({...address,phone:address.phone});}
-      if(!addressBox.children.length)addAddress();dialog.showModal();editor.querySelector('input[name="name"]').focus();
+      dialog.showModal();editor.querySelector('input[name="name"]').focus();
     }catch(error){message.textContent=error.message;message.setAttribute('role','alert');}
   }
   let editorSaving=false;const resetEditorKey=()=>{editorKey=CrmCrypto.uuidV4();editorStatus.textContent='';editorStatus.setAttribute('role','status');};editor.addEventListener('input',resetEditorKey);editor.addEventListener('change',resetEditorKey);
