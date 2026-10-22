@@ -71,7 +71,7 @@
 | --- | --- |
 | GET `/api/v1/regions` | 返回固定JSON省市层级及行政区划代码；仅登录人员可读。 |
 | GET `/api/v1/channels` | 返回启用渠道；需`view_channel`。渠道名称在Django Admin维护。 |
-| GET／POST `/api/v1/customers` | 列表支持`q`、`include_archived=true/false`及标准分页；`q`匹配姓名、别名、公司、联系方式。列表默认只含有效客户。POST创建客户，销售归属本人，其他有权人员须提交`owner_id`及完整地址。 |
+| GET／POST `/api/v1/customers` | 列表支持`q`、`include_archived=true/false`及标准分页；`q`匹配姓名、别名、公司、联系方式。列表默认只含有效客户。POST创建客户，销售归属本人，其他有权人员须提交`owner_id`；客户地址可不提供或为空数组，提供时每条完整。 |
 | GET／PATCH `/api/v1/customers/{id}` | 查看或维护当前授权范围客户；维护传`expected_version`、`operation_key`，地址可多条。 |
 | POST `/api/v1/customers/{id}/archive`、`/transfer` | 归档传版本及操作标识；转交仅老板／管理员，另传新`owner_id`，不改订单销售人或历史地址快照。 |
 | GET `/api/v1/orders` | 支持`q`、`status`和标准分页，2026-10-08增量增加精确客户/仓库/销售/核对状态及下单日期筛选（完整参数见文末）；销售默认只见本人订单，获`view_all_sales_orders`者可查看全部；仓管默认见全部订单。`status`保留原状态枚举，另返回由模型`get_status_display()`生成的`status_label`；支持全部五种现有状态筛选。 |
@@ -254,3 +254,7 @@ UI-LIST-FILTERS集中核对补充（待实施）：orders.filter_options另含 `
 ### 客户联系方式选填（2026-10-22用户确认，实施中）
 
 独立客户创建/修改及订单内new_customer的姓名仍必填，客户contact可省略或为空文本；不伪造联系方式。PATCH/修改省略contact保留原值，明确传空字符串可清空客户联系方式。姓名校验、归属权限、订单幂等/原子性保持；每个收货地址的电话及快递订单收件字段仍按原必填校验，客户contact不代填收件电话。网页与模型/表单及API约束同步，正式发布状态以开发计划为准。
+
+### 客户档案地址选填（2026-10-22用户确认，实施中）
+
+POST客户可省略addresses或传[]，不建立地址记录；若提供地址，每条仍需完整收件人、phone、省、市及详细地址并校验省市关系，不接受半条占位地址。PATCH省略addresses保留现有地址，显式[]依原软停用机制停用档案地址，不删除历史记录或改历史订单收件快照。客户姓名必填、联系方式选填；快递订单完整收件信息仍必填，不能借档案无地址绕过。网页默认/提交应能实际表达零地址，不发送空白地址对象。实施与正式发布状态见开发计划。

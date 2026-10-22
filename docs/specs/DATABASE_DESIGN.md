@@ -35,7 +35,7 @@
 | channel | 名称、启用状态 | 销售渠道选项，独立于销售人员 |
 | payment_account | 名称、方式、对公／私账责任类型、启用状态 | 不保存登录秘密；核对责任类型不能由普通销售改写 |
 | customer | 所属销售user_id、姓名、联系方式、公司、别名、备注1/2、发票抬头、信用代码、电子邮箱、归档状态 | 姓名必填、联系方式选填文本（2026-10-22更新），可为电话或微信等；销售创建默认本人，代建明确选择销售；归属变更仅老板／管理员，不改变历史订单销售及提成；无全局姓名或联系方式唯一约束；不开票及选填缺失不标不完整 |
-| customer_address | customer_id、收件人、联系电话、省份、城市、详细地址 | 地址各字段必填；电话文本、不强制大陆手机号格式；一客户多地址，省市联动选择，仅中国大陆；客户建档与首地址一并提交，无区县选择器 |
+| customer_address | customer_id、收件人、联系电话、省份、城市、详细地址 | 地址各字段必填；电话文本、不强制大陆手机号格式；一客户多地址，省市联动选择，仅中国大陆；客户建档可无地址（2026-10-22更新），主动保存地址时每条完整，无区县选择器 |
 | account_profile | user_id、version | 仅保留历史业务操作外键目标；删除生日偏好字段，不提供新的偏好功能 |
 
 SKU增加可空专用预警阈值及提醒关闭标记；一个全局默认阈值由后台修改，具体存储用最小单项设置，不建立通用配置规则平台。专用值为空时取全局默认，关闭时不判断，设置各仓共用；阈值非负整数，库存查询比较各仓可售数量≤有效值。初始默认值为5，并保存一个全局提醒启用开关；全局关闭优先于SKU配置，保留配置以便恢复。不增加单位默认表、仓库覆盖表或提醒任务表。
@@ -188,7 +188,7 @@ erDiagram
 
 ## 10. 2026-10-09增量数据合同
 
-- Customer将interests/hobbies迁为note1/note2，删除birthday；新增可空invoice_title/invoice_credit_code/invoice_email。AccountProfile删除birthday_reminder_enabled，但保留模型及BusinessOperation目标外键、原历史记录。迁移不能破坏其他客户字段及历史关系。普通单独建客继续原地址规则；订单内现场新客允许仅姓名（联系方式选填），快递必须完整地址并同事务保存。无完整度字段或跨销售自动合并。
+- Customer将interests/hobbies迁为note1/note2，删除birthday；新增可空invoice_title/invoice_credit_code/invoice_email。AccountProfile删除birthday_reminder_enabled，但保留模型及BusinessOperation目标外键、原历史记录。迁移不能破坏其他客户字段及历史关系。普通单独建客可不保存地址（2026-10-22更新）；订单内现场新客允许仅姓名（联系方式选填），快递必须完整地址并同事务保存。无完整度字段或跨销售自动合并。
 - SalesOrder新增requires_invoice=false及三个同名开票快照字段。未选择开票时快照为空；散客不建档且拒绝开票。客户一套资料，订单内成功新填同步客户，历史快照不随客户更新，开票资料变化不重算成本/付款版本/提成。
 - ProductLanguageOption最小名称唯一表，初始简中/日文/英文/韩文；Product.language变为nullable PROTECT外键，无默认。补充包/礼盒·预组必选、周边可空。显示/筛选及Excel仍用名称；写接口可用language_id。旧值先只读列明，非标准值必须明确核对后迁移，不猜测，不丢弃。选项仅老板/超级管理员维护。
 - BusinessControl新增opening_enabled，已有入账状态初始化为关闭。老板/超级管理员在未入账时可开关；成功入账原子写opening_completed=true、opening_enabled=false。开关不重置完成标记/批次/库存；关闭无需库存为空，预览/确认仍受原有期初准入限制。与确认共用控制行锁及现有业务操作幂等、版本。
