@@ -1,11 +1,13 @@
 # 测试当前工作
-### 当前唯一任务（2026-10-21）
-- 任务/基线：`CRM-OPENING-CANDIDATE-1021`；固定应用 `eefc4900df1007a2191ff63d3577afdc681e45d1`，候选已冻结。
-- 输入：`/Users/chrisz/Desktop/阿罗拉卡牌进销存V2-1020-2320.xlsx` 与 `.local/initial_data/候选期初导入_1020-2320_两表制_非最终_20261021.xlsx`；私有证据位于 `.local/CRM-OPENING-CANDIDATE-1021/private/`。
-- 边界：仅候选只读对账；不登录/刷新last_login、不preview/confirm/重放、不写库、不碰正式云库/入口、不跑合成业务或清理；旧UI评审已关闭，本轮不恢复、不再联系UI/前端。
-- 当前结论：固定候选商品/库存对账通过；差异和限制见本WORK末尾，已向负责人报告。
+### 当前唯一任务（2026-10-22）
+- 任务/基线：`ORDER-CUSTOMER-PERM-360B7FC`；固定应用提交 `360b7fcbd9d8bf8a4e3abd4527f15f9f18a03953`。
+- 范围：仅验证无 `crm.view_customer`、有 `crm.add_salesorder` 的订单页初始化、渠道/SKU/仓库加载、预览及客户数据边界。
+- 环境：固定源码 `.local/QA-ORDER-CUSTOMER-PERM-360B7FC/source`；私有库 `qa_order_customer_ui_74f2a5a`（PG17，Unix socket `/tmp/qaoc1021`，端口55541）；私有页面 `127.0.0.1:19240`。
+- 边界：只做合成现场交付预览，不确认/占货，不重复旧六项业务测试、两笔订单链或74f2a5a UI复核；不改应用/共享数据、不推送部署、不触正式库。
+- 当前结论：目标浏览器验证通过，证据见本节及 `.local/QA-ORDER-CUSTOMER-PERM-360B7FC/private/permission-evidence.json`；自有服务和PG集群已停。
 
-更新：2026-10-21；CRM-RESTORE-DRILL-1020独立只读复核已由负责人接受。恢复资源交部署保管，可能与候选库共用私有集群，当前不停止或清理；待候选manifest明确后再由负责人排定精确清理。已收到固定候选交付并打开只读对账窗口，当前唯一任务见顶部5行说明；数据专员写入/确认过程中QA不查看、不对账。数据口径按最新INITIAL_DATA：2320完整流水回放移动加权成本，无流水SKU仅建档不建库存，三项限制数量0；不触云正式库/入口、不跑合成业务、不自行做期初写入。此前HTTP-COMPAT-RETRY-1013的固定前端提交 `e59e15e4dea2009bf041d06672b1b1f8a2f3cd2c` 已完成独立浏览器＋真实PostgreSQL定向验收，证据见本WORK末节及[浏览器/数据库证据](http-compat-retry-1013/browser-evidence.json)。该结论仅覆盖前次范围，不表示CRM整体验收或发布授权。各阶段记录保留为历史。
+更新：2026-10-22；当前唯一工作为上述权限组合定向补验。此前阶段仍见下文历史记录；本项只覆盖360b7fc上的页面权限路径，不代表整体验收或发布授权。
+
 
 最近导航b6bc1e8独立浏览器、定向1项和只目录权限四目标403探针通过，负责人已验收发布f477c07；此前库及临时资产清理。
 
@@ -1048,3 +1050,44 @@ DB快照：决定仅有订单1/6/5各1条（序号81/84/85）；订单2/3/4/7/8/
 本地HTTP实际渲染确认 `lang=zh-Hans`、侧栏“修改密码”入口、中文说明/按钮及表单字段“旧密码／新密码／新密码确认”。这证明Django模板响应内容，不代表真实浏览器视觉验收。完整14项结果保存在 `.local/QA-PASSWORD-SELF-CHANGE-1021/private/qa_result.json`。
 
 执行中一次本地检查断言未匹配“新密码确认”的正确中文标签；另一次测试脚本参数顺序错误，只对本任务隔离库里的合成用户进行了改密。重置两个合成账号后，完整定向流程通过；未触碰任何现有员工、云dev或正式数据库/密码，未改应用源代码/配置/权限，也未部署或推送。
+
+### ORDER-CUSTOMER-CONTROLS-1021｜订单客户控件固定版独立验收（2026-10-21）
+
+固定应用为 `2987d94ad83ba67a52e87bda1940e961a9fae2c5`。用 `git archive` 建立独立源码 `.local/QA-ORDER-CUSTOMER-CONTROLS-1021/source`，自有PG17 Unix-socket集群、合成库 `qa_order_customer_controls_1021`，本机页面 `http://localhost:19238`；未改应用文件，也未写负责人/前端/UI共享库。
+
+以下6个定向后端用例全部通过：
+
+- `crm.test_phase3.SalesOrderPhase3Tests.test_order_new_customer_invoice_is_atomic_and_idempotent`
+- `crm.test_phase3.SalesOrderPhase3Tests.test_confirm_rejects_when_selected_invoice_fallback_customer_is_transferred`
+- `crm.test_phase3.CustomerPhase3Tests.test_customer_api_enforces_authentication_and_owner_scope`
+- `crm.test_phase3.CustomerPhase3Tests.test_customer_owner_filter_and_options_follow_scope_before_search_and_pagination`
+- `crm.test_phase3.CustomerPhase3Tests.test_customer_address_http_contract_and_old_order_address_switch`
+- `crm.test_phase3.CustomerPhase3Tests.test_customer_invoice_fields_alias_search_and_order_snapshot_sync`
+
+`test_order_new_customer_invoice_is_atomic_and_idempotent` 注入订单行写入失败后客户、地址、订单、业务操作均未留下且占货为0；用同一幂等键重试返回原结果，客户/地址/订单及占货仅一份。散客开票被拒绝，新增客户与寄件地址分别校验。未跑全套。
+
+独立页面验证：以销售角色按别名找到本人合成客户，搜索另一销售名下合成客户无结果；选择客户后用ID 1确认订单，数据库关联 `customer_id=1`。既有客户草稿取消后，客户、客户地址、收件字段、开票勾选及抬头恢复；再次打开的新客草稿字段为空。切换散客显示“散客（不建档）”，回已有客户模式时没有残留客户选择。客户联系方式与收件联系方式在表单和已保存订单快照中区分开。
+
+预览和确认的数据库证据：既有客户订单预览前后 `客户/地址/订单/业务操作/占货` 为 `2/2/0/2/0`；确认后为 `2/2/1/3/1`。新客订单预览前后为 `2/2/1/3/1`；确认后新增一个客户、一个地址、一个订单和一次占货，订单 `customer_id=3`、客户负责人 `owner_id=1`，发票抬头、客户联系及独立寄件联系均与输入相符。对该订单执行未改内容的编辑预览及确认后，版本为2，客户ID、地址、发票快照不变，活动明细仍为1，占货仍为2；总客户/地址/订单数均未增加。完整快照见 `.local/QA-ORDER-CUSTOMER-CONTROLS-1021/private/qa_result.json`。
+
+浏览器保存截图被策略拦截；本轮使用已接受的会话内AX/DOM状态及私有数据库前后快照留证。没在浏览器重复同键重放或注入失败，这两项由6个定向后端用例验证；未覆盖全套、非本任务流程或独立现场交付空地址页面路径。未发现本任务范围内缺陷，未改应用代码、共享数据或正式环境。
+
+### ORDER-CUSTOMER-UI-REVIEW-74F2A5A｜商品行补证环境交接（2026-10-21）
+
+负责人要求补商品长名、非空可售量及成本的UI边界证据。固定 `74f2a5a3663e4187980cca945622adcaf10af0e2` 独立归档在 `.local/QA-ORDER-CUSTOMER-UI-74F2A5A/source`，相对2987d94只差 `crm/static/crm/app.css`、`crm/templates/crm/base.html`、`crm/templates/crm/order_form.html` 三文件；本地页面 `http://localhost:19239`，使用独立库 `qa_order_customer_ui_74f2a5a`。登录页HTTP 200，新订单路由匿名时302到登录；销售账号有新增订单、查看SKU、仓库和库存权限。
+
+样本为合成长名商品 `2026秋冬典藏版·光影纪元全球限定主题收藏补充包系列（展示样品）—用于订单明细长名称布局边界复核与多渠道适配`、SKU `QACVR-2026-LONG-NAME-001`、仓库 `QA Controls Visual Review Warehouse`。24件库存通过正常 `preview_receipt`/`confirm_receipt` 服务入库，非直接改余额；可售24、占用0、预留0、成本总额297.280，三位小数单位成本参考12.387。合成销售登录名、密码和文件SHA-256见同目录 `private/review_manifest.json`；密码只通过授权的跨会话交接发给UI设计师，不写入本文件。
+
+UI设计师已在1280×900真实浏览器完成补验：选择指定SKU与仓库后可见24盒可售量及¥12.387/盒成本；四个输入top353.8且高44px，删除按钮top353.3/right876在行卡right889内，辅助列132px并折行于数量下方，页面根宽1280且无横向溢出。原三项修复定向复验亦由UI报告通过，无新缺陷。图像和几何证据为 `docs/workspaces/ui/review-order-customer-74f2a5a/06-desktop-long-sku-stock.jpg` 与 `sample-geometry.json`，UI报告/指纹在 `docs/workspaces/ui/review-order-customer-74f2a5a/REPORT.md`、`SHA256SUMS`。
+
+补验未提交或预览订单、未改样本；UI已关闭其自建标签且恢复视口，不再依赖环境。测试方停止自己启动的19239服务和PG集群，保留私有源码、数据库及结果文件。此项是74f2a5a独立界面复核，不替代2987d94业务验收。
+
+### ORDER-CUSTOMER-PERM-360B7FC｜无客户查看权限的下单页面定向复验（2026-10-22）
+
+固定应用提交 `360b7fcbd9d8bf8a4e3abd4527f15f9f18a03953`，源码由该提交独立归档；相对 `74f2a5a3663e4187980cca945622adcaf10af0e2` 仅 `crm/templates/crm/order_form.html` 与 `crm/test_ui.py` 两处有差异，CSS保持不变。先执行固定副本 `manage.py check`，通过。
+
+复用现有私有合成库 `qa_order_customer_ui_74f2a5a`，仅恢复原PG数据目录后启动Unix-socket私有集群；未重建库。账号权限现场核对为 `add_salesorder=true`、`view_customer=false`、`view_channel/view_sku/view_warehouse=true`。真实浏览器登录后，初始订单步骤显示“散客（不建档）”；隐藏 `#customer` 控件存在、仅有“请选择客户”占位项，客户搜索控件可见数为0。
+
+请求日志仅出现地区、仓库、渠道、SKU、库存及 `POST /api/v1/orders/preview`；目录/库存/预览请求均为200，没有客户API路径。控制台 error/warn 记录为空。现场页面加载合成渠道“QA Controls Visual Review Channel”、SKU `QACVR-2026-LONG-NAME-001` 及仓库“QA Controls Visual Review Warehouse”；可售24盒，单位成本参考¥12.387。切换现场交付并填入合成成交价¥15.00后，服务器预览成功显示1盒、金额¥15.000，成本按现场交付显示未出库/未核算；未点击“确认并占货”。
+
+预览后私有库计数为订单0、客户0、客户地址0；业务操作1、库存余额1（均为既有收货样本）。页面日志没有客户API请求，DOM无可见客户搜索且隐藏选择器只有占位项，没有暴露客户记录。未另行直接请求客户API。本轮只覆盖现场交付预览路径；没有重跑此前6项后端测试、既有订单链或UI几何复核。私有结果为 `.local/QA-ORDER-CUSTOMER-PERM-360B7FC/private/permission-evidence.json`。应用文件、共享数据库、正式环境未改动；私有Django服务和PG集群已停止，源码与私有合成证据保留。
