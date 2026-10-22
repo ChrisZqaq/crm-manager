@@ -1,0 +1,217 @@
+{
+  "desktopResults": {
+    "client": 1280,
+    "rows": [
+      {
+        "children": [
+          {
+            "h": 71.5,
+            "id": "",
+            "tag": "LABEL",
+            "text": "",
+            "w": 164,
+            "x": 225,
+            "y": 219.796875
+          },
+          {
+            "h": 44,
+            "id": "",
+            "tag": "DIV",
+            "text": "",
+            "w": 154,
+            "x": 397,
+            "y": 247.296875
+          },
+          {
+            "h": 22.5,
+            "id": "sku-search-status",
+            "tag": "P",
+            "text": "共51个SKU，已加载50个。",
+            "w": 326,
+            "x": 225,
+            "y": 299.296875
+          }
+        ],
+        "rect": {
+          "h": 102,
+          "w": 326,
+          "x": 225,
+          "y": 219.796875
+        }
+      },
+      {
+        "children": [
+          {
+            "h": 71.5,
+            "id": "",
+            "tag": "LABEL",
+            "text": "",
+            "w": 260,
+            "x": 563,
+            "y": 219.796875
+          },
+          {
+            "h": 44,
+            "id": "",
+            "tag": "DIV",
+            "text": "",
+            "w": 58,
+            "x": 831,
+            "y": 247.296875
+          },
+          {
+            "h": 22.5,
+            "id": "warehouse-search-status",
+            "tag": "P",
+            "text": "共2个仓库，已加载2个。",
+            "w": 326,
+            "x": 563,
+            "y": 299.296875
+          }
+        ],
+        "rect": {
+          "h": 102,
+          "w": 326,
+          "x": 563,
+          "y": 219.796875
+        }
+      }
+    ],
+    "scroll": 1280,
+    "w": 1280
+  },
+  "mobileResults": {
+    "client": 375,
+    "h": 844,
+    "rows": [
+      {
+        "controls": [
+          {
+            "h": 44,
+            "tag": "INPUT",
+            "text": "",
+            "w": 323,
+            "x": 26,
+            "y": 181.796875
+          },
+          {
+            "h": 44,
+            "tag": "BUTTON",
+            "text": "查找",
+            "w": 58,
+            "x": 26,
+            "y": 233.796875
+          },
+          {
+            "h": 44,
+            "tag": "BUTTON",
+            "text": "加载更多",
+            "w": 90,
+            "x": 90,
+            "y": 233.796875
+          }
+        ],
+        "rect": {
+          "h": 154,
+          "w": 323,
+          "x": 26,
+          "y": 154.296875
+        },
+        "status": [
+          {
+            "font": "15px",
+            "live": "polite",
+            "right": 349,
+            "text": "共51个SKU，已加载50个。",
+            "w": 323,
+            "wrap": "normal"
+          }
+        ]
+      },
+      {
+        "controls": [
+          {
+            "h": 44,
+            "tag": "INPUT",
+            "text": "",
+            "w": 323,
+            "x": 26,
+            "y": 347.796875
+          },
+          {
+            "h": 44,
+            "tag": "BUTTON",
+            "text": "查找",
+            "w": 58,
+            "x": 26,
+            "y": 399.796875
+          }
+        ],
+        "rect": {
+          "h": 154,
+          "w": 323,
+          "x": 26,
+          "y": 320.296875
+        },
+        "status": [
+          {
+            "font": "15px",
+            "live": "polite",
+            "right": 349,
+            "text": "共1个仓库，已加载1个。",
+            "w": 323,
+            "wrap": "normal"
+          }
+        ]
+      }
+    ],
+    "scroll": 375,
+    "w": 390
+  },
+  "mobileEmpty": {
+    "client": 375,
+    "scroll": 375,
+    "selection": [
+      {
+        "selected": "合成搜索商品 · UIS-0001 · 个",
+        "tag": "SELECT",
+        "value": "1"
+      },
+      {
+        "selected": "合成搜索仓甲",
+        "tag": "SELECT",
+        "value": "1"
+      },
+      {
+        "tag": "INPUT",
+        "value": "7"
+      },
+      {
+        "tag": "INPUT",
+        "value": "12.34"
+      }
+    ],
+    "statuses": [
+      {
+        "h": 22.5,
+        "live": "polite",
+        "right": 349,
+        "role": "status",
+        "text": "没有找到匹配的SKU。"
+      },
+      {
+        "h": 22.5,
+        "live": "polite",
+        "right": 349,
+        "role": "status",
+        "text": "共1个仓库，已加载1个。"
+      }
+    ],
+    "w": 390
+  },
+  "changed": {
+    "live": "polite",
+    "root": 375,
+    "text": "搜索条件已更改，点击查找更新结果。"
+  }
+}
