@@ -593,3 +593,9 @@ UV_PROJECT_ENVIRONMENT=/Users/chrisz/.cache/aluola-crm-uiquery1-venv CRM_DB_NAME
 - 库存页明细由 `inventory_page` 使用 `inventory_rows` 后分页；单位摘要从同页查询参数请求 `/api/v1/reports/inventory`，去掉 `page/page_size` 后设 `page_size=1`。`_inventory_data` 先从完整筛选结果计算 `summary.by_unit`，报表分页只裁剪 `items`；Excel 导出也用同一 `build_report` 筛选参数并导出完整结果。因此 IP 筛选已贯穿明细、摘要、Excel；系列筛选目前三处均未生效，静默忽略系列参数可能造成误判。
 - 最小实现建议：在 `inventory_rows` 增加 `Product.series` 条件；库存报表 `_filter_options` 从有库存的商品提供系列选项；库存页以系列替换 SKU 下拉并同步分页链接。若库存报表页面也需同样交互，则一并改其模板。现有导出链接保留查询参数，摘要与 Excel 可继续复用统一过滤结果。回归应覆盖列表/API 的系列过滤、`page_size=1` 时完整筛选集的单位摘要，以及同参数 Excel 行集；现有 `test_inventory_report_keeps_live_balance_and_hoard_reason` 未覆盖系列，`test_inventory_workbench_counts_enabled_positive_available_ip_language_pairs` 仅验证 workbench 摘要与 Excel 的无关筛选一致性。
 - 待实施时确认系列选项是否只列出当前有余额的非空系列；“未设置系列”是否要作为可选值尚无约定。本轮未运行测试或生成 Excel，结论来自代码静态核对。
+
+### UI-INVENTORY-1021｜共享系列筛选实现与自测（2026-10-22）
+
+- 依据：负责人开启本任务唯一后端应用写入窗口，业务基线为已发布 `360b7fc`。在 `inventory_rows` 增加 `series` 原文精确筛选；不传/空值仍包含所有系列及未设置系列，与仓库、IP、SKU、低库存条件共同生效；保留 `sku_id`。库存报告 `filter_options.series` 复用现有 `{id,label}` 形状，两者均为非空系列原文，仅取可见库存余额中的去重值。Excel筛选条件说明仅对库存报告显示“系列”，不影响销售报表 `series=day`。无模型、迁移、端点、权限、成本、模板或依赖改动。
+- 回归覆盖库存 API 两页明细与HTML库存页第二页、系列与IP/仓库/低库存AND、未传/空系列兼容、旧`sku_id`兼容、系列下拉选项排除空值及精确前缀匹配、`page_size=1`时完整`summary.by_unit`和相同查询的完整Excel行集/筛选说明。
+- 验证：`manage.py check`、Python AST语法解析、ORM查询编译和销售/库存系列说明隔离自检、`git diff --check`通过。已尝试运行3项定向Django测试，但Django在创建测试库前无法连接既有Unix socket `.local/postgres-socket:55439`（socket不存在），因此0项实际执行；没有创建/改动数据库。全套测试、浏览器验收、部署及真实数据均未触碰。交付提交与本记录一并固定，不推送。

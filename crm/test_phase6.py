@@ -534,8 +534,9 @@ class ReportPhase6Tests(Phase4Base):
         self.assertEqual(api.json()["total"], 3)
         self.assertEqual(
             set(api.json()["filter_options"]),
-            {"warehouses", "skus", "brands"},
+            {"warehouses", "skus", "brands", "series"},
         )
+        self.assertEqual(api.json()["filter_options"]["series"], [{"id": "Set 1", "label": "Set 1"}])
         self.assertEqual(
             {item["id"] for item in api.json()["filter_options"]["warehouses"]},
             {str(self.warehouse.pk), str(self.second_warehouse.pk)},
@@ -547,6 +548,95 @@ class ReportPhase6Tests(Phase4Base):
         page = self.client.get("/reports/inventory/")
         self.assertEqual(page.status_code, 200)
         self.assertContains(page, "Synthetic event stock")
+
+    def test_inventory_series_filter_matches_list_summary_and_excel(self):
+        second_balance = InventoryBalance.objects.create(
+            sku=self.sku, warehouse=self.second_warehouse, on_hand=5, cost_amount=Decimal("5.000")
+        )
+        second_series = Product.objects.create(
+            brand=self.brand, type=Product.Type.BOOSTER, series="Set 10", name="Second Series",
+            language=self.product.language,
+        )
+        second_series_sku = SKU.objects.create(product=second_series, code="TST-0002", unit="盒")
+        InventoryBalance.objects.create(
+            sku=second_series_sku, warehouse=self.warehouse, on_hand=4, cost_amount=Decimal("4.000")
+        )
+        blank_series = Product.objects.create(
+            brand=self.brand, type=Product.Type.BOOSTER, name="Unassigned Series",
+            language=self.product.language,
+        )
+        blank_series_sku = SKU.objects.create(product=blank_series, code="TST-0003", unit="盒")
+        InventoryBalance.objects.create(
+            sku=blank_series_sku, warehouse=self.warehouse, on_hand=3, cost_amount=Decimal("3.000")
+        )
+        other_brand = Brand.objects.create(name="Other Synthetic IP", sku_prefix="OTH-")
+        other_brand_product = Product.objects.create(
+            brand=other_brand, type=Product.Type.BOOSTER, series="Set 1", name="Other IP Series",
+            language=self.product.language,
+        )
+        other_brand_sku = SKU.objects.create(product=other_brand_product, code="OTH-0001", unit="盒")
+        InventoryBalance.objects.create(
+            sku=other_brand_sku, warehouse=self.warehouse, on_hand=6, cost_amount=Decimal("6.000")
+        )
+
+        self.client.force_login(self.sales)
+        query = {"series": "Set 1", "brand_id": str(self.brand.pk), "page_size": 1}
+        first_page = self.client.get("/api/v1/inventory", query)
+        second_page = self.client.get("/api/v1/inventory", {**query, "page": 2})
+        self.assertEqual((first_page.status_code, second_page.status_code), (200, 200))
+        self.assertEqual((first_page.json()["total"], second_page.json()["total"]), (2, 2))
+        self.assertTrue(first_page.json()["has_next"])
+        self.assertEqual(
+            {first_page.json()["items"][0]["id"], second_page.json()["items"][0]["id"]},
+            {str(self.balance.pk), str(second_balance.pk)},
+        )
+        page = self.client.get("/inventory/", {**query, "page": 2})
+        self.assertEqual(page.status_code, 200)
+        self.assertEqual([item["id"] for item in page.context["items"]], [str(second_balance.pk)])
+
+        unfiltered = self.client.get("/api/v1/inventory", {"series": "", "page_size": 1})
+        omitted_series = self.client.get("/api/v1/inventory", {"page_size": 1})
+        legacy_sku = self.client.get("/api/v1/inventory", {"sku_id": str(self.sku.pk), "page_size": 1})
+        self.assertEqual((unfiltered.json()["total"], omitted_series.json()["total"]), (5, 5))
+        self.assertEqual(legacy_sku.json()["total"], 2)
+
+        report_response = self.client.get("/api/v1/reports/inventory", query)
+        self.assertEqual(report_response.status_code, 200, report_response.content)
+        report_data = report_response.json()
+        self.assertEqual(report_data["total"], 2)
+        self.assertEqual(report_data["summary"]["by_unit"], [
+            {"unit": "盒", "on_hand": 25, "available": 25, "occupied": 0, "reserved": 0, "damaged": 0},
+        ])
+        self.assertEqual(
+            report_data["filter_options"]["series"],
+            [{"id": "Set 1", "label": "Set 1"}, {"id": "Set 10", "label": "Set 10"}],
+        )
+
+        control = BusinessControl.objects.get(pk=1)
+        control.low_stock_enabled = True
+        control.default_threshold = 5
+        control.save(update_fields=("low_stock_enabled", "default_threshold"))
+        self.sku.low_stock_enabled = True
+        self.sku.save(update_fields=("low_stock_enabled",))
+        low_stock = self.client.get("/api/v1/inventory", {
+            **query, "warehouse_id": str(self.second_warehouse.pk), "low_stock": "true",
+        })
+        self.assertEqual(low_stock.json()["total"], 1)
+        self.assertEqual(low_stock.json()["items"][0]["id"], str(second_balance.pk))
+
+        report = build_report(self.sales, "inventory", query)
+        workbook = load_workbook(BytesIO(workbook_bytes(report)), read_only=True)
+        try:
+            sheet = workbook.active
+            exported_rows = list(sheet.iter_rows(min_row=7, values_only=True))
+            self.assertEqual(len(exported_rows), len(report["items"]))
+            self.assertEqual(
+                [(row[0], row[1], row[2]) for row in exported_rows],
+                [(item["warehouse"], item["brand"], item["product"]) for item in report["items"]],
+            )
+            self.assertIn("系列=Set 1", sheet.cell(row=4, column=2).value)
+        finally:
+            workbook.close()
 
     def test_payment_first_evidence_time_survives_failure_replay_updates_and_rechecks(self):
         order = self.new_order()

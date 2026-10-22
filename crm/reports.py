@@ -177,6 +177,8 @@ def _filter_summary(query, metadata):
         value = query.get(field, "").strip()
         if value:
             parts.append(f"{label}={value}")
+    if metadata["date_basis"] == "当前库存余额" and query.get("series"):
+        parts.append(f"系列={query['series']}")
     if query.get("scope") == "unshipped":
         parts.append("范围=未交付订单（不按交付日期筛选）")
     for field, label in (("status", "核对状态"), ("account_id", "收款账户"), ("paused", "暂停状态"), ("commission_status", "提成状态")):
@@ -687,10 +689,12 @@ def _filter_options(actor, report):
         warehouse_rows = balances.values("warehouse_id", "warehouse__name").distinct().order_by("warehouse__name")
         sku_rows = balances.values("sku_id", "sku__code", "sku__product__name", "sku__unit").distinct().order_by("sku__code")
         brand_rows = balances.values("sku__product__brand_id", "sku__product__brand__name").distinct().order_by("sku__product__brand__name")
+        series_rows = balances.values_list("sku__product__series", flat=True).exclude(sku__product__series="").distinct().order_by("sku__product__series")
         warehouses = [{"id": str(row["warehouse_id"]), "label": row["warehouse__name"]} for row in warehouse_rows]
         skus = [{"id": str(row["sku_id"]), "label": f"{row['sku__code']} · {row['sku__product__name']} · {row['sku__unit']}"} for row in sku_rows]
         brands = [{"id": str(row["sku__product__brand_id"]), "label": row["sku__product__brand__name"]} for row in brand_rows]
-        return {"warehouses": warehouses, "skus": skus, "brands": brands}
+        series = [{"id": value, "label": value} for value in series_rows]
+        return {"warehouses": warehouses, "skus": skus, "brands": brands, "series": series}
     orders = _order_queryset(actor)
     if report == "commissions" and not actor.is_superuser and not actor.has_perm("crm.view_all_commissions"):
         orders = orders.filter(salesperson_id=actor.pk)

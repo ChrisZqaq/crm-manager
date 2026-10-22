@@ -1175,6 +1175,8 @@ def inventory_rows(actor, query):
         balances = balances.filter(sku_id=identifier(query.get("sku_id"), "sku_id"))
     if query.get("brand_id"):
         balances = balances.filter(sku__product__brand_id=identifier(query.get("brand_id"), "brand_id"))
+    if query.get("series"):
+        balances = balances.filter(sku__product__series=query.get("series"))
     low_stock_filter = query.get("low_stock")
     if low_stock_filter not in (None, "", "true", "false"):
         raise OperationError("低库存筛选值无效。", fields={"low_stock": "请输入true或false。"})
