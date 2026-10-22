@@ -346,3 +346,11 @@ UI-QUERY-1契约冻结（负责人同步，2026-10-08；后端仍实施中，不
 - 私有隔离账号只授 `add_salesorder`、库存/目录/渠道只读权限，无 `view_customer`。真实浏览器初始化为散客，读取到合成渠道，页面无 JS 错误；本次服务日志没有客户 API 请求。当前私有库没有 SKU/仓库，未自行构造库存/预览数据，交QA用其既有合成库存验证商品选择及预览。
 - `manage.py check`、`crm.test_ui.ApprovedWorkbenchAndPaymentUITests.test_order_editor_and_admin_management_render`（1项）、`git diff --check`通过。
 - 应用提交后停止写入；不推送、不部署，交QA定向验证后由负责人验收。
+
+### UI-INVENTORY-1021-FRONTEND 固定交付
+
+- 依据：负责人批准的库存页前端范围，应用基线 `534b9d4`。仅触及库存模板、库存页局部样式、全局 CSS 缓存版本和对应 UI 回归断言；未改后端、API、报表页、权限、设置数据或业务规则。
+- 库存筛选显示仓库/IP/系列/库存状态，系列从既有报告筛选选项加载；SKU选择器移除，系列保留在分页与导出查询中。移除指定的页面说明和汇总辅助文案；数字汇总表头与数值列统一右对齐；库存设置卡片/行的布局样式限定在库存页，并修正“开启”字形。
+- 使用私有合成数据库 `oc_ui_inventory_1022` 检查了2个IP、2个非空系列、空系列商品、2个仓库及多种库存值。桌面1280px观察筛选/表格与设置布局，汇总表头和数据列边界一致；390px根页面无横向溢出（client/scroll 均375px），明细表宽900px并由表格容器横向滚动。实测系列筛选、组合条件空结果、正常库存筛选、非法库存值错误和完整筛选集汇总；未保存任何设置。
+- `manage.py check`、`crm.test_ui.ApprovedWorkbenchAndPaymentUITests.test_density_redesign_scope_and_preserved_inventory_controls`（1项）和 `git diff --check` 通过；浏览器 error/warn 为空。合成库及开发进程属于本机隔离环境，不含真实业务数据；保留以供负责人/QA使用，不连接生产或共享QA。
+- 应用固定后停止应用写入；未推送、未部署。交负责人安排独立QA/UI验收。
