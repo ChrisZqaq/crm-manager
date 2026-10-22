@@ -9,7 +9,7 @@
   <form id="customer-form">
     {% csrf_token %}
     <label>客户姓名 <input id="name" maxlength="200" required></label>
-    <label>联系方式 <textarea id="contact" required></textarea></label>
+    <label>联系方式（选填） <textarea id="contact"></textarea></label>
     <label>公司 <input id="company" maxlength="200"></label>
     <label>别名（每行一个） <textarea id="aliases"></textarea></label>
     <label>备注1 <textarea id="note1"></textarea></label>

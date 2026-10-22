@@ -553,7 +553,7 @@ class InventoryMovement(models.Model):
 class Customer(models.Model):
     owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="crm_customers")
     name = models.CharField(max_length=200)
-    contact = models.TextField()
+    contact = models.TextField(blank=True)
     company = models.CharField(max_length=200, blank=True)
     aliases = models.JSONField(default=list, blank=True, validators=[validate_aliases])
     note1 = models.TextField("备注1", blank=True)

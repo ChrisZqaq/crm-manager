@@ -731,6 +731,117 @@ class OwnerCustomerAssignmentPhase3Tests(Phase3Base):
         )
 
 
+class CustomerContactOptionalPhase3Tests(Phase3Base):
+    def test_customer_and_inline_order_allow_empty_contact_but_require_name(self):
+        self.assertTrue(Customer._meta.get_field("contact").blank)
+        client = Client()
+        client.force_login(self.sales)
+
+        data = self.customer_payload(name="No profile contact", contact="")
+        data["operation_key"] = str(uuid4())
+        response = client.post("/api/v1/customers", data=json.dumps(data), content_type="application/json")
+        self.assertEqual(response.status_code, 200, response.content)
+        customer = Customer.objects.get(pk=response.json()["customer_id"])
+        self.assertEqual(customer.contact, "")
+
+        data = self.customer_payload(name="Null profile contact", contact=None)
+        data["operation_key"] = str(uuid4())
+        response = client.post("/api/v1/customers", data=json.dumps(data), content_type="application/json")
+        self.assertEqual(response.status_code, 400, response.content)
+        self.assertIn("contact", response.json()["error"]["fields"])
+
+        data = self.customer_payload(name="", contact="")
+        data["operation_key"] = str(uuid4())
+        response = client.post("/api/v1/customers", data=json.dumps(data), content_type="application/json")
+        self.assertEqual(response.status_code, 400, response.content)
+        self.assertIn("name", response.json()["error"]["fields"])
+
+        payload = self.order_payload(new_customer={"name": "Inline no contact", "contact": ""})
+        _, _, order = self.preview_and_confirm(payload, actor=self.sales)
+        self.assertEqual(order.customer.contact, "")
+        with self.assertRaises(OperationError) as raised:
+            preview_sales_order(self.sales, self.order_payload(new_customer={"name": "", "contact": ""}))
+        self.assertIn("new_customer.name", raised.exception.fields)
+        with self.assertRaises(OperationError) as raised:
+            preview_sales_order(self.sales, self.order_payload(new_customer={"name": "Inline null", "contact": None}))
+        self.assertIn("new_customer.contact", raised.exception.fields)
+
+    def test_contact_omission_preserves_value_and_explicit_empty_clears_it(self):
+        customer = self.create_customer(actor=self.sales, contact="Keep this contact")
+        client = Client()
+        client.force_login(self.sales)
+
+        response = client.patch(
+            f"/api/v1/customers/{customer.pk}",
+            data=json.dumps({"expected_version": customer.version, "operation_key": str(uuid4()), "note1": "Changed note"}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200, response.content)
+        customer.refresh_from_db()
+        self.assertEqual(customer.contact, "Keep this contact")
+
+        response = client.patch(
+            f"/api/v1/customers/{customer.pk}",
+            data=json.dumps({"expected_version": customer.version, "operation_key": str(uuid4()), "contact": None}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 400, response.content)
+        customer.refresh_from_db()
+        self.assertEqual(customer.contact, "Keep this contact")
+
+        response = client.patch(
+            f"/api/v1/customers/{customer.pk}",
+            data=json.dumps({"expected_version": customer.version, "operation_key": str(uuid4()), "contact": ""}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200, response.content)
+        customer.refresh_from_db()
+        self.assertEqual(customer.contact, "")
+
+    def test_customer_and_shipping_address_contacts_remain_required(self):
+        payload = self.customer_payload(
+            name="Missing address phone",
+            contact="",
+            addresses=[{
+                "recipient": "Synthetic Recipient",
+                "phone": "",
+                "province": "北京市",
+                "city": "北京市",
+                "detail": "Synthetic street 1",
+            }],
+        )
+        with self.assertRaises(OperationError) as raised:
+            create_customer(self.sales, payload, uuid4())
+        self.assertIn("addresses[0].phone", raised.exception.fields)
+
+        payload = self.order_payload(
+            delivery_mode=SalesOrder.DeliveryMode.SHIPMENT,
+            new_customer={"name": "Missing shipping contact", "contact": ""},
+            address_snapshot={
+                "recipient": "Synthetic Recipient",
+                "contact": "",
+                "province": "北京市",
+                "city": "北京市",
+                "detail": "Synthetic street 1",
+            },
+        )
+        with self.assertRaises(OperationError) as raised:
+            preview_sales_order(self.sales, payload)
+        self.assertIn("address_snapshot", raised.exception.fields)
+
+    def test_contact_is_optional_in_customer_and_order_forms(self):
+        customer = self.create_customer(actor=self.sales)
+        client = Client()
+        client.force_login(self.sales)
+        for path in ("/customers/new/", f"/customers/{customer.pk}/edit/"):
+            with self.subTest(path=path):
+                self.assertContains(client.get(path), '<textarea id="contact"></textarea>', html=True)
+        self.assertContains(client.get("/customers/"), '<textarea name="contact"></textarea>', html=True)
+        order_page = client.get("/orders/new/")
+        self.assertContains(order_page, '<input id="new-customer-contact">', html=True)
+        self.assertContains(order_page, "newCustomerName.required=customerMode==='new'")
+
+
 class SalesOrderPhase3Tests(Phase3Base):
     def test_changed_customer_invoice_fallback_uses_target_scope_for_confirm_and_replay(self):
         old_customer = self.create_customer(invoice_title="Old customer invoice")

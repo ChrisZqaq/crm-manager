@@ -87,6 +87,12 @@ def _text(value, field, *, required=False, max_length=None):
     return result
 
 
+def _optional_contact(data, field):
+    if "contact" in data and data["contact"] is None:
+        raise OperationError("文本格式无效。", fields={field: "请输入文本。"})
+    return _text(data.get("contact"), field)
+
+
 def _normalize_aliases(value, field="aliases"):
     if not isinstance(value, list) or any(not isinstance(item, str) for item in value):
         raise OperationError("别名格式无效。", fields={field: "请输入文本列表。"})
@@ -141,7 +147,7 @@ def _normalize_customer_fields(data, *, creating=False):
     if creating or "name" in data:
         values["name"] = _text(data.get("name"), "name", required=True, max_length=200)
     if creating or "contact" in data:
-        values["contact"] = _text(data.get("contact"), "contact", required=True)
+        values["contact"] = _optional_contact(data, "contact")
     for field, limit in (
         ("company", 200), ("note1", None), ("note2", None),
         ("invoice_title", 255), ("invoice_credit_code", 100), ("invoice_email", 254),
@@ -411,7 +417,7 @@ def _normalize_new_order_customer(data, actor):
     return {
         "owner_id": owner.pk,
         "name": _text(data.get("name"), "new_customer.name", required=True, max_length=200),
-        "contact": _text(data.get("contact"), "new_customer.contact", required=True),
+        "contact": _optional_contact(data, "new_customer.contact"),
         "company": _text(data.get("company"), "new_customer.company", max_length=200),
         "aliases": _normalize_aliases(data.get("aliases", []), "new_customer.aliases"),
         "note1": _text(data.get("note1"), "new_customer.note1"),
