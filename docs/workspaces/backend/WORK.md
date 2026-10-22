@@ -585,3 +585,11 @@ UV_PROJECT_ENVIRONMENT=/Users/chrisz/.cache/aluola-crm-uiquery1-venv CRM_DB_NAME
 - 所有登录用户可在共享侧栏账号区看到“修改密码”入口。模板使用 `crm/password_change_*.html` 唯一路径，避免 Django Admin 已有 `registration/password_change_*.html` 抢先覆盖并展示后台布局。没有增加强制改密、密码重置/邮件或身份平台，也无迁移与新依赖。
 - 验证：`manage.py check`、`makemigrations --check --dry-run` 和 `git diff --check` 通过。专属 Unix-socket-only PG17 测试集群（端口55493）上 7 项通过：匿名不能访问改密/完成页；共享侧栏入口对普通登录用户可见；旧密码错误及新密码校验失败均不改密码；成功改密只更新本人、其他用户密码不变、当前 session 保持并进入 CRM 完成页；POST 保持 CSRF 保护；既有密码登录 CSRF 与安全 `next` 回归通过。Django 自动销毁测试库；确认本任务测试库已不存在，停止并清理仅由本轮创建的集群/目录。未使用或改动云dev、运行副本、正式/候选业务库；未部署或推送。
 - 固定交付后停止应用写入，等负责人安排只测本改动的 QA；用户已明确原初始密码可继续使用，本轮没有重置或触碰它们。
+
+### UI-INVENTORY-1021｜库存 IP/系列筛选只读核对（2026-10-22）
+
+- 范围：按只读接口核对安排检查库存页、单位汇总与 Excel 筛选一致性；不改应用代码、不运行测试。当前 HEAD 为 `a88c9d3`，相对固定版本 `360b7fc` 的 `crm/`、`config/` 无差异。
+- `crm/templates/crm/inventory.html` 当前筛选为仓库、SKU、IP、库存状态。IP 走 `brand_id`，后端已有支持；`series` 尚未支持，传入时 `inventory_rows` 不会应用该条件。`crm/reports._filter_options("inventory")` 只提供仓库、SKU、IP选项。`crm/templates/crm/report.html` 的库存报表筛选也有 IP、SKU、仓库，没有系列。
+- 库存页明细由 `inventory_page` 使用 `inventory_rows` 后分页；单位摘要从同页查询参数请求 `/api/v1/reports/inventory`，去掉 `page/page_size` 后设 `page_size=1`。`_inventory_data` 先从完整筛选结果计算 `summary.by_unit`，报表分页只裁剪 `items`；Excel 导出也用同一 `build_report` 筛选参数并导出完整结果。因此 IP 筛选已贯穿明细、摘要、Excel；系列筛选目前三处均未生效，静默忽略系列参数可能造成误判。
+- 最小实现建议：在 `inventory_rows` 增加 `Product.series` 条件；库存报表 `_filter_options` 从有库存的商品提供系列选项；库存页以系列替换 SKU 下拉并同步分页链接。若库存报表页面也需同样交互，则一并改其模板。现有导出链接保留查询参数，摘要与 Excel 可继续复用统一过滤结果。回归应覆盖列表/API 的系列过滤、`page_size=1` 时完整筛选集的单位摘要，以及同参数 Excel 行集；现有 `test_inventory_report_keeps_live_balance_and_hoard_reason` 未覆盖系列，`test_inventory_workbench_counts_enabled_positive_available_ip_language_pairs` 仅验证 workbench 摘要与 Excel 的无关筛选一致性。
+- 待实施时确认系列选项是否只列出当前有余额的非空系列；“未设置系列”是否要作为可选值尚无约定。本轮未运行测试或生成 Excel，结论来自代码静态核对。
