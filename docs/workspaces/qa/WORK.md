@@ -1120,3 +1120,17 @@ UI设计师已在1280×900真实浏览器完成补验：选择指定SKU与仓库
 提醒设置仅作只读核验：有 `view_inventorybalance` 与 `manage_global_low_stock` 的合成用户看到全局设置表单，无管理权限但有查看权限的用户看不到表单；两者设置GET均为200。只读复核 `low_stock_settings_api` 中PATCH需 `manage_global_low_stock`，本轮没有发送PATCH或保存设置。未跑全套业务测试、未做部署/发布。
 
 复核收尾时共享工作树已出现未提交的应用改动（`crm/sales.py`、`crm/views.py`、`crm/test_phase3.py`及客户/订单模板）。开始验收时这些应用路径相对固定提交无差异；本轮测试始终运行在独立归档副本，未读取、修改或验证这些后出现的工作树改动。固定版结论不覆盖这些改动；后续应用写入安排需由负责人确认唯一写入者。
+
+### CUSTOMER-RULES-1022｜负责人、联系方式及地址规则固定版独立验收（2026-10-22）
+
+依据固定应用提交 `ccefc51b5134e06ddbd372c1a87e167794956caa`，从 `git archive` 建立独立源码 `.local/QA-CUSTOMER-RULES-CCEFC51/source`。测试用PostgreSQL 17.11私有Unix socket `/tmp/qacust1022`、端口55545及数据库 `qa_customer_rules`；`listen_addresses`为空且`inet_server_addr()`为NULL。没有连接共享/正式库、读取真实业务数据或部署。
+
+**迁移验证：**先将 CRM 固定在 `0017_accountprofile_wecom_userid`，播入合成用户、角色权限、客户、地址和关联订单，再运行 `crm.0018_customer_contact_optional`。`sqlmigrate`输出 `no-op`；迁移后CRM 0018已应用，`Customer.contact` 为 `blank=True, null=False`。迁移前后合成用户组及权限、客户字段、地址关系、订单和历史快照逐项一致，差异0。前后快照见 `.local/QA-CUSTOMER-RULES-CCEFC51/private/migration_before.json` 与 `migration_after.json`。
+
+**自动化回归：**固定副本 `manage.py check` 通过；限跑13项新增范围测试及2项相关旧回归，15/15通过。负责人范围覆盖老板/双角色、管理员和既有代办者分配，转交到停用目标拒绝、普通销售不可越权，以及订单销售人与报表归属保持原样。联系方式范围验证姓名必填、客户联系省略保留/空字符串清除/null拒绝，并保持客户地址联系电话和快递收件联系方式必填。地址范围验证新建省略或空数组、部分地址拒绝、PATCH省略保留、`[]`软停用及订单历史快照不变，并验证现场只需姓名、快递须有完整收件信息。测试自动创建并销毁独立测试库；未跑全套或旧库存测试。
+
+**真实浏览器：**固定副本登录合成老板账号，客户独立表单、客户列表弹窗、订单内联新客户三入口均已操作。独立表单空联系方式/零地址保存后，客户详情显示无有效地址；姓名为空时浏览器必填阻止提交。填入未保存草稿后离开表单，数据库中无对应客户。列表弹窗可取消且草稿不入库，也可空联系方式、零地址保存。订单内联资料明确显示确认订单时一并保存；合成现场订单预览前和预览后客户计数均为0，确认后才生成客户与订单，空联系方式/零地址保留，`salesperson`仍为 `qa-boss-hybrid`。快递缺收件字段时预览返回预期400并提示完整收件信息；修正字段后预览200、旧错误消失、输入仍在；取消新建后客户计数仍为0。浏览器控制台error/warn为0。实际HTTP状态和UI/数据库对账见 `http_evidence.json` 与 `browser_evidence.json`。
+
+桌面视口为1280×720。390×844浏览器视口覆盖成功：`innerWidth=390`、文档 `clientWidth/scrollWidth=375`，无页面横向溢出；客户弹窗宽337px且内部可滚动，取消按钮可操作；订单表单控件均在内容宽度内。会话截图按用户接受的方式只在当前浏览器会话查看，没有保存图片文件；视口覆盖已重置，控制台结果和几何证据保存在私有目录。没有实机手机测试。
+
+结论：本轮三范围及迁移检查通过；固定源之外的共享工作树改动未纳入本结论。独立服务与私有PostgreSQL已停止，私有固定源码和QA证据保留。没有应用代码改动、全量测试、旧库存测试或部署。结果文件为 `.local/QA-CUSTOMER-RULES-CCEFC51/private/qa_result.json`。
