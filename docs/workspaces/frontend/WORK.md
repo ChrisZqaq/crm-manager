@@ -1,5 +1,14 @@
 # 前端当前工作
 
+## UI-ORDER-SEARCH-1021 固定交付（2026-10-22）
+
+- 依据：负责人唯一应用写入窗口，后端 `ccefc51` 已固定发布；应用基线 `b738c52`，应用固定提交 `d47fc91368513b64e4e0c96b5a16047215ca9d6c`。仅修改 `crm/templates/crm/order_form.html`、`crm/static/crm/app.css`、`crm/templates/crm/base.html`、`crm/test_ui.py` 和本记录；不改 API、业务规则、老板/客户范围或 availability 实现。
+- SKU/仓库各有就近的 live status，显示查找中、总匹配/已加载数、零结果、失败/保留旧选项、输入改变后需重新查找；搜索请求按类型独立递增序号，输入改动即淘汰在途响应。分页只在成功后推进；下一页失败后保留按钮和页码供同页重试。响应应用前才快照每行当前 SKU/仓库，重建选项后继续按ID/cache保留所选项目；不派发 change，不清空/自动选择，不动数量/单价或库存 availability 流程。状态行加入同一原搜索grid的下一格，`align-self:start` 避免一侧状态拉伸另一侧导致搜索控件下移；CSS缓存版本改为 `20261022-ui-order-search-1021-1`。
+- 验证环境仅为本任务新建 `.local/UI-ORDER-SEARCH-1021/` 私有PG17、数据库 `ui_order_search_1021`、51个合成SKU、2个合成仓库和本机页面；另有本地临时延迟代理，用于受控反序GET。没有客户源数据、生产/共享QA连接、订单创建或业务表单提交。合成 superuser 权限仅为触发SKU/仓库GET拒绝而临时移除，复试前已恢复。
+- 浏览器实测：命中与零结果分别显示准确反馈；403失败就地显示alert，恢复读取权限后同条件重试成功；首屏51条显示“共51个SKU，已加载50个”，更多页失败保持可重试，下一次仍加载第2页并达到51项。受控反序日志为 `UIS-0002` 延迟2.5秒、后发 `UIS-0003` 即时完成；旧响应之后到达仍保留 `UIS-0003` 列表/状态。仅改输入不再搜索时，在途旧响应也未覆盖“条件已更改”反馈。已选 `UIS-0001`、仓甲、数量7、单价12.34及availability文案在改变SKU/仓库搜索后均保留。1280×720下两搜索的输入/按钮top均247.3px，根client/scroll均1265px；390×844根client/scroll均375px，状态在原有输入/按钮下方可读，没有新增根横溢。浏览器 error/warn 为空；视觉截图仅保留在本次CUA输出，未写磁盘。
+- 通过：`manage.py check`；`crm.test_ui.ApprovedWorkbenchAndPaymentUITests.test_order_editor_and_admin_management_render`（1项）；`git diff --check`。合成证据摘要在 `.local/UI-ORDER-SEARCH-1021/evidence.json`。
+- 固定后停止应用写入；交QA/UI独立定向复验，不推送或部署。未检查真实订单/数据。
+
 ## COMMISSION-ADJUSTMENT-INLINE-REWORK-1020 定向返修（2026-10-20）
 
 - 依据：原固定应用 `81c15fd`、QA在独立环境 `19178` 的两项缺陷及负责人唯一最小返修窗口。仅修改 `crm/templates/crm/adjustments.html` 与 `crm/test_phase5.py`；未改服务、模型、权限、API、CSS布局、依赖或已批准界面范围。
