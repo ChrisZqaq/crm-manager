@@ -1,12 +1,13 @@
 # 测试当前工作
 ### 当前唯一任务（2026-10-22）
-- 任务/基线：`ORDER-CUSTOMER-PERM-360B7FC`；固定应用提交 `360b7fcbd9d8bf8a4e3abd4527f15f9f18a03953`。
-- 范围：仅验证无 `crm.view_customer`、有 `crm.add_salesorder` 的订单页初始化、渠道/SKU/仓库加载、预览及客户数据边界。
-- 环境：固定源码 `.local/QA-ORDER-CUSTOMER-PERM-360B7FC/source`；私有库 `qa_order_customer_ui_74f2a5a`（PG17，Unix socket `/tmp/qaoc1021`，端口55541）；私有页面 `127.0.0.1:19240`。
-- 边界：只做合成现场交付预览，不确认/占货，不重复旧六项业务测试、两笔订单链或74f2a5a UI复核；不改应用/共享数据、不推送部署、不触正式库。
-- 当前结论：目标浏览器验证通过，证据见本节及 `.local/QA-ORDER-CUSTOMER-PERM-360B7FC/private/permission-evidence.json`；自有服务和PG集群已停。
+- 任务/基线：`UI-INVENTORY-1021-BACKEND`；固定应用提交 `534b9d43edae666949503b39b34fe06c3e16f5ba`。
+- 范围：库存系列精确过滤及AND组合、空/未传与旧`sku_id`兼容、分页/完整单位汇总、选项去重、Excel筛选，以及销售`series=day`回归。
+- 环境：独立源码 `.local/QA-UI-INVENTORY-1021-BACKEND/source`；自有PG17 Unix-socket集群 `/tmp/qainv1021:55542`；测试库 `qa_ui_inventory_1021`，没有连接共享/云库。
+- 边界：仅运行3项定向Django回归和固定副本`manage.py check`；不跑全套、不用浏览器、不改应用、不触真实数据或部署。
+- 当前结论：3项用例全部通过；证据见本节及 `.local/QA-UI-INVENTORY-1021-BACKEND/private/qa_result.json`。测试库已自动销毁，私有PG已停止。
 
-更新：2026-10-22；当前唯一工作为上述权限组合定向补验。此前阶段仍见下文历史记录；本项只覆盖360b7fc上的页面权限路径，不代表整体验收或发布授权。
+更新：2026-10-22；当前唯一工作为上述固定版库存系列筛选验收。之前阶段保留下文历史；本次结论不替代整套测试或发布授权。
+
 
 
 最近导航b6bc1e8独立浏览器、定向1项和只目录权限四目标403探针通过，负责人已验收发布f477c07；此前库及临时资产清理。
@@ -1091,3 +1092,17 @@ UI设计师已在1280×900真实浏览器完成补验：选择指定SKU与仓库
 请求日志仅出现地区、仓库、渠道、SKU、库存及 `POST /api/v1/orders/preview`；目录/库存/预览请求均为200，没有客户API路径。控制台 error/warn 记录为空。现场页面加载合成渠道“QA Controls Visual Review Channel”、SKU `QACVR-2026-LONG-NAME-001` 及仓库“QA Controls Visual Review Warehouse”；可售24盒，单位成本参考¥12.387。切换现场交付并填入合成成交价¥15.00后，服务器预览成功显示1盒、金额¥15.000，成本按现场交付显示未出库/未核算；未点击“确认并占货”。
 
 预览后私有库计数为订单0、客户0、客户地址0；业务操作1、库存余额1（均为既有收货样本）。页面日志没有客户API请求，DOM无可见客户搜索且隐藏选择器只有占位项，没有暴露客户记录。未另行直接请求客户API。本轮只覆盖现场交付预览路径；没有重跑此前6项后端测试、既有订单链或UI几何复核。私有结果为 `.local/QA-ORDER-CUSTOMER-PERM-360B7FC/private/permission-evidence.json`。应用文件、共享数据库、正式环境未改动；私有Django服务和PG集群已停止，源码与私有合成证据保留。
+
+### UI-INVENTORY-1021-BACKEND｜库存系列筛选固定版独立验收（2026-10-22）
+
+依据固定应用提交 `534b9d43edae666949503b39b34fe06c3e16f5ba`；开始时仓库HEAD即该提交，`crm/`、`config/`、`manage.py`及依赖文件相对固定版无漂移。使用`git archive`建立独立源码 `.local/QA-UI-INVENTORY-1021-BACKEND/source`。只读复核目标函数 `inventory_rows`、`_inventory_data`、`_filter_options` 及 `build_report` 的调用关系后，按负责人派发执行限定回归；固定副本 `manage.py check` 通过。
+
+测试使用新建、自有PostgreSQL 17.11 Unix-socket集群，端口55542、socket `/tmp/qainv1021`、数据库 `qa_ui_inventory_1021`。运行现场确认 `listen_addresses` 为空且 `inet_server_addr()`为NULL。Django测试器创建临时库 `test_qa_ui_inventory_1021`，依次应用迁移至0017，结束时自动销毁；事后只读检查确认该测试库已不存在。没有连接共享开发库、已上线HTTPS或云业务库。
+
+以下3项全部通过（1.199秒）：
+
+- `crm.test_phase6.ReportPhase6Tests.test_inventory_series_filter_matches_list_summary_and_excel`：验证 `Set 1`精确匹配且排除`Set 10`；series与IP、仓库、低库存条件AND生效；未传/空series都不限制并包含空系列；旧`sku_id`仍筛选；API可跨页、库存HTML可到第二页；`page_size=1`时`summary.by_unit`仍汇总完整匹配集；系列选项跨余额去重、排空值并返回字符串`id/label`；同查询参数Excel行集与完整报表一致，筛选说明含`系列=Set 1`。
+- `crm.test_phase6.ReportPhase6Tests.test_inventory_report_keeps_live_balance_and_hoard_reason`：库存报表的可售量、限制原因、单位汇总和既有选项兼容通过。
+- `crm.test_phase6.ReportPhase6Tests.test_workbench_day_over_day_uses_beijing_dates_and_decimal_rounding`：销售报表`series=day`的逐日金额、北京时间边界及`day_over_day`摘要通过，库存系列参数未影响销售日序列。
+
+未跑全套Django测试、浏览器验收或部署烟测；没有改应用文件、真实/共享数据或数据库模式。测试报告见 `.local/QA-UI-INVENTORY-1021-BACKEND/private/qa_result.json`。Django服务未启动；临时测试库自动销毁；本任务PG已停止，私有固定源码、空基库和证据保留以便复核。
