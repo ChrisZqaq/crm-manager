@@ -37,7 +37,7 @@ from .operations import (
     quantity,
     set_operation_document_id,
 )
-from .permissions import ROLE_OWNER, ROLE_SALES
+from .permissions import ROLE_OWNER, ROLE_SALES, ROLE_WAREHOUSE
 from .regions import valid_region_pair
 
 SALES_ORDER_PREVIEW_SALT = "crm.sales-order-preview.v1"
@@ -61,9 +61,27 @@ def customer_owner_queryset(User):
 def sales_order_queryset_for(actor, *, changing=False):
     all_codename = "change_all_sales_orders" if changing else "view_all_sales_orders"
     queryset = SalesOrder.objects.all()
-    if actor.is_superuser or actor.has_perm(f"crm.{all_codename}"):
+    if actor.is_superuser:
+        return queryset
+    if changing and actor.groups.filter(name=ROLE_OWNER).exists():
+        return queryset.filter(salesperson_id=actor.pk)
+    if actor.has_perm(f"crm.{all_codename}"):
         return queryset
     return queryset.filter(salesperson_id=actor.pk)
+
+
+def sales_order_actor_can_change(actor, order, actor_roles=None):
+    if actor.is_superuser or actor.pk == order.salesperson_id:
+        return True
+    actor_roles = actor_roles if actor_roles is not None else set(actor.groups.values_list("name", flat=True))
+    return ROLE_OWNER not in actor_roles and actor.has_perm("crm.change_all_sales_orders")
+
+
+def sales_order_actor_can_fulfill(actor, order, actor_roles=None):
+    if actor.is_superuser:
+        return True
+    actor_roles = actor_roles if actor_roles is not None else set(actor.groups.values_list("name", flat=True))
+    return ROLE_WAREHOUSE in actor_roles or (ROLE_OWNER in actor_roles and actor.pk == order.salesperson_id)
 
 
 def sales_order_commission_visible_to(actor, order):
@@ -1203,13 +1221,13 @@ def cancel_sales_order(actor, order_id, data, request_id=""):
         with transaction.atomic():
             control = _lock_control()
             _require(actor, "cancel_salesorder")
-            replay = _operation_replay(actor, key, "sales_order_cancel", input_hash)
-            if replay is not None:
-                return replay
             order = sales_order_queryset_for(actor, changing=True).select_for_update().filter(pk=order_id).first()
             if order is None:
                 raise OperationError("订单不存在或不在可维护范围。", status=404, code="not_found")
             set_operation_document_id(order.pk)
+            replay = _operation_replay(actor, key, "sales_order_cancel", input_hash)
+            if replay is not None:
+                return replay
             if order.status not in (SalesOrder.Status.AWAITING_PAYMENT, SalesOrder.Status.READY_TO_SHIP):
                 raise OperationError("已发货或已完成的订单不能取消。", status=409, code="state_conflict")
             if order.version != expected_version:

@@ -12,7 +12,7 @@ from django.contrib.auth import get_user_model, login
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.http import FileResponse, Http404, HttpResponse, JsonResponse
-from django.db.models import Q
+from django.db.models import Prefetch, Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.urls import reverse
@@ -27,9 +27,11 @@ from .models import (
     AccountProfile,
     Brand,
     BusinessControl,
+    BusinessOperation,
     Channel,
     Customer,
     CustomerAddress,
+    CommissionReview,
     InventoryBalance,
     CommissionAdjustment,
     PaymentAccount,
@@ -82,6 +84,8 @@ from .corrections import (
     visible_cost_correction_data,
 )
 from .fulfillment import (
+    _can_verify,
+    _current_cost_correction_commission_suggestion,
     confirm_cost_correction_commission_decision,
     complete_commission_adjustment,
     deliver_on_site,
@@ -92,7 +96,7 @@ from .fulfillment import (
     update_outbound_freight,
     verify_payment,
 )
-from .permissions import ROLE_OWNER, ROLE_SALES
+from .permissions import ROLE_OWNER, ROLE_SALES, ROLE_WAREHOUSE
 from .regions import region_options
 from .sales import (
     archive_customer,
@@ -102,6 +106,8 @@ from .sales import (
     customer_owner_queryset,
     customer_queryset_for,
     preview_sales_order,
+    sales_order_actor_can_change,
+    sales_order_actor_can_fulfill,
     sales_order_commission_visible_to,
     sales_order_queryset_for,
     transfer_customer,
@@ -1076,10 +1082,170 @@ def _customer_data(customer):
     }
 
 
-def _sales_order_data(order, actor):
+WORKBENCH_ACTION_IDS = (
+    "register_payment",
+    "verify_payment",
+    "ship",
+    "deliver_on_site",
+    "receive",
+    "review_commission",
+    "complete_commission_adjustment",
+    "cost_correction_commission_decision",
+)
+
+WORKBENCH_ACTION_LABELS = {
+    "register_payment": "登记或补正收款",
+    "verify_payment": "核对收款",
+    "ship": "确认发货",
+    "deliver_on_site": "确认现场交付",
+    "receive": "确认收货",
+    "review_commission": "复核提成",
+    "complete_commission_adjustment": "确认提成差额已线下处理",
+    "cost_correction_commission_decision": "确认成本纠错提成差额",
+}
+
+ORDER_OPERATION_LABELS = {
+    "sales_order_create": "创建订单",
+    "sales_order_amend": "修改订单",
+    "sales_order_cancel": "取消订单",
+    "payment_register": "登记或补正收款",
+    "payment_verify": "核对收款",
+    "sales_order_ship": "确认发货",
+    "sales_order_onsite_delivery": "确认现场交付",
+    "sales_order_receive": "确认收货",
+    "sales_order_freight": "记录出库运费",
+    "commission_review": "复核提成",
+    "commission_adjustment_complete": "确认提成差额已线下处理",
+    "cost_correction_commission_decision": "确认成本纠错提成差额",
+}
+
+
+def _order_action_state(actor, order, actor_roles=None):
+    actor_roles = actor_roles if actor_roles is not None else set(actor.groups.values_list("name", flat=True))
     payment = getattr(order, "payment_record", None)
+    review = getattr(order, "commission_review", None)
     commission_visible = sales_order_commission_visible_to(actor, order)
-    commission = getattr(order, "commission_review", None) if commission_visible else None
+    own_order = actor.pk == order.salesperson_id
+    can_change = sales_order_actor_can_change(actor, order, actor_roles)
+    can_fulfill = sales_order_actor_can_fulfill(actor, order, actor_roles)
+    before_fulfillment = order.status in (SalesOrder.Status.AWAITING_PAYMENT, SalesOrder.Status.READY_TO_SHIP)
+    payment_current = payment is not None and payment.expected_payment_version == order.payment_version
+    payment_has_images = payment is not None and bool(payment.images.all())
+    payment_can_fulfill = (
+        payment_current
+        and payment_has_images
+        and not payment.paused
+        and payment.status != PaymentRecord.Status.PROBLEM
+    )
+    commission_payment_passed = (
+        payment_current
+        and payment.status == PaymentRecord.Status.PASSED
+        and not payment.paused
+        and payment.verified_version == order.payment_version
+    )
+    actions = []
+
+    if can_change and before_fulfillment and actor.has_perm("crm.change_salesorder"):
+        actions.append("amend_order")
+    if can_change and before_fulfillment and actor.has_perm("crm.cancel_salesorder"):
+        actions.append("cancel_order")
+    if (
+        can_change
+        and actor.has_perm("crm.register_payment")
+        and order.status != SalesOrder.Status.CANCELLED
+        and (payment is None or payment.status == PaymentRecord.Status.PROBLEM or not payment_current)
+    ):
+        actions.append("register_payment")
+    if (
+        actor.has_perm("crm.verify_payment")
+        and payment is not None
+        and payment.status == PaymentRecord.Status.PENDING
+        and payment_current
+        and _can_verify(actor, payment.account)
+    ):
+        actions.append("verify_payment")
+    if (
+        can_fulfill
+        and actor.has_perm("crm.ship_salesorder")
+        and order.delivery_mode == SalesOrder.DeliveryMode.SHIPMENT
+        and order.status == SalesOrder.Status.READY_TO_SHIP
+        and payment_can_fulfill
+    ):
+        actions.append("ship")
+    if (
+        can_fulfill
+        and actor.has_perm("crm.deliver_on_site")
+        and order.delivery_mode == SalesOrder.DeliveryMode.ON_SITE
+        and order.status == SalesOrder.Status.READY_TO_SHIP
+        and payment_can_fulfill
+    ):
+        actions.append("deliver_on_site")
+    if (
+        own_order
+        and actor.has_perm("crm.confirm_salesorder_receipt")
+        and order.delivery_mode == SalesOrder.DeliveryMode.SHIPMENT
+        and order.status == SalesOrder.Status.SHIPPED
+    ):
+        actions.append("receive")
+    freight_permission = "deliver_on_site" if order.delivery_mode == SalesOrder.DeliveryMode.ON_SITE else "ship_salesorder"
+    if (
+        can_fulfill
+        and actor.has_perm(f"crm.{freight_permission}")
+        and order.status in (SalesOrder.Status.SHIPPED, SalesOrder.Status.COMPLETED)
+    ):
+        actions.append("update_freight")
+
+    owner_or_admin = actor.is_superuser or ROLE_OWNER in actor_roles
+    may_decide_cost_correction = (
+        owner_or_admin
+        and actor.has_perm("crm.view_costcorrection")
+        and commission_visible
+    )
+    cost_suggestion = None
+    may_need_commission_decision = actor.has_perm("crm.review_commission") or may_decide_cost_correction
+    if (
+        may_need_commission_decision
+        and order.status == SalesOrder.Status.COMPLETED
+        and commission_payment_passed
+        and review is not None
+    ):
+        cost_suggestion = _current_cost_correction_commission_suggestion(order, review)
+    review_is_current = review is not None and review.approved_amount_version == order.amount_version
+    if (
+        actor.has_perm("crm.review_commission")
+        and order.status == SalesOrder.Status.COMPLETED
+        and commission_payment_passed
+        and not review_is_current
+        and cost_suggestion is None
+    ):
+        actions.append("review_commission")
+
+    pending_adjustments = []
+    if own_order and actor.has_perm("crm.complete_commission_adjustment") and commission_visible:
+        pending_adjustments = sorted(
+            (row for row in order.commission_adjustments.all() if row.completed_at is None),
+            key=lambda row: row.pk,
+        )
+        if pending_adjustments:
+            actions.append("complete_commission_adjustment")
+    if may_decide_cost_correction and cost_suggestion is not None:
+        actions.append("cost_correction_commission_decision")
+
+    return {
+        "actions": actions,
+        "payment": payment,
+        "commission": review if commission_visible else None,
+        "commission_visible": commission_visible,
+        "pending_adjustments": pending_adjustments,
+        "cost_correction_suggestion": cost_suggestion,
+    }
+
+
+def _sales_order_data(order, actor, action_state=None, actor_roles=None):
+    action_state = action_state or _order_action_state(actor, order, actor_roles)
+    payment = getattr(order, "payment_record", None)
+    commission_visible = action_state["commission_visible"]
+    commission = action_state["commission"]
     data = {
         "id": order.pk,
         "sequence": order.last_sequence,
@@ -1109,6 +1275,7 @@ def _sales_order_data(order, actor):
       "version": order.version,
       "amount_version": order.amount_version,
       "payment_version": order.payment_version,
+        "allowed_actions": action_state["actions"],
       "payment": None if payment is None else {
           "account_id": payment.account_id,
           "account_name": payment.account.name,
@@ -1124,7 +1291,7 @@ def _sales_order_data(order, actor):
           "difference_reason": payment.difference_reason,
           "problem_reason": payment.problem_reason,
           "received_at": payment.received_at.isoformat() if payment.received_at else None,
-          "image_ids": list(payment.images.values_list("pk", flat=True)),
+            "image_ids": [image.pk for image in payment.images.all()],
           "version": payment.version,
       },
       "shipments": [
@@ -1336,7 +1503,9 @@ def orders_api(request):
         "salespeople": [{"id": str(user_id), "label": username} for user_id, username in salesperson_rows],
         "warehouses": [{"id": str(warehouse_id), "label": name} for warehouse_id, name in warehouse_rows],
     }
-    items = order_scope.select_related("salesperson", "customer", "channel")
+    items = order_scope.select_related(
+        "salesperson", "customer", "channel", "payment_record__account", "commission_review",
+    ).prefetch_related("payment_record__images", "commission_adjustments")
     status_value = request.GET.get("status", "")
     if status_value:
         if status_value not in SalesOrder.Status.values:
@@ -1402,9 +1571,144 @@ def orders_api(request):
         page = paginate(items.order_by("-last_sequence", "-id"), request.GET)
     except CatalogQueryError as exc:
         return _api_error(request, 400, "invalid_pagination", str(exc), {"page": str(exc)})
-    page["items"] = [_sales_order_data(item, request.user) for item in page["items"]]
+    actor_roles = set(request.user.groups.values_list("name", flat=True))
+    page["items"] = [_sales_order_data(item, request.user, actor_roles=actor_roles) for item in page["items"]]
     page["filter_options"] = filter_options
     page["queried_at"] = timezone.localtime().isoformat(timespec="seconds")
+    return JsonResponse(page)
+
+
+def _workbench_task_item(order, action_id, action_state, *, adjustment=None):
+    lines = getattr(order, "_workbench_lines", None)
+    if lines is None:
+        lines = list(order.lines.filter(active=True).select_related("sku__product").order_by("line_number"))
+    product_rows = [
+        {
+            "sku_code": line.sku.code,
+            "product_name": line.sku.product.name,
+            "unit": line.sku.unit,
+            "quantity": line.quantity,
+        }
+        for line in lines[:3]
+    ]
+    payment = action_state["payment"]
+    payment_context = None
+    if payment is not None:
+        payment_context = {
+            "account_id": payment.account_id,
+            "account_name": payment.account.name,
+            "account_responsibility": payment.account.get_responsibility_display(),
+            "status": payment.status,
+            "paused": payment.paused,
+            "expected_amount": f"{payment.expected_amount:.3f}",
+            "received_amount": f"{payment.received_amount:.3f}",
+            "has_receipt": bool(payment.images.all()),
+        }
+        if action_id == "register_payment":
+            payment_context.update({
+                "problem_reason": payment.problem_reason,
+                "difference_reason": payment.difference_reason,
+            })
+    item = {
+        "id": f"{action_id}:{order.pk}:{adjustment.pk}" if adjustment else f"{action_id}:{order.pk}",
+        "action_id": action_id,
+        "action_label": WORKBENCH_ACTION_LABELS[action_id],
+        "order_id": order.pk,
+        "order_sequence": order.last_sequence,
+        "summary": {
+            "customer_name": order.customer_name_snapshot,
+            "products": product_rows,
+            "revenue_amount": f"{order.revenue_amount:.3f}",
+        },
+        "status": {
+            "order": order.status,
+            "order_label": order.get_status_display(),
+            "payment": payment.status if payment else None,
+            "payment_label": payment.get_status_display() if payment else None,
+            "payment_paused": payment.paused if payment else False,
+        },
+        "context": {"payment": payment_context},
+        "target": {
+            "type": "order_action",
+            "page": f"/orders/{order.pk}/",
+            "order_id": order.pk,
+            "action_id": action_id,
+        },
+    }
+    if action_id == "review_commission" and action_state["commission"] is not None:
+        review = action_state["commission"]
+        item["context"]["commission"] = {
+            "calculated_amount": f"{order.commission_estimate:.3f}" if order.commission_estimate is not None else None,
+            "approved_amount": f"{review.approved_amount:.3f}" if review.approved_amount is not None else None,
+            "approved_amount_version": review.approved_amount_version,
+        }
+    if adjustment is not None:
+        item["adjustment_id"] = adjustment.pk
+        item["context"]["commission_adjustment"] = {
+            "kind": adjustment.kind,
+            "delta": f"{adjustment.delta:.3f}",
+            "confirmed_at": adjustment.confirmed_at.isoformat(),
+        }
+    if action_id == "cost_correction_commission_decision":
+        correction, _suggestion = action_state["cost_correction_suggestion"]
+        item["id"] = f"{action_id}:{order.pk}:{correction.pk}"
+        item["target"] = {
+            "type": "cost_correction_commission_suggestion",
+            "page": "/adjustments/",
+            "order_id": order.pk,
+            "cost_correction_id": correction.pk,
+        }
+    return item
+
+
+@require_GET
+def workbench_tasks_api(request):
+    error = _require_api_access(request, (("crm", "view_salesorder"),))
+    if error:
+        return error
+    try:
+        paginate([], request.GET)
+    except CatalogQueryError as exc:
+        return _api_error(request, 400, "invalid_pagination", str(exc), {"page": str(exc)})
+
+    orders = (
+        sales_order_queryset_for(request.user)
+        .select_related("salesperson", "customer", "channel", "payment_record__account", "commission_review")
+        .prefetch_related(
+            Prefetch(
+                "lines",
+                queryset=SalesOrderLine.objects.filter(active=True).select_related("sku__product").order_by("line_number"),
+                to_attr="_workbench_lines",
+            ),
+            "payment_record__images",
+            "commission_adjustments",
+        )
+        .order_by("-last_sequence", "-pk")
+    )
+    tasks = []
+    actor_roles = set(request.user.groups.values_list("name", flat=True))
+    # shortcut: scans visible orders so counts match pagination; switch to grouped queries if one request outgrows the ledger.
+    for order in orders:
+        action_state = _order_action_state(request.user, order, actor_roles)
+        for action_id in action_state["actions"]:
+            if action_id not in WORKBENCH_ACTION_IDS:
+                continue
+            if action_id == "complete_commission_adjustment":
+                tasks.extend(
+                    _workbench_task_item(order, action_id, action_state, adjustment=row)
+                    for row in action_state["pending_adjustments"]
+                )
+            else:
+                tasks.append(_workbench_task_item(order, action_id, action_state))
+
+    counts = {action_id: 0 for action_id in WORKBENCH_ACTION_IDS}
+    for task in tasks:
+        counts[task["action_id"]] += 1
+    try:
+        page = paginate(tasks, request.GET)
+    except CatalogQueryError as exc:
+        return _api_error(request, 400, "invalid_pagination", str(exc), {"page": str(exc)})
+    page["counts"] = counts
     return JsonResponse(page)
 
 
@@ -1429,7 +1733,38 @@ def order_detail_api(request, order_id):
     order = sales_order_queryset_for(request.user).select_related("salesperson", "customer", "channel").filter(pk=order_id).first()
     if order is None:
         return _api_error(request, 404, "not_found", "订单不存在或不在可见范围。")
-    return JsonResponse(_sales_order_data(order, request.user))
+    actor_roles = set(request.user.groups.values_list("name", flat=True))
+    return JsonResponse(_sales_order_data(order, request.user, actor_roles=actor_roles))
+
+
+@require_GET
+def order_history_api(request, order_id):
+    error = _require_api_access(request, (("crm", "view_salesorder"),))
+    if error:
+        return error
+    order = sales_order_queryset_for(request.user).filter(pk=order_id).first()
+    if order is None:
+        return _api_error(request, 404, "not_found", "订单不存在或不在可见范围。")
+    operations = (
+        BusinessOperation.objects.filter(sales_order=order)
+        .select_related("actor")
+        .order_by("-sequence", "-pk")
+    )
+    try:
+        page = paginate(operations, request.GET)
+    except CatalogQueryError as exc:
+        return _api_error(request, 400, "invalid_pagination", str(exc), {"page": str(exc)})
+    page["items"] = [
+        {
+            "id": operation.pk,
+            "sequence": operation.sequence,
+            "action_label": ORDER_OPERATION_LABELS.get(operation.action, "未分类订单操作"),
+            "actor_name": operation.actor.get_username(),
+            "created_at": timezone.localtime(operation.created_at).isoformat(timespec="seconds"),
+        }
+        for operation in page["items"]
+    ]
+    return JsonResponse(page)
 
 
 @require_POST
@@ -1643,21 +1978,21 @@ def order_detail_page(request, order_id):
     if order is None:
         raise PermissionDenied
     can_view_commission = sales_order_commission_visible_to(request.user, order)
-    order_in_change_scope = sales_order_queryset_for(request.user, changing=True).filter(pk=order.pk).exists()
-    initial = _sales_order_data(order, request.user)
+    actor_roles = set(request.user.groups.values_list("name", flat=True))
+    action_state = _order_action_state(request.user, order, actor_roles)
+    initial = _sales_order_data(order, request.user, action_state)
     commission = getattr(order, "commission_review", None) if can_view_commission else None
     return render(request, "crm/order_detail.html", {
         "order": order,
         "initial": initial,
         "first_earned_at_display": timezone.localtime(commission.first_earned_at) if commission and commission.first_earned_at else None,
         "can_view_commission": can_view_commission,
-        "can_edit_sales_order": order_in_change_scope and request.user.has_perm("crm.change_salesorder"),
-        "can_cancel_sales_order": order_in_change_scope and request.user.has_perm("crm.cancel_salesorder"),
-        "can_register_payment": order_in_change_scope and request.user.has_perm("crm.register_payment"),
-        "can_confirm_salesorder_receipt": order.salesperson_id == request.user.pk and request.user.has_perm("crm.confirm_salesorder_receipt"),
+        "allowed_actions": action_state["actions"],
+        "can_edit_sales_order": "amend_order" in action_state["actions"],
+        "can_cancel_sales_order": "cancel_order" in action_state["actions"],
+        "can_register_payment": "register_payment" in action_state["actions"],
+        "can_confirm_salesorder_receipt": "receive" in action_state["actions"],
         "can_complete_commission_adjustment": (
-            can_view_commission
-            and order.salesperson_id == request.user.pk
-            and request.user.has_perm("crm.complete_commission_adjustment")
+            "complete_commission_adjustment" in action_state["actions"]
         ),
     })

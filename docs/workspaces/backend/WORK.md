@@ -619,3 +619,42 @@ UV_PROJECT_ENVIRONMENT=/Users/chrisz/.cache/aluola-crm-uiquery1-venv CRM_DB_NAME
 - 回归：新增4项覆盖省略/空列表创建、半条地址拒绝、编辑省略保留与空列表软停用且保留历史快照、客户表单地址选填及现场/快递订单边界。合并老板归属、联系方式、客户及建客权限测试共25项通过，Django system check、`makemigrations --check --dry-run`（无额外模型变更）和 `git diff --check` 通过。
 - 环境：Django 已自动销毁本轮 `test_aluola_crm_customer_address_optional_1022` 测试库。清理时本机 PostgreSQL 已停止，未重启共享实例；仅本轮创建的空基库 `aluola_crm_customer_address_optional_1022` 留在本机 `.local/postgresql`，未含业务数据。
 - 不改正式账号、客户、库存数据、公共文档、CSS、日志或依赖，不部署、不推送；固定第三项独立提交后停写，交负责人对三个范围安排一次定向 QA，分别保留本项和前两项证据。
+
+### TASK-FOCUSED-UI-1023｜后端接入合同（2026-10-23）
+
+- 依据：负责人恢复任务的明确派发及用户直接确认；文档提交 `42658fb`，应用基线 `d47fc91`/CRM0018。当前 `crm/` 无他人未提交修改，本轮后端为唯一应用写入者。仅改任务读取/动作授权/历史读取及对应合成回归、本 WORK；不改模板/CSS、公共业务文档、模型/迁移、依赖、日志、真实账号/客户/订单/期初、运行库、部署或推送。
+- 新增只读 `GET /api/v1/workbench/tasks?page=1&page_size=50`，沿现分页形状返回 `{items,total,page,page_size,has_previous,has_next,counts}`；`counts` 是全量合格任务逐动作计数，`total` 为动作事项总数，先完整过滤/计数再分页。同单多动作各计一项；每条差额完成任务带 `adjustment_id`，同订单多条分别计数。稳定动作ID：`register_payment`、`verify_payment`、`ship`、`deliver_on_site`、`receive`、`review_commission`、`complete_commission_adjustment`、`cost_correction_commission_decision`。任务项提供稳定 `id`、`action_id`、`order_id`、可读订单/商品摘要、当前订单/付款状态、必要金额/账户上下文和可直达的动作标识；不暴露原始操作payload或凭证内容。
+- 合格条件沿现服务：收款登记仅订单销售负责（另保既有管理员超权）；待核任务仅当前版本且账户责任匹配、尚待核对的凭证，问题状态退给销售补正后才重新进入核对；发货/现场交付为待出库、凭证存在且付款版本有效、未暂停/未标问题，待核仍可发；收货仅本人已发货快递单；提成复核仅完成且当前付款核对通过/版本有效，并无待确认成本纠错建议；差额任务逐条对应本人未完成记录；成本纠错提成确认仅显示仍有效的已有建议。运费后补、订单编辑/取消无已定义待办标记，不虚构待办。
+- 订单列表 `GET /api/v1/orders` 各项及 `GET /api/v1/orders/{id}` 增加当前用户实时 `allowed_actions` 动作ID数组。权限同时按现有单据可见范围、动作权限、本人归属/角色职责和当前状态计算；销售资料修改/取消及收款登记不因老板全局权限扩到他人订单；老板+仓管且有对应权限可共享处理他人订单发货及该次运费；管理员超权限沿现有例外；对公/私账核对责任不变。所有POST服务在操作锁定/幂等回放返回前重验当前授权和业务条件，前端隐藏不构成授权。
+- 新增安全分页 `GET /api/v1/orders/{id}/history?page=1&page_size=50`，仅订单可见者可读，仅投影序号、动作安全标签、操作者显示名和时间；不返回原始 `BusinessOperation.payload/result`、图片或客户敏感字段。无新表/迁移/通用任务平台。
+- 代码范围暂定：`crm/views.py`、`crm/urls.py`，在现销售/履约服务中复用最小动作/授权判断；必要时仅新增一个订单动作读模型模块；`crm/test_phase4.py` 或最贴近现有业务测试文件和本 WORK。前端接入参考：先取任务总数/计数和页面项；以 `action_id + order_id (+ adjustment_id)` 建稳定直达键，再打开订单当前动作；详情及列表的 `allowed_actions` 只作呈现，写请求仍由服务重验。
+- 定向合成 PostgreSQL 回归：owner+warehouse 共享发货/该次运费、owner 无 warehouse 不代改、superuser 既有例外；本人/跨单订单编辑/取消/收款登记边界；全量计数、同单多动作/多条差额及分页；收款账户责任、问题未发货暂停/已发货不倒退；撤权、重复提交、历史读取范围/脱敏。使用仅本轮新建且可确认归属的隔离测试库，不碰或重启共享PG/服务。完成相关测试、差异/状态检查后固定提交，发负责人及QA结果并停写；不自行push/deploy。
+
+#### TASK-FOCUSED-UI-1023｜调整页深链核对
+
+- 已只读核对现有调整入口：页面路由为 /adjustments/；视图不读取查询参数；renderCommissionSuggestions 只在加载的纠错记录内按 correction_id + order_id 创建动态建议行，未发现现成 query、anchor 或 focus 定位。
+- 成本纠错提成决定属于已有审批待办，但当前无可用的直达URL。最小前端补充是在现有调整页读取 cost_correction_id/order_id 查询参数，加载当前纠错记录后定位并聚焦精确建议行；不新建页面/API、不搬表单、不新增审核设计。后端任务使用结构化 target={type:cost_correction_commission_suggestion,page:/adjustments/,cost_correction_id,order_id}，不声称查询参数当前已生效，也不返回过期版本值；调整页以已加载的当前suggestion读取两个expected版本并提交现有确认API。负责人和前端已收到此缺口与最小方案。
+
+#### TASK-FOCUSED-UI-1023｜纠错建议精确读取与权限
+
+- 现有 GET /api/v1/cost-corrections/{correction_id} 可按记录ID读取，不依赖纠错列表第一页；它要求 view_costcorrection，响应经 visible_cost_correction_data 按目标订单可见/提成可见范围过滤建议并排除已决定项。成本纠错提成待办仅在老板或超级管理员、能读该纠错记录、对目标订单有提成可见权且建议仍有效时生成，避免出现无权读取的直达待办。
+- target 固定为结构化目标 {type: cost_correction_commission_suggestion, page: /adjustments/, cost_correction_id, order_id}。任务不附带 expected_amount_version 或 expected_approved_amount_version；调整页经精确详情API读取当前建议及版本后调用既有确认端点。当前页面没有query focus支持，前端两个query参数及聚焦仍是必要的最小接入改动。
+
+#### TASK-FOCUSED-UI-1023｜临时暂停检查点（2026-10-23）
+
+- 已完成当前小改：成本纠错提成确认服务在幂等重放前要求 `view_costcorrection` 且目标订单提成可见；同处修正了履约职责门控和该服务中几处缩进错误。`crm/test_phase5.py` 补了读取权限/提成可见性拒绝断言。
+- 已检查：`python3 -m py_compile crm/fulfillment.py crm/test_phase5.py` 与 `git diff --check` 通过。
+- 未运行数据库回归：当前没有 PostgreSQL 进程；仓库默认测试socket不存在，现有 `.local` 数据目录/快照归属不能确认是本任务新建的合成实例，因此未启动或连接它们。没有改数据库、客户/库存数据或运行服务。
+- 整体 TASK-FOCUSED-UI-1023 尚未完成：待继续检查全量差异、补齐/验证任务与历史回归，确认本轮自有隔离 PostgreSQL 测试环境后运行定向测试，再更新此 WORK、固定任务提交并发负责人/QA交接。当前未提交；保留所有其他会话的文档和素材改动，不推送、不部署。
+
+#### TASK-FOCUSED-UI-1023｜恢复收尾与定向验证（2026-10-27）
+
+- 本节取代10/23暂停点的“待验证/未完成”状态。依据负责人10/27恢复通知；仍为唯一应用写入者，沿用CRM0018应用基线及既有获批业务决定。只写本WORK和本任务代码/测试，不碰其他角色资料、模板/CSS、公共业务文档、迁移、依赖、日志、真实数据、部署或推送。
+- 固定接口：新增 `GET /api/v1/workbench/tasks?page=1&page_size=50`，任务ID仍为8种：`register_payment`、`verify_payment`、`ship`、`deliver_on_site`、`receive`、`review_commission`、`complete_commission_adjustment`、`cost_correction_commission_decision`。`counts` 与 `total` 均从完整可见/可操作任务集合计算后再分页；同单多动作和多条差额分别计数。动作项为稳定 `id/action_id/order_id`、最少订单/商品摘要、状态、必要收款上下文及结构化目标。问题付款的销售补正项返回核对原因/金额差异原因；重登记后保留暂停，核对通过后才显示可发货动作。公开/老板私账核对仍由现有 `_can_verify` 负责。
+- 订单列表及详情 `allowed_actions` 输出实时动作ID：上述8种任务动作，并含非待办 `amend_order`、`cancel_order`、`update_freight`。变更/取消/收款继续按原销售归属及权限；老板自己订单可按已有职责处理，老板+仓管可按相应权限共享他人订单发货/该次运费，超级管理员维持既有例外。服务端在幂等重放前重新核对范围/职责：履约动作、纠错提成决定、收款核对、取消等均不因旧键绕过当前授权；取消现在先锁定并验证可变更范围再查幂等操作。
+- 订单历史 `GET /api/v1/orders/{id}/history` 使用可见订单范围和现分页，仅投影 `{id,sequence,action_label,actor_name,created_at}`，未知动作显示通用安全标签，不返回payload/result。纠错提成目标仍为 `{type:cost_correction_commission_suggestion,page:/adjustments/,cost_correction_id,order_id}`，经 `/api/v1/cost-corrections/{id}` 精确读取；确认任务和服务均要求 `view_costcorrection` 及目标订单提成可见，任务不携带过期版本。
+- 为确保 `counts/total` 与分页严格同源，工作台按当前可见订单完整扫描并在内存组装任务；代码留有升级注释：订单量导致单请求超出服务规模时改为数据库分组查询。订单列表动作状态复用已预取的账户/付款图片、提成及差额关系。无新任务表/通用工作流或其他非待办入口。
+- 文件范围：`crm/views.py`、`crm/sales.py`、`crm/fulfillment.py`、`config/urls.py`、`crm/test_phase4.py`、`crm/test_phase5.py` 与本WORK；未改其它文件。无模型/迁移变化。
+- 定向测试最终17项通过：新增 `WorkbenchReadModelPhase4Tests` 4项（含待办/动作合同、完整计数/分页、同单多动作与多差额、问题补正/账户责任、历史授权脱敏、owner+warehouse和超级管理员）；D15权限边界9项、待核付款共享发货/收货1项、撤销幂等1项、成本纠错提成深链/权限/幂等确认1项。结果日志保存在本机 `.local/TASK-FOCUSED-UI-1023-BACKEND-1027/targeted-tests.log`。Django system check无问题；`makemigrations --check --dry-run`无变化；五个Python源文件 `py_compile` 和 `git diff --check` 通过。未跑全套回归或浏览器/UI验收，后者由后续前端/QA任务完成。
+- 测试环境：只在此前确认不存在的 `.local/TASK-FOCUSED-UI-1023-BACKEND-1027/` 初始化本任务PG17集群，`--no-locale --encoding=UTF8`。首次启动提示socket路径过长，改用目录 `s/` 后成功；仅Unix socket、`listen_addresses=''`，端口57623仅用于socket文件名。新建空基库 `task_focused_ui_1023_backend` 及本地测试角色，Django创建并自动销毁 `test_task_focused_ui_1023_backend`。测试后已停止本轮专属PostgreSQL；保留PGDATA及initdb/postgres/测试日志供负责人核查。没有启动/连接其他本地数据库或服务。
+- 交付状态：当前实现与本条WORK一并固定提交；提交后停止应用写入，主动向负责人报告固定版本/证据/限制并交QA独立验收。无push/deploy授权。

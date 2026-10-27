@@ -21,6 +21,7 @@ from PIL import Image
 
 from . import fulfillment as fulfillment_service
 from .fulfillment import (
+    complete_commission_adjustment,
     deliver_on_site,
     receive_sales_order,
     register_payment,
@@ -1465,6 +1466,220 @@ class D15PermissionBoundaryTests(Phase4Base):
         order.refresh_from_db()
         seller_page = seller_client.get(f"/orders/{order.pk}/")
         self.assertContains(seller_page, "标记线下处理完成")
+
+
+class WorkbenchReadModelPhase4Tests(Phase4Base):
+    def shipment_order(self, actor=None):
+        payload = self.order_payload(
+            delivery_mode=SalesOrder.DeliveryMode.SHIPMENT,
+            address_snapshot={
+                "recipient": "Synthetic Recipient",
+                "contact": "Synthetic Contact",
+                "province": "北京市",
+                "city": "北京市",
+                "detail": "Synthetic street 1",
+            },
+        )
+        return self.preview_and_confirm(payload, actor=actor or self.sales)[2]
+
+    def register_as(self, actor, order, account):
+        order.refresh_from_db()
+        image = self.add_payment_image(owner=actor)
+        return register_payment(actor, order.pk, {
+            "operation_key": str(uuid4()),
+            "expected_version": order.version,
+            "account_id": account.pk,
+            "received_amount": f"{order.revenue_amount:.3f}",
+            "image_ids": [image.pk],
+        })
+
+    def tasks(self, actor, *, page=1, page_size=50):
+        client = Client()
+        client.force_login(actor)
+        response = client.get(f"/api/v1/workbench/tasks?page={page}&page_size={page_size}")
+        self.assertEqual(response.status_code, 200, response.content)
+        return response.json()
+
+    def test_task_counts_cover_full_visible_set_and_history_is_scoped_and_redacted(self):
+        order = self.shipment_order(self.sales_two)
+        seller_tasks = self.tasks(self.sales_two)
+        self.assertIn("register_payment", [row["action_id"] for row in seller_tasks["items"]])
+        self.register_as(self.sales_two, order, self.public_account)
+
+        first = self.tasks(self.user, page=1, page_size=1)
+        second = self.tasks(self.user, page=2, page_size=1)
+        self.assertEqual(first["total"], 2)
+        self.assertEqual(second["total"], 2)
+        self.assertTrue(first["has_next"])
+        self.assertEqual(first["counts"]["verify_payment"], 1)
+        self.assertEqual(first["counts"]["ship"], 1)
+        self.assertEqual(set(first["counts"]), {
+            "register_payment", "verify_payment", "ship", "deliver_on_site", "receive",
+            "review_commission", "complete_commission_adjustment", "cost_correction_commission_decision",
+        })
+        rows = first["items"] + second["items"]
+        self.assertEqual({row["order_id"] for row in rows}, {order.pk})
+        self.assertEqual({row["action_id"] for row in rows}, {"verify_payment", "ship"})
+        self.assertEqual(len({row["id"] for row in rows}), 2)
+        self.assertEqual(rows[0]["context"]["payment"]["account_responsibility"], self.public_account.get_responsibility_display())
+        warehouse_client = Client()
+        warehouse_client.force_login(self.user)
+        order_row = next(row for row in warehouse_client.get("/api/v1/orders").json()["items"] if row["id"] == order.pk)
+        self.assertEqual(set(order_row["allowed_actions"]), {"verify_payment", "ship"})
+
+        order.refresh_from_db()
+        ship_sales_order(self.user, order.pk, self.shipment_data(order))
+        seller_tasks = self.tasks(self.sales_two)
+        self.assertIn("receive", [row["action_id"] for row in seller_tasks["items"]])
+
+        seller_client = Client()
+        seller_client.force_login(self.sales_two)
+        history = seller_client.get(f"/api/v1/orders/{order.pk}/history?page=1&page_size=1").json()
+        self.assertEqual(history["total"], 3)
+        self.assertEqual(len(history["items"]), 1)
+        self.assertEqual(set(history["items"][0]), {"id", "sequence", "action_label", "actor_name", "created_at"})
+        hidden_client = Client()
+        hidden_client.force_login(self.sales)
+        self.assertEqual(hidden_client.get(f"/api/v1/orders/{order.pk}/history").status_code, 404)
+
+    def test_problem_payment_waits_for_seller_and_resubmission_keeps_pause_until_verification(self):
+        self.balance.on_hand = 20
+        self.balance.cost_amount = Decimal("20.000")
+        self.balance.save(update_fields=("on_hand", "cost_amount"))
+        order = self.shipment_order()
+        self.register_as(self.sales, order, self.public_account)
+        order.refresh_from_db()
+        self.verify(order, result=PaymentRecord.Status.PROBLEM, problem_reason="Synthetic amount mismatch")
+
+        seller_task = self.tasks(self.sales)["items"][0]
+        self.assertEqual(seller_task["action_id"], "register_payment")
+        self.assertEqual(seller_task["context"]["payment"]["problem_reason"], "Synthetic amount mismatch")
+        warehouse_actions = [row["action_id"] for row in self.tasks(self.user)["items"]]
+        self.assertNotIn("verify_payment", warehouse_actions)
+        self.assertNotIn("ship", warehouse_actions)
+
+        self.register_as(self.sales, order, self.public_account)
+        warehouse_tasks = self.tasks(self.user)["items"]
+        self.assertIn("verify_payment", [row["action_id"] for row in warehouse_tasks])
+        self.assertNotIn("ship", [row["action_id"] for row in warehouse_tasks])
+        order.refresh_from_db()
+        self.assertTrue(PaymentRecord.objects.get(order=order).paused)
+
+        self.verify(order, result=PaymentRecord.Status.PASSED)
+        self.assertIn("ship", [row["action_id"] for row in self.tasks(self.user)["items"]])
+
+        private_order = self.shipment_order(self.owner)
+        self.register_as(self.owner, private_order, self.private_account)
+        private_wh_actions = [row["action_id"] for row in self.tasks(self.user)["items"] if row["order_id"] == private_order.pk]
+        private_owner_actions = [row["action_id"] for row in self.tasks(self.owner)["items"] if row["order_id"] == private_order.pk]
+        self.assertNotIn("verify_payment", private_wh_actions)
+        self.assertIn("verify_payment", private_owner_actions)
+
+    def test_owner_scope_superuser_exception_and_shared_fulfillment_are_rechecked_on_replay(self):
+        self.balance.on_hand = 20
+        self.balance.cost_amount = Decimal("20.000")
+        self.balance.save(update_fields=("on_hand", "cost_amount"))
+        self.owner.user_permissions.add(*Permission.objects.filter(
+            content_type__app_label="crm",
+            codename__in=("view_all_sales_orders", "change_salesorder", "cancel_salesorder", "ship_salesorder"),
+        ))
+        self.owner = self.User.objects.get(pk=self.owner.pk)
+
+        cancel_target = self.shipment_order(self.sales_two)
+        owner_client = Client()
+        owner_client.force_login(self.owner)
+        visible = owner_client.get(f"/api/v1/orders/{cancel_target.pk}").json()
+        for action in ("amend_order", "cancel_order", "register_payment", "ship", "update_freight"):
+            self.assertNotIn(action, visible["allowed_actions"])
+
+        cancel_data = {"operation_key": str(uuid4()), "expected_version": cancel_target.version}
+        self.assert_operation_error(
+            "not_found",
+            lambda: preview_sales_order(self.owner, self.amendment_payload(cancel_target), order_id=cancel_target.pk),
+        )
+        self.assert_operation_error(
+            "not_found",
+            lambda: cancel_sales_order(self.owner, cancel_target.pk, cancel_data),
+        )
+        self.owner.is_superuser = True
+        self.owner.save(update_fields=("is_superuser",))
+        first_cancel = cancel_sales_order(self.owner, cancel_target.pk, cancel_data)
+        self.owner.is_superuser = False
+        self.owner.save(update_fields=("is_superuser",))
+        self.owner = self.User.objects.get(pk=self.owner.pk)
+        sequence = BusinessControl.objects.get(pk=1).last_sequence
+        self.assert_operation_error(
+            "not_found",
+            lambda: cancel_sales_order(self.owner, cancel_target.pk, cancel_data),
+        )
+        self.assertEqual(BusinessControl.objects.get(pk=1).last_sequence, sequence)
+        self.assertEqual(first_cancel["status"], SalesOrder.Status.CANCELLED)
+
+        order = self.shipment_order(self.sales_two)
+        self.register_as(self.sales_two, order, self.public_account)
+        order.refresh_from_db()
+        ship_data = self.shipment_data(order)
+        self.assert_operation_error("permission_denied", lambda: ship_sales_order(self.owner, order.pk, ship_data))
+
+        self.owner.groups.add(Group.objects.get(name=ROLE_WAREHOUSE))
+        self.owner = self.User.objects.get(pk=self.owner.pk)
+        self.assertIn("ship", [row["action_id"] for row in self.tasks(self.owner)["items"] if row["order_id"] == order.pk])
+        ship_sales_order(self.owner, order.pk, ship_data)
+        order.refresh_from_db()
+        line = order.lines.filter(active=True).first()
+        freight_data = {
+            "operation_key": str(uuid4()),
+            "expected_version": order.version,
+            "outbound_freights": [{"line_id": line.pk, "amount": "1.000"}],
+        }
+        update_outbound_freight(self.owner, order.pk, freight_data)
+        order.refresh_from_db()
+        self.assertIn("update_freight", owner_client.get(f"/api/v1/orders/{order.pk}").json()["allowed_actions"])
+
+        self.owner.groups.remove(Group.objects.get(name=ROLE_WAREHOUSE))
+        self.owner = self.User.objects.get(pk=self.owner.pk)
+        self.assertNotIn("update_freight", owner_client.get(f"/api/v1/orders/{order.pk}").json()["allowed_actions"])
+        self.assert_operation_error(
+            "permission_denied",
+            lambda: update_outbound_freight(self.owner, order.pk, freight_data),
+        )
+
+    def test_deliver_review_and_each_pending_commission_adjustment_are_tasks(self):
+        order = self.new_order()
+        self.register(order)
+        self.verify(order)
+        order.refresh_from_db()
+        self.assertIn("deliver_on_site", [row["action_id"] for row in self.tasks(self.user)["items"]])
+        deliver_on_site(self.user, order.pk, {"operation_key": str(uuid4()), "expected_version": order.version})
+
+        self.assertIn("review_commission", [row["action_id"] for row in self.tasks(self.owner)["items"]])
+        order.refresh_from_db()
+        review_commission(self.owner, order.pk, {"operation_key": str(uuid4()), "expected_version": order.version})
+        order.refresh_from_db()
+        line = order.lines.filter(active=True).first()
+        update_outbound_freight(self.user, order.pk, {
+            "operation_key": str(uuid4()),
+            "expected_version": order.version,
+            "outbound_freights": [{"line_id": line.pk, "amount": "1.000"}],
+        })
+        order.refresh_from_db()
+        review_commission(self.owner, order.pk, {"operation_key": str(uuid4()), "expected_version": order.version})
+
+        self.sales.user_permissions.add(Permission.objects.get(codename="complete_commission_adjustment"))
+        self.sales = self.User.objects.get(pk=self.sales.pk)
+        task_page = self.tasks(self.sales)
+        rows = [row for row in task_page["items"] if row["action_id"] == "complete_commission_adjustment"]
+        self.assertEqual(task_page["counts"]["complete_commission_adjustment"], 2)
+        self.assertEqual(task_page["total"], 2)
+        self.assertEqual({row["adjustment_id"] for row in rows}, set(CommissionAdjustment.objects.filter(order=order).values_list("pk", flat=True)))
+
+        order.refresh_from_db()
+        complete_commission_adjustment(self.sales, rows[0]["adjustment_id"], {
+            "operation_key": str(uuid4()), "expected_version": order.version,
+        })
+        next_page = self.tasks(self.sales)
+        self.assertEqual(next_page["counts"]["complete_commission_adjustment"], 1)
+        self.assertEqual(next_page["total"], 1)
 
 
 class OrderListStatusTests(Phase4Base):

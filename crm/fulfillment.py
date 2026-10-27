@@ -36,7 +36,12 @@ from .operations import (
     set_operation_document_id,
 )
 from .permissions import ROLE_OWNER, ROLE_WAREHOUSE
-from .sales import _balance_query, sales_order_commission_visible_to, sales_order_queryset_for
+from .sales import (
+    _balance_query,
+    sales_order_actor_can_fulfill,
+    sales_order_commission_visible_to,
+    sales_order_queryset_for,
+)
 
 
 def _version(data):
@@ -65,6 +70,11 @@ def _locked_order(actor, order_id, *, changing=False):
         raise OperationError("订单不存在或不在可见范围。", status=404, code="not_found")
     set_operation_document_id(order.pk)
     return order
+
+
+def _require_order_fulfillment_scope(actor, order):
+    if not sales_order_actor_can_fulfill(actor, order):
+        raise OperationError("共享发货和运费处理需要仓管职责。", status=403, code="permission_denied")
 
 
 def _create_operation(actor, order, key, action, input_hash, payload, control):
@@ -540,6 +550,7 @@ def ship_sales_order(actor, order_id, data, request_id=""):
             control = _lock_control()
             _require(actor, "ship_salesorder")
             order = _locked_order(actor, order_id)
+            _require_order_fulfillment_scope(actor, order)
             replay = _operation_replay(actor, key, action, input_hash)
             if replay is not None:
                 return replay
@@ -563,6 +574,7 @@ def deliver_on_site(actor, order_id, data, request_id=""):
             control = _lock_control()
             _require(actor, "deliver_on_site")
             order = _locked_order(actor, order_id)
+            _require_order_fulfillment_scope(actor, order)
             replay = _operation_replay(actor, key, action, input_hash)
             if replay is not None:
                 return replay
@@ -625,6 +637,7 @@ def update_outbound_freight(actor, order_id, data, request_id=""):
             order = _locked_order(actor, order_id)
             permission = "deliver_on_site" if order.delivery_mode == SalesOrder.DeliveryMode.ON_SITE else "ship_salesorder"
             _require(actor, permission)
+            _require_order_fulfillment_scope(actor, order)
             replay = _operation_replay(actor, key, action, input_hash)
             if replay is not None:
                 return replay
@@ -771,6 +784,8 @@ def confirm_cost_correction_commission_decision(actor, order_id, data, request_i
             raise OperationError("请先登录。", status=401, code="authentication_required")
         if not actor.is_superuser and not actor.groups.filter(name=ROLE_OWNER).exists():
             raise OperationError("只有老板或管理员可以确认成本纠错提成差额。", status=403, code="permission_denied")
+        if not actor.has_perm("crm.view_costcorrection"):
+            raise OperationError("无权查看成本纠错记录。", status=403, code="permission_denied")
 
     allowed = {
         "operation_key", "cost_correction_id", "expected_amount_version",
@@ -803,6 +818,8 @@ def confirm_cost_correction_commission_decision(actor, order_id, data, request_i
             control = _lock_control()
             require_owner()
             order = _locked_order(actor, order_id)
+            if not sales_order_commission_visible_to(actor, order):
+                raise OperationError("无权查看此订单的提成信息。", status=403, code="permission_denied")
             replayed = _operation_replay(actor, key, action, input_hash)
             if replayed is not None:
                 return replayed

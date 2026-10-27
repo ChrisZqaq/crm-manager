@@ -1241,6 +1241,39 @@ class InventoryAdjustmentPhase5Tests(Phase5Base):
             "decision": "adjust",
         }
 
+        self.owner.user_permissions.add(Permission.objects.get(codename="view_costcorrection"))
+        owner_has_perm = self.owner.has_perm
+        with patch.object(
+            self.owner,
+            "has_perm",
+            side_effect=lambda permission: False if permission == "crm.view_costcorrection" else owner_has_perm(permission),
+        ):
+            with self.assertRaises(OperationError) as missing_record_permission:
+                confirm_cost_correction_commission_decision(self.owner, order.pk, data)
+        self.assertEqual(missing_record_permission.exception.code, "permission_denied")
+
+        with patch("crm.fulfillment.sales_order_commission_visible_to", return_value=False):
+            with self.assertRaises(OperationError) as missing_commission_visibility:
+                confirm_cost_correction_commission_decision(self.owner, order.pk, data)
+        self.assertEqual(missing_commission_visibility.exception.code, "permission_denied")
+
+        self.owner = self.User.objects.get(pk=self.owner.pk)
+        self.client.force_login(self.owner)
+        task_response = self.client.get("/api/v1/workbench/tasks")
+        self.assertEqual(task_response.status_code, 200, task_response.content)
+        decision_tasks = [row for row in task_response.json()["items"] if row["action_id"] == "cost_correction_commission_decision"]
+        self.assertEqual(len(decision_tasks), 1)
+        self.assertEqual(decision_tasks[0]["target"], {
+            "type": "cost_correction_commission_suggestion",
+            "page": "/adjustments/",
+            "order_id": order.pk,
+            "cost_correction_id": correction.pk,
+        })
+        self.assertNotIn("expected_amount_version", decision_tasks[0])
+        detail = self.client.get(f"/api/v1/cost-corrections/{correction.pk}")
+        self.assertEqual(detail.status_code, 200, detail.content)
+        self.assertEqual(detail.json()["id"], correction.pk)
+
         self.sales.user_permissions.add(
             Permission.objects.get(codename="review_commission"),
             Permission.objects.get(codename="approve_costcorrection"),
