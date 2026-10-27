@@ -1,5 +1,11 @@
 # 前端当前工作
 
+## TASK-FOCUSED-UI-1023 定向返修（2026-10-27）
+
+- 依据应用基线 `549c5fb`、负责人唯一前端写入窗口及 UI/QA 已确认的移动端与极值金额复验项；工作区HEAD为文档恢复提交 `1bd8489`。仅改 `crm/static/crm/app.css`、`crm/templates/crm/{adjustments,order_detail,workbench}.html`、`crm/test_ui.py` 和本记录；未改业务/API/权限/数据库/日志。纠错深链在待办节点挂载后滚动聚焦；订单任务深链在动态表单完成后定位到实际可操作控件；运费表格局部横滚且可键盘访问；移动端订单标签、核验下拉、工作台待办链接达到44px目标；工作台极长销售额、增速及Top3金额超出时切换完整精度字符串并局部横滚；移动端订单摘要标题保留可辨识宽度。
+- 验证：本机私有合成数据/PostgreSQL，无客户数据，浏览器未提交任何业务表单。`manage.py check`通过；两个目标Django UI测试通过；`py_compile crm/test_ui.py`和`git diff --check`通过。浏览器观察到390px视口下订单标签同一行且各44px、核验控件44px、任务链接44px；长销售/增长/Top3金额可键盘横移且根页面无横溢；发货深链焦点落到承运方选择框；1280px下订单摘要标签完整、运费表局部横向滚动而根页面无横溢。QA待对固定提交独立定向复验。
+- 固定后停止应用写入，不推送/部署。未以真实手机触屏测试，也未在生产数据或完整业务表单上操作。
+
 ## UI-ORDER-SEARCH-1021 固定交付（2026-10-22）
 
 - 依据：负责人唯一应用写入窗口，后端 `ccefc51` 已固定发布；应用基线 `b738c52`，应用固定提交 `d47fc91368513b64e4e0c96b5a16047215ca9d6c`。仅修改 `crm/templates/crm/order_form.html`、`crm/static/crm/app.css`、`crm/templates/crm/base.html`、`crm/test_ui.py` 和本记录；不改 API、业务规则、老板/客户范围或 availability 实现。

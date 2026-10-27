@@ -112,7 +112,7 @@
       <form id="ship-form">
         <div id="shipment-rows"></div>
         <button id="add-shipment" type="button">添加物流</button>
-        <table><thead><tr><th>SKU</th><th>供货仓库</th><th>运费（留空沿用，0清零）</th></tr></thead><tbody id="ship-freight"></tbody></table>
+        <div class="table-scroll" role="region" aria-label="发货商品运费，可左右滚动查看更多列"><table><thead><tr><th>SKU</th><th>供货仓库</th><th>运费（留空沿用，0清零）</th></tr></thead><tbody id="ship-freight"></tbody></table></div>
         <button class="button-primary" type="submit">确认整单发货并扣减库存</button>
       </form>
     </section>
@@ -122,7 +122,7 @@
     <section id="onsite-order">
       <h2>现场交付</h2>
       <form id="onsite-form">
-        <table><thead><tr><th>SKU</th><th>供货仓库</th><th>运费（留空沿用，0清零）</th></tr></thead><tbody id="onsite-freight"></tbody></table>
+        <div class="table-scroll" role="region" aria-label="现场交付商品运费，可左右滚动查看更多列"><table><thead><tr><th>SKU</th><th>供货仓库</th><th>运费（留空沿用，0清零）</th></tr></thead><tbody id="onsite-freight"></tbody></table></div>
         <button class="button-primary" type="submit">确认现场交付并扣减库存</button>
       </form>
     </section>
@@ -132,7 +132,7 @@
     <section id="receive-order">
       <h2>确认收货</h2>
       <form id="receive-form">
-        <table><thead><tr><th>SKU</th><th>供货仓库</th><th>运费（留空沿用，0清零）</th></tr></thead><tbody id="receive-freight"></tbody></table>
+        <div class="table-scroll" role="region" aria-label="收货商品运费，可左右滚动查看更多列"><table><thead><tr><th>SKU</th><th>供货仓库</th><th>运费（留空沿用，0清零）</th></tr></thead><tbody id="receive-freight"></tbody></table></div>
         <button class="button-primary" type="submit">确认收货并完成订单</button>
       </form>
     </section>
@@ -142,7 +142,7 @@
       <section>
         <h2>补录或调整出库运费</h2>
         <form id="freight-form">
-          <table><thead><tr><th>SKU</th><th>供货仓库</th><th>运费（留空沿用，0清零）</th></tr></thead><tbody id="extra-freight"></tbody></table>
+          <div class="table-scroll" role="region" aria-label="订单商品运费，可左右滚动查看更多列"><table><thead><tr><th>SKU</th><th>供货仓库</th><th>运费（留空沿用，0清零）</th></tr></thead><tbody id="extra-freight"></tbody></table></div>
           <button class="button-primary" type="submit">保存运费并更新毛利、提成</button>
         </form>
       </section>
@@ -169,6 +169,7 @@
   <script>
     const initial=JSON.parse(document.getElementById('order-initial').textContent);
     const status=document.getElementById('status');
+    document.querySelectorAll('.table-scroll').forEach(region=>{const syncKeyboardScroll=()=>{if(region.scrollWidth>region.clientWidth+1)region.tabIndex=0;else region.removeAttribute('tabindex');};syncKeyboardScroll();new ResizeObserver(syncKeyboardScroll).observe(region.querySelector('table'));});
     const detailTabs=[...document.querySelectorAll('[data-detail-tab]')],detailPanels=[...document.querySelectorAll('[data-detail-panel]')];let historyPage=1,historyData=null,allowLeave=false;
     const dirtyForms=new Set();document.querySelectorAll('[data-detail-panel] form').forEach(form=>{form.addEventListener('input',()=>dirtyForms.add(form));form.addEventListener('change',()=>dirtyForms.add(form));});
     window.addEventListener('beforeunload',event=>{if(!allowLeave&&dirtyForms.size){event.preventDefault();event.returnValue='';}});
@@ -177,7 +178,6 @@
     document.querySelectorAll('[data-detail-panel="info"] a[href^="#"]').forEach(link=>link.addEventListener('click',event=>{const target=document.querySelector(link.getAttribute('href'));if(!target||!document.querySelector('[data-detail-panel="actions"]').contains(target))return;event.preventDefault();activateDetailTab('actions');target.scrollIntoView({block:'center'});}));
     async function loadOrderHistory(){const host=document.getElementById('order-history-list'),message=document.getElementById('order-history-status');message.textContent='正在加载处理记录…';try{const response=await fetch(`/api/v1/orders/${initial.id}/history?page=${historyPage}&page_size=50`,{credentials:'same-origin'}),data=await response.json();if(!response.ok)throw new Error(data.error?.message||'处理记录加载失败。');historyData=data;host.replaceChildren();for(const item of data.items||[]){const row=document.createElement('li'),heading=document.createElement('strong'),detail=document.createElement('span');heading.textContent=`${item.action_label} · ${item.actor_name||'系统'}`;detail.textContent=new Date(item.created_at).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'});row.append(heading,detail);host.append(row);}message.textContent=data.total?`共${data.total}条安全操作摘要。`: '暂无处理记录。';document.getElementById('order-history-page').textContent=`${data.page}/${Math.max(1,Math.ceil(data.total/data.page_size))}`;document.getElementById('order-history-previous').disabled=!data.has_previous;document.getElementById('order-history-next').disabled=!data.has_next;}catch(error){message.textContent=`${error.message} 请切换标签重试。`;message.setAttribute('role','alert');}}
     document.getElementById('order-history-previous').addEventListener('click',()=>{if(historyData?.has_previous){historyPage--;loadOrderHistory();}});document.getElementById('order-history-next').addEventListener('click',()=>{if(historyData?.has_next){historyPage++;loadOrderHistory();}});
-    const taskAction=new URLSearchParams(location.search).get('task_action');if(taskAction){const actionNodes={register_payment:'#register-payment',update_payment:'#register-payment',verify_payment:'#verify-payment',ship:'#ship-order',deliver_on_site:'#onsite-order',receive:'#receive-order',review_commission:'#review-commission',complete_commission_adjustment:'#commission-adjustments',amend_order:'a[href*="/edit"]',cancel_order:'#cancel'};const selector=actionNodes[taskAction],target=selector&&document.querySelector(selector),adjustmentId=new URLSearchParams(location.search).get('adjustment_id'),exact=taskAction==='complete_commission_adjustment'&&adjustmentId?document.querySelector(`.complete-adjustment[data-id="${CSS.escape(adjustmentId)}"]`):target;if(!initial.allowed_actions?.includes(taskAction)||!target||taskAction==='complete_commission_adjustment'&&!exact){status.textContent='此待办已失效或当前不可处理，请刷新待办列表。';status.setAttribute('role','status');}else{if(taskAction==='update_payment')document.querySelector('.payment-update-disclosure').open=true;activateDetailTab('actions');(exact||target).scrollIntoView({block:'center'});(exact||target).focus?.({preventScroll:true});}}
     document.getElementById('no-order-actions').hidden=Boolean(document.querySelector('[data-detail-panel="actions"] form, [data-detail-panel="actions"] button, [data-detail-panel="actions"] a'));
     function csrfToken(){return document.cookie.split('; ').find(x=>x.startsWith('csrftoken='))?.split('=')[1]||'';}
     function beijingDateTime(value){if(!value)return '';const date=new Date(value);if(Number.isNaN(date.getTime()))return '';const parts=Object.fromEntries(new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'}).formatToParts(date).map(part=>[part.type,part.value]));const fraction=value.match(/\.(\d+)(?=Z|[+-]\d{2}:\d{2}$)/)?.[1]||'';return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:${parts.second}${fraction?`.${fraction}`:''}`;}
@@ -260,6 +260,7 @@
     runForm('onsite-form',()=>postJson(`/api/v1/orders/${initial.id}/deliver-on-site`,actionData('deliver-on-site',{outbound_freights:freightPayload('onsite-freight')})));
     runForm('receive-form',()=>postJson(`/api/v1/orders/${initial.id}/receive`,actionData('receive',{outbound_freights:freightPayload('receive-freight')})));
     runForm('freight-form',()=>postJson(`/api/v1/orders/${initial.id}/freight`,actionData('freight',{outbound_freights:freightPayload('extra-freight')})));
+    const taskAction=new URLSearchParams(location.search).get('task_action');if(taskAction){const actionNodes={register_payment:'#register-payment',update_payment:'#register-payment',verify_payment:'#verify-payment',ship:'#ship-order',deliver_on_site:'#onsite-order',receive:'#receive-order',review_commission:'#review-commission',complete_commission_adjustment:'#commission-adjustments',amend_order:'a[href*="/edit"]',cancel_order:'#cancel'};const selector=actionNodes[taskAction],target=selector&&document.querySelector(selector),adjustmentId=new URLSearchParams(location.search).get('adjustment_id'),exact=taskAction==='complete_commission_adjustment'&&adjustmentId?document.querySelector(`.complete-adjustment[data-id="${CSS.escape(adjustmentId)}"]`):target,focusSelector='input:not([disabled]),select:not([disabled]),textarea:not([disabled]),button:not([disabled]),a[href]',focusTarget=exact||target,actionControl=focusTarget?.matches(focusSelector)?focusTarget:focusTarget?.querySelector(focusSelector),actionTarget=actionControl||focusTarget;if(!initial.allowed_actions?.includes(taskAction)||!target||taskAction==='complete_commission_adjustment'&&!exact){status.textContent='此待办已失效或当前不可处理，请刷新待办列表。';status.setAttribute('role','status');}else{if(taskAction==='update_payment')document.querySelector('.payment-update-disclosure').open=true;activateDetailTab('actions');actionTarget.scrollIntoView({block:'center'});actionTarget.focus?.();}}
 
     const review=document.getElementById('review-commission');
     if(review)review.addEventListener('click',async()=>{if(review.disabled)return;if(dirtyForms.size&&!confirm('其他表单有未保存内容，提交后页面刷新会丢失。继续吗？'))return;review.disabled=true;try{await postJson(`/api/v1/orders/${initial.id}/review-commission`,actionData('review-commission'));allowLeave=true;location.reload();}catch(error){status.textContent=error.message;status.setAttribute('role','alert');review.disabled=false;}});

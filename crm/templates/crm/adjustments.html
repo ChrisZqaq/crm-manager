@@ -953,11 +953,6 @@
         box.append(heading, reason);
         renderChangeSections(row.before_after?.changes || {}, box);
         renderCommissionSuggestions(row, box);
-        if (correctionId && orderId && String(row.id) === correctionId) {
-          const target = box.querySelector(`.commission-suggestion-row[data-order-id="${CSS.escape(orderId)}"]`);
-          if (target) { target.scrollIntoView({block: 'center'}); target.focus({preventScroll: true}); }
-          else show('该待办已失效或建议不再可确认。请返回工作台刷新待办。');
-        }
         if (row.can_approve) {
           const approve = document.createElement('button');
           approve.type = 'button'; approve.textContent = '审批并生效';
@@ -987,6 +982,11 @@
           box.append(reject);
         }
         host.append(box);
+        if (correctionId && orderId && String(row.id) === correctionId) {
+          const target = box.querySelector(`.commission-suggestion-row[data-order-id="${CSS.escape(orderId)}"]`);
+          if (target) { target.scrollIntoView({block: 'center'}); target.focus({preventScroll: true}); }
+          else show('该待办已失效或建议不再可确认。请返回工作台刷新待办。');
+        }
       }
       if (!host.childElementCount) host.textContent = '暂无纠错审批记录。';
       return true;

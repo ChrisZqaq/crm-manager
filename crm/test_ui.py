@@ -127,6 +127,10 @@ class ApprovedWorkbenchAndPaymentUITests(TestCase):
         self.assertContains(response, "网络连接失败，请稍后重试。")
         self.assertContains(response, "const fitMetric = element =>")
         self.assertContains(response, "window.addEventListener('resize',fitMetrics)")
+        self.assertContains(response, "element.dataset.fullDisplay = full")
+        self.assertContains(response, "element.dataset.fullDisplayOverflow='true'")
+        self.assertContains(response, "growth.dataset.fullDisplay=fullRate")
+        self.assertContains(response, "可左右滑动或用方向键查看完整值")
         self.assertContains(response, "if(rate!==null) growth.setAttribute('aria-label',`增速 ${fullRate}`)")
         self.assertContains(response, "link.title=preview.label")
         self.assertContains(response, "status-preview-amount")
@@ -142,6 +146,15 @@ class ApprovedWorkbenchAndPaymentUITests(TestCase):
         self.assertContains(response, "/api/v1/reports/inventory?low_stock=true")
         self.assertContains(response, "workbench=ip_language_stock_count")
         self.assertNotContains(response, "/api/v1/reports/sales")
+
+    def test_cost_correction_target_is_focused_after_mount(self):
+        self.client.force_login(self.admin)
+        response = self.client.get("/adjustments/?cost_correction_id=1&order_id=4")
+        self.assertEqual(response.status_code, 200)
+        html = response.content.decode()
+        self.assertLess(html.index("host.append(box);"), html.index("target.scrollIntoView({block: 'center'});"))
+        self.assertIn("target.focus({preventScroll: true})", html)
+        self.assertIn("该待办已失效或建议不再可确认。请返回工作台刷新待办。", html)
 
     def test_customer_editor_and_catalog_inventory_are_permission_gated(self):
         self.client.force_login(self.orders)
