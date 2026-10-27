@@ -878,7 +878,7 @@ class FulfillmentPhase4Tests(Phase4Base):
         sales_client = Client()
         sales_client.force_login(self.sales)
         sales_response = sales_client.get(f"/orders/{order.pk}/")
-        self.assertContains(sales_response, "登记或更新收款")
+        self.assertContains(sales_response, "保存收款更新")
         self.assertNotContains(sales_response, "确认整单发货并扣减库存")
 
         warehouse_client = Client()
@@ -1499,6 +1499,38 @@ class WorkbenchReadModelPhase4Tests(Phase4Base):
         response = client.get(f"/api/v1/workbench/tasks?page={page}&page_size={page_size}")
         self.assertEqual(response.status_code, 200, response.content)
         return response.json()
+
+    def test_saved_payment_update_is_not_a_register_task_and_remains_order_scoped(self):
+        order = self.new_order()
+        self.register(order)
+        self.verify(order)
+        client = Client()
+        client.force_login(self.sales)
+        actions = client.get(f"/api/v1/orders/{order.pk}").json()["allowed_actions"]
+        self.assertIn("update_payment", actions)
+        self.assertNotIn("register_payment", actions)
+        detail = client.get(f"/orders/{order.pk}/?task_action=update_payment")
+        self.assertEqual(detail.status_code, 200)
+        self.assertContains(detail, 'data-detail-tab="history"')
+        self.assertContains(detail, "修改已登记收款")
+        self.assertContains(detail, 'id="payment-form"')
+        tasks = self.tasks(self.sales)
+        self.assertNotIn("register_payment", [row["action_id"] for row in tasks["items"]])
+        self.assertEqual(tasks["counts"]["register_payment"], 0)
+
+        self.owner.user_permissions.add(*Permission.objects.filter(
+            content_type__app_label="crm",
+            codename__in=("view_all_sales_orders", "register_payment"),
+        ))
+        self.owner = self.User.objects.get(pk=self.owner.pk)
+        owner_client = Client()
+        owner_client.force_login(self.owner)
+        self.assertNotIn("update_payment", owner_client.get(f"/api/v1/orders/{order.pk}").json()["allowed_actions"])
+
+        order.refresh_from_db()
+        cancel_data = {"operation_key": str(uuid4()), "expected_version": order.version}
+        cancel_sales_order(self.sales, order.pk, cancel_data)
+        self.assertNotIn("update_payment", client.get(f"/api/v1/orders/{order.pk}").json()["allowed_actions"])
 
     def test_task_counts_cover_full_visible_set_and_history_is_scoped_and_redacted(self):
         order = self.shipment_order(self.sales_two)

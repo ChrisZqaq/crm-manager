@@ -752,6 +752,7 @@
       ) continue;
       hasRows = true;
       const orderRow = document.createElement('article'); orderRow.className = 'commission-suggestion-row';
+      orderRow.dataset.orderId = String(orderId); orderRow.tabIndex = -1;
       const identity = document.createElement('div'); identity.className = 'commission-suggestion-identity';
       const link = document.createElement('a'); link.href = `/orders/${orderId}/`;
       link.textContent = `订单 ${orderId}`; identity.append(link);
@@ -930,7 +931,13 @@
     const host = document.getElementById('correction-records');
     if (!host) return false;
     try {
-      const result = await api('/api/v1/cost-corrections');
+      const params = new URLSearchParams(location.search);
+      const correctionId = params.get('cost_correction_id');
+      const orderId = params.get('order_id');
+      if (Boolean(correctionId) !== Boolean(orderId)) throw new Error('待办目标信息不完整。');
+      const result = correctionId && orderId
+        ? {items: [await api(`/api/v1/cost-corrections/${encodeURIComponent(correctionId)}`)]}
+        : await api('/api/v1/cost-corrections');
       if (options.clearBlockedCommissionSuggestions) blockedCommissionSuggestions.clear();
       host.replaceChildren();
       for (const row of result.items || []) {
@@ -946,6 +953,11 @@
         box.append(heading, reason);
         renderChangeSections(row.before_after?.changes || {}, box);
         renderCommissionSuggestions(row, box);
+        if (correctionId && orderId && String(row.id) === correctionId) {
+          const target = box.querySelector(`.commission-suggestion-row[data-order-id="${CSS.escape(orderId)}"]`);
+          if (target) { target.scrollIntoView({block: 'center'}); target.focus({preventScroll: true}); }
+          else show('该待办已失效或建议不再可确认。请返回工作台刷新待办。');
+        }
         if (row.can_approve) {
           const approve = document.createElement('button');
           approve.type = 'button'; approve.textContent = '审批并生效';
@@ -979,7 +991,10 @@
       if (!host.childElementCount) host.textContent = '暂无纠错审批记录。';
       return true;
     } catch (error) {
-      show(error.message);
+      const params = new URLSearchParams(location.search);
+      show(params.has('cost_correction_id')
+        ? `该待办已失效或当前不可查看：${error.message}`
+        : error.message);
       return false;
     }
   }

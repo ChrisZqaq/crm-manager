@@ -363,3 +363,19 @@ UI-QUERY-1契约冻结（负责人同步，2026-10-08；后端仍实施中，不
 - 使用私有合成数据库 `oc_ui_inventory_1022` 检查了2个IP、2个非空系列、空系列商品、2个仓库及多种库存值。桌面1280px观察筛选/表格与设置布局，汇总表头和数据列边界一致；390px根页面无横向溢出（client/scroll 均375px），明细表宽900px并由表格容器横向滚动。实测系列筛选、组合条件空结果、正常库存筛选、非法库存值错误和完整筛选集汇总；未保存任何设置。
 - `manage.py check`、`crm.test_ui.ApprovedWorkbenchAndPaymentUITests.test_density_redesign_scope_and_preserved_inventory_controls`（1项）和 `git diff --check` 通过；浏览器 error/warn 为空。合成库及开发进程属于本机隔离环境，不含真实业务数据；保留以供负责人/QA使用，不连接生产或共享QA。
 - 应用固定后停止应用写入；未推送、未部署。交负责人安排独立QA/UI验收。
+
+## TASK-FOCUSED-UI-1023 接入只读准备（2026-10-23）
+
+- 依据：负责人已核对 UI 会话中用户直接批准 task-focused-v2；最新公共提交 `42658fb` 为文档提交，应用基线仍为 `d47fc91`。后端为唯一应用写入者，实施任务 API/逐单权限/历史合同；前端应用停写，等负责人在后端固定后明确切换。工作区含表格修改和其它角色资料，均保留。未修改应用。
+- 冻结原型 `SOURCE_SHA256SUMS` 四项源指纹核对通过；只读查看首页及从待办直达订单收款表单。演示数据、角色切换和模拟凭证不接入产品。
+- 可复用：`workbench.html` 已有八指标/客户排行/七日趋势及 fetch 错误处理，七日图读真实 sales report API；订单列表已有服务端搜索/筛选/分页；详情页保有单份提交表单、幂等键、版本保护、凭证和发货逻辑。后端合同以任务分页的全量 action counts/items 和逐单 `allowed_actions` 为真实入口，列表任务视图不能用订单页数据替代，也不能合并同单多 action。未来获准应用文件暂定 `crm/templates/crm/workbench.html`、`crm/templates/crm/orders.html`、`crm/templates/crm/order_detail.html`、`crm/templates/crm/adjustments.html`、`crm/static/crm/app.css`，无模型、API或通用平台改动。订单 tab 保留一份表单DOM；任务 action 直达现有表单/记录。成本纠错差额任务使用结构化 target `/adjustments/?cost_correction_id=…&order_id=…`，通过既有 `GET /api/v1/cost-corrections/{correction_id}` 精确读取当前建议，按 order_id 定位并用实时版本；目标缺失/失效/撤权需就近报清楚。
+- 发现方式：先检查 codebase-memory 索引（ready），用 `search_graph`、`get_file_outline`、`get_code_snippet`、`trace_path` 追踪工作台、报表、订单列表/详情；再结合冻结交付和本机原型实看。未运行应用测试或连接业务数据库。
+- 后端契约已确认，消费者映射与精确差额建议定位办法已发负责人/后端；当前仍只读，等待后端固定实现及负责人明确切换唯一写入者。届时重核 HEAD 和工作区，再按负责人范围增量实施。
+
+## TASK-FOCUSED-UI-1023 前端固定交付（2026-10-27）
+
+- 依据：负责人确认后端固定基线 `2a5f7ab06b962b381a3d91c4c2819c27acd208eb`，并明确切换本轮唯一应用写入者；冻结原型及批准范围见 `docs/workspaces/ui/task-focused-v2/HANDOFF.md`。开工时 HEAD `6345e477f0fdb0f7a2cc1cd37f82154a417eb763` 为文档提交，保留了工作区既有表格与其他角色资料。
+- 只改工作台、订单待办列表、订单详情、差额定位、对应局部样式及相关回归；后端只补详情页 `update_payment` 的逐单动作授权投影，并将权限及任务计数边界加入回归。已有8项经营概况、筛选和原表单流程保留；无模型、迁移、新 API 或业务规则变更。
+- 页面核对：独立合成用户/订单及本地 PG17 隔离库；工作台经营概况和任务列表、订单待办列表、订单详情注册收款及历史分别在1280×720与390×844观察。产品名称正确显示；移动端页面未见横向溢出；详情页切换标签后未丢失未提交金额，历史只呈现允许的摘要字段。成本纠错具体任务在本轮未用浏览器实际数据走通。
+- 验证：`manage.py check`、`py_compile`、`git diff --check`通过；3项定向回归通过（保存收款更新范围、阶段动作权限、工作台权限门控）。内联脚本语法在 Node 24 检查通过。测试连接本任务自建 PostgreSQL 17 集群，未使用项目默认/共享库；浏览器只访问本任务的 `127.0.0.1:8873` 演示服务和合成数据。
+- 浏览器尝试离开带未保存金额的详情页时导航被阻止，但本机未能确认原生确认框文案；未做真实移动设备或完整套件验收。固定后前端停止应用写入；未推送、未部署，交负责人和QA按既定流程独立复核。

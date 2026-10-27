@@ -5,6 +5,9 @@
 {% block content %}
 <section class="page-heading"><h1>订单 {{ order.pk }}</h1></section>
 <div class="legacy-content">
+<div class="order-detail-summary"><strong>订单 {{ order.pk }}</strong><span>{{ order.get_status_display }}</span><span>{{ order.customer_name_snapshot|default:"现场客户" }}</span><strong>¥{{ order.revenue_amount }}</strong></div>
+<nav class="tab-list detail-tabs" aria-label="订单页面"><button class="is-active" type="button" data-detail-tab="actions" aria-selected="true">待我处理</button><button type="button" data-detail-tab="info" aria-selected="false">订单资料</button><button type="button" data-detail-tab="history" aria-selected="false">处理记录</button></nav>
+<section class="order-workflow-panel" data-detail-panel="info" hidden>
 <p>状态：{{ order.get_status_display }}；交付方式：{{ order.get_delivery_mode_display }}；销售：{{ order.salesperson.get_username }}；渠道：{{ order.channel.name }}</p>
   <p>客户：{{ order.customer_name_snapshot|default:"现场客户" }}；收件人：{{ order.recipient_snapshot|default:"—" }}；联系方式：{{ order.contact_snapshot|default:"—" }}</p>
   <p>地址：{{ order.province_snapshot }} {{ order.city_snapshot }} {{ order.detail_snapshot }}</p>
@@ -18,13 +21,13 @@
       <li class="{% if order.status == 'completed' %}is-complete is-current{% endif %}"><span>3</span><strong>订单完成</strong></li>
     </ol>
     {% if order.status == "awaiting_payment" %}
-      {% if initial.payment and initial.payment.status != "passed" and perms.crm.verify_payment or initial.payment and initial.payment.status != "passed" and request.user.is_superuser %}<p>下一步：核对已登记的收款。 <a href="#verify-payment">前往收款核对</a></p>
+      {% if 'verify_payment' in allowed_actions %}<p>下一步：核对已登记的收款。 <a href="#verify-payment">前往收款核对</a></p>
       {% elif can_register_payment and not initial.payment %}<p>下一步：登记收款凭证。 <a href="#register-payment">前往登记收款</a></p>
       {% else %}<p>下一步：等待有权限的人员完成收款登记与核对。</p>{% endif %}
     {% elif order.status == "ready_to_ship" and order.delivery_mode == "shipment" %}
-      {% if perms.crm.ship_salesorder or request.user.is_superuser %}<p>下一步：按供货仓库登记物流并确认出库。 <a href="#ship-order">前往整单发货</a></p>{% else %}<p>下一步：等待有权限的人员发货。</p>{% endif %}
+      {% if 'ship' in allowed_actions %}<p>下一步：按供货仓库登记物流并确认出库。 <a href="#ship-order">前往整单发货</a></p>{% else %}<p>下一步：等待有权限的人员发货。</p>{% endif %}
     {% elif order.status == "ready_to_ship" and order.delivery_mode == "on_site" %}
-      {% if perms.crm.deliver_on_site or request.user.is_superuser %}<p>下一步：确认现场交付并扣减库存。 <a href="#onsite-order">前往现场交付</a></p>{% else %}<p>下一步：等待有权限的人员确认现场交付。</p>{% endif %}
+      {% if 'deliver_on_site' in allowed_actions %}<p>下一步：确认现场交付并扣减库存。 <a href="#onsite-order">前往现场交付</a></p>{% else %}<p>下一步：等待有权限的人员确认现场交付。</p>{% endif %}
     {% elif order.status == "shipped" %}
       {% if can_confirm_salesorder_receipt %}<p>下一步：确认客户收货并完成订单。 <a href="#receive-order">前往确认收货</a></p>{% else %}<p>下一步：等待有权限的人员确认客户收货。</p>{% endif %}
     {% elif order.status == "completed" %}<p>订单已完成。</p>
@@ -53,6 +56,10 @@
     <script>
       (()=>{const table=document.getElementById('order-detail-lines');if(!table)return;const syncKeyboardScroll=()=>{const scrollable=table.scrollWidth>table.clientWidth+1;if(scrollable){table.tabIndex=0;table.setAttribute('aria-label','订单商品明细，可左右滚动查看更多列');}else{table.removeAttribute('tabindex');table.removeAttribute('aria-label');}};syncKeyboardScroll();new ResizeObserver(syncKeyboardScroll).observe(table.parentElement);})();
     </script>
+  </section>
+  <section class="order-workflow-panel" data-detail-panel="actions" aria-label="当前可处理事项">
+  <p id="no-order-actions" class="empty-state" hidden>当前没有待处理事项。</p>
+  {% if initial.payment %}<section id="payment-action-context" class="payment-action-context"><h2>当前收款凭证</h2><p>账户：{{ initial.payment.account_name }}（{{ initial.payment.account_responsibility_label }}） · 登记 ¥{{ initial.payment.received_amount }} · 订单应收 ¥{{ initial.payment.expected_amount }} · {{ initial.payment.status_label }}{% if initial.payment.paused %} · 暂停出库{% endif %}</p><div id="payment-action-images"></div></section>{% endif %}
   {% if order.status == "awaiting_payment" or order.status == "ready_to_ship" %}
     {% if can_edit_sales_order %}<p><a class="button-link" href="{% url 'order-edit' order.pk %}">修改订单</a></p>{% endif %}
     {% if can_cancel_sales_order %}
@@ -68,8 +75,9 @@
 
   {% if can_register_payment %}
     {% if order.status != "cancelled" %}
+      {% if 'update_payment' in allowed_actions and 'register_payment' not in allowed_actions %}<details class="payment-update-disclosure"><summary>修改已登记收款</summary>{% endif %}
       <section id="register-payment">
-        <h2>登记或更新收款</h2>
+        <h2>{% if 'update_payment' in allowed_actions and 'register_payment' not in allowed_actions %}修改已登记收款{% else %}登记或更新收款{% endif %}</h2>
         <form id="payment-form">
           <label>收款账户 <select id="payment-account" required><option value="">加载中…</option></select></label>
           <label>登记金额 <input id="received-amount" type="number" min="0" step="0.001" value="{{ order.revenue_amount }}" required></label>
@@ -77,14 +85,15 @@
           <label>金额不一致原因 <textarea id="difference-reason"></textarea></label>
           <label>收款图片（JPEG/PNG/WebP，每张≤10MB，整单最多20张） <input id="payment-files" type="file" accept="image/jpeg,image/png,image/webp" multiple></label>
           <p id="payment-image-status" role="status"></p>
-          <button class="button-primary" type="submit">保存收款凭证</button>
+          <button class="button-primary" type="submit">{% if 'update_payment' in allowed_actions and 'register_payment' not in allowed_actions %}保存收款更新{% else %}保存收款凭证{% endif %}</button>
         </form>
       </section>
+      {% if 'update_payment' in allowed_actions and 'register_payment' not in allowed_actions %}</details>{% endif %}
     {% endif %}
   {% endif %}
 
   {% if initial.payment and initial.payment.status != "passed" %}
-    {% if perms.crm.verify_payment or request.user.is_superuser %}
+    {% if 'verify_payment' in allowed_actions %}
       <section id="verify-payment">
         <h2>收款核对</h2>
         <form id="verify-form">
@@ -96,7 +105,7 @@
     {% endif %}
   {% endif %}
 
-  {% if order.status == "ready_to_ship" and order.delivery_mode == "shipment" and perms.crm.ship_salesorder or order.status == "ready_to_ship" and order.delivery_mode == "shipment" and request.user.is_superuser %}
+  {% if 'ship' in allowed_actions %}
     <section id="ship-order">
       <h2>整单发货</h2>
       <p>每个供货仓库关联一条物流；本次必须覆盖所有供货仓库。货拉拉编号填写平台订单号。</p>
@@ -109,7 +118,7 @@
     </section>
   {% endif %}
 
-  {% if order.status == "ready_to_ship" and order.delivery_mode == "on_site" and perms.crm.deliver_on_site or order.status == "ready_to_ship" and order.delivery_mode == "on_site" and request.user.is_superuser %}
+  {% if 'deliver_on_site' in allowed_actions %}
     <section id="onsite-order">
       <h2>现场交付</h2>
       <form id="onsite-form">
@@ -129,8 +138,7 @@
     </section>
   {% endif %}
 
-  {% if order.status == "shipped" or order.status == "completed" %}
-    {% if perms.crm.ship_salesorder and order.delivery_mode == "shipment" or perms.crm.deliver_on_site and order.delivery_mode == "on_site" or request.user.is_superuser %}
+  {% if 'update_freight' in allowed_actions %}
       <section>
         <h2>补录或调整出库运费</h2>
         <form id="freight-form">
@@ -138,10 +146,9 @@
           <button class="button-primary" type="submit">保存运费并更新毛利、提成</button>
         </form>
       </section>
-    {% endif %}
   {% endif %}
 
-  {% if order.status == "completed" and can_view_commission and perms.crm.review_commission or order.status == "completed" and can_view_commission and request.user.is_superuser %}
+  {% if 'review_commission' in allowed_actions %}
     <section><h2>提成复核</h2><p>当前计算金额：{{ order.commission_estimate }}；金额版本：{{ order.amount_version }}</p>
       {% if not initial.commission_review or initial.commission_review.needs_review %}<button id="review-commission" type="button">复核当前提成</button>{% endif %}
     </section>
@@ -154,12 +161,24 @@
       </ul></section>
     {% endif %}
   {% endif %}
+  </section>
+  <section class="order-workflow-panel" data-detail-panel="history" hidden aria-labelledby="order-history-title"><h2 id="order-history-title">处理记录</h2><p id="order-history-status" class="inline-status" role="status" aria-live="polite">打开此标签后加载安全摘要。</p><ol id="order-history-list" class="order-history-list"></ol><div class="pagination"><button id="order-history-previous" type="button" disabled>上一页</button><span id="order-history-page"></span><button id="order-history-next" type="button" disabled>下一页</button></div></section>
   <p id="status" role="status"></p>
   {{ initial|json_script:"order-initial" }}
   <form hidden>{% csrf_token %}</form>
   <script>
     const initial=JSON.parse(document.getElementById('order-initial').textContent);
     const status=document.getElementById('status');
+    const detailTabs=[...document.querySelectorAll('[data-detail-tab]')],detailPanels=[...document.querySelectorAll('[data-detail-panel]')];let historyPage=1,historyData=null,allowLeave=false;
+    const dirtyForms=new Set();document.querySelectorAll('[data-detail-panel] form').forEach(form=>{form.addEventListener('input',()=>dirtyForms.add(form));form.addEventListener('change',()=>dirtyForms.add(form));});
+    window.addEventListener('beforeunload',event=>{if(!allowLeave&&dirtyForms.size){event.preventDefault();event.returnValue='';}});
+    function activateDetailTab(name){for(const tab of detailTabs){const active=tab.dataset.detailTab===name;tab.setAttribute('aria-selected',String(active));tab.classList.toggle('is-active',active);}for(const panel of detailPanels)panel.hidden=panel.dataset.detailPanel!==name;if(name==='history')loadOrderHistory();}
+    detailTabs.forEach((tab,index)=>{tab.addEventListener('click',()=>activateDetailTab(tab.dataset.detailTab));tab.addEventListener('keydown',event=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();const next=event.key==='Home'?0:event.key==='End'?detailTabs.length-1:(index+(event.key==='ArrowRight'?1:detailTabs.length-1))%detailTabs.length;detailTabs[next].focus();detailTabs[next].click();});});
+    document.querySelectorAll('[data-detail-panel="info"] a[href^="#"]').forEach(link=>link.addEventListener('click',event=>{const target=document.querySelector(link.getAttribute('href'));if(!target||!document.querySelector('[data-detail-panel="actions"]').contains(target))return;event.preventDefault();activateDetailTab('actions');target.scrollIntoView({block:'center'});}));
+    async function loadOrderHistory(){const host=document.getElementById('order-history-list'),message=document.getElementById('order-history-status');message.textContent='正在加载处理记录…';try{const response=await fetch(`/api/v1/orders/${initial.id}/history?page=${historyPage}&page_size=50`,{credentials:'same-origin'}),data=await response.json();if(!response.ok)throw new Error(data.error?.message||'处理记录加载失败。');historyData=data;host.replaceChildren();for(const item of data.items||[]){const row=document.createElement('li'),heading=document.createElement('strong'),detail=document.createElement('span');heading.textContent=`${item.action_label} · ${item.actor_name||'系统'}`;detail.textContent=new Date(item.created_at).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'});row.append(heading,detail);host.append(row);}message.textContent=data.total?`共${data.total}条安全操作摘要。`: '暂无处理记录。';document.getElementById('order-history-page').textContent=`${data.page}/${Math.max(1,Math.ceil(data.total/data.page_size))}`;document.getElementById('order-history-previous').disabled=!data.has_previous;document.getElementById('order-history-next').disabled=!data.has_next;}catch(error){message.textContent=`${error.message} 请切换标签重试。`;message.setAttribute('role','alert');}}
+    document.getElementById('order-history-previous').addEventListener('click',()=>{if(historyData?.has_previous){historyPage--;loadOrderHistory();}});document.getElementById('order-history-next').addEventListener('click',()=>{if(historyData?.has_next){historyPage++;loadOrderHistory();}});
+    const taskAction=new URLSearchParams(location.search).get('task_action');if(taskAction){const actionNodes={register_payment:'#register-payment',update_payment:'#register-payment',verify_payment:'#verify-payment',ship:'#ship-order',deliver_on_site:'#onsite-order',receive:'#receive-order',review_commission:'#review-commission',complete_commission_adjustment:'#commission-adjustments',amend_order:'a[href*="/edit"]',cancel_order:'#cancel'};const selector=actionNodes[taskAction],target=selector&&document.querySelector(selector),adjustmentId=new URLSearchParams(location.search).get('adjustment_id'),exact=taskAction==='complete_commission_adjustment'&&adjustmentId?document.querySelector(`.complete-adjustment[data-id="${CSS.escape(adjustmentId)}"]`):target;if(!initial.allowed_actions?.includes(taskAction)||!target||taskAction==='complete_commission_adjustment'&&!exact){status.textContent='此待办已失效或当前不可处理，请刷新待办列表。';status.setAttribute('role','status');}else{if(taskAction==='update_payment')document.querySelector('.payment-update-disclosure').open=true;activateDetailTab('actions');(exact||target).scrollIntoView({block:'center'});(exact||target).focus?.({preventScroll:true});}}
+    document.getElementById('no-order-actions').hidden=Boolean(document.querySelector('[data-detail-panel="actions"] form, [data-detail-panel="actions"] button, [data-detail-panel="actions"] a'));
     function csrfToken(){return document.cookie.split('; ').find(x=>x.startsWith('csrftoken='))?.split('=')[1]||'';}
     function beijingDateTime(value){if(!value)return '';const date=new Date(value);if(Number.isNaN(date.getTime()))return '';const parts=Object.fromEntries(new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'}).formatToParts(date).map(part=>[part.type,part.value]));const fraction=value.match(/\.(\d+)(?=Z|[+-]\d{2}:\d{2}$)/)?.[1]||'';return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:${parts.second}${fraction?`.${fraction}`:''}`;}
     if(initial.payment?.received_at){const localTime=beijingDateTime(initial.payment.received_at);if(localTime)document.getElementById('payment-received-at').textContent=localTime.replace('T',' ');}
@@ -168,7 +187,7 @@
     function actionData(action,extra={}){const data={expected_version:initial.version,...extra},signature=`${action}:${JSON.stringify(data)}`;if(!operationKeys.has(signature))operationKeys.set(signature,CrmCrypto.uuidV4());return {...data,operation_key:operationKeys.get(signature)};}
     function freightRows(tableId){const table=document.getElementById(tableId);if(!table)return;for(const line of initial.lines){const row=document.createElement('tr'),sku=document.createElement('td'),warehouse=document.createElement('td'),freight=document.createElement('td'),input=document.createElement('input');sku.textContent=line.sku_code;warehouse.textContent=line.warehouse;input.type='number';input.min='0';input.step='0.001';input.dataset.lineId=line.line_id;input.value=line.outbound_freight;freight.appendChild(input);row.append(sku,warehouse,freight);table.appendChild(row);}}
     function freightPayload(tableId){return [...document.querySelectorAll(`#${tableId} input[data-line-id]`)].filter(input=>input.value!=='').map(input=>({line_id:Number(input.dataset.lineId),amount:input.value}));}
-    async function runForm(formId,callback){const form=document.getElementById(formId);if(!form)return;let submitting=false;form.addEventListener('submit',async event=>{event.preventDefault();if(submitting)return;submitting=true;const controls=[...form.elements].map(control=>[control,control.disabled]);for(const [control] of controls)control.disabled=true;status.textContent='正在提交…';status.setAttribute('role','status');try{await callback();location.reload();}catch(error){status.textContent=error.message;status.setAttribute('role','alert');submitting=false;for(const [control,disabled] of controls)control.disabled=disabled;}});}
+    async function runForm(formId,callback){const form=document.getElementById(formId);if(!form)return;let submitting=false;form.addEventListener('submit',async event=>{event.preventDefault();if(submitting)return;if([...dirtyForms].some(item=>item!==form)&&!confirm('其他表单有未保存内容，提交后页面刷新会丢失。继续吗？'))return;submitting=true;const controls=[...form.elements].map(control=>[control,control.disabled]);for(const [control] of controls)control.disabled=true;status.textContent='正在提交…';status.setAttribute('role','status');try{await callback();allowLeave=true;location.reload();}catch(error){status.textContent=error.message;status.setAttribute('role','alert');submitting=false;for(const [control,disabled] of controls)control.disabled=disabled;}});}
 
     const cancel=document.getElementById('cancel');
     const cancelConfirmation=document.getElementById('cancel-confirmation');
@@ -194,6 +213,7 @@
       });
       confirmCancel.addEventListener('click',async()=>{
         if(cancelSubmitting)return;
+        if(dirtyForms.size&&!confirm('此订单有未保存内容，取消成功后页面会刷新并丢失。继续吗？'))return;
         cancelSubmitting=true;
         confirmCancel.disabled=true;
         cancelBack.disabled=true;
@@ -201,7 +221,7 @@
         if(!cancelOperationKey)cancelOperationKey=CrmCrypto.uuidV4();
         try{
           await postJson(`/api/v1/orders/${initial.id}/cancel`,{expected_version:initial.version,operation_key:cancelOperationKey});
-          location.reload();
+          allowLeave=true;location.reload();
         }catch(error){
           status.textContent=error.message;
           cancelSubmitting=false;
@@ -227,7 +247,7 @@
     }
 
     const imagesBox=document.getElementById('payment-images');
-    if(imagesBox&&initial.payment){for(const id of initial.payment.image_ids){const image=document.createElement('img');image.src=`/api/v1/images/${id}`;image.alt='收款凭证';image.width=180;image.loading='lazy';imagesBox.appendChild(image);}}
+    if(imagesBox&&initial.payment){for(const id of initial.payment.image_ids){const image=document.createElement('img');image.src=`/api/v1/images/${id}`;image.alt='收款凭证';image.width=180;image.loading='lazy';imagesBox.appendChild(image);}const target=document.getElementById('payment-action-images');if(target)target.replaceWith(imagesBox);}
 
     const verifyForm=document.getElementById('verify-form');
     if(verifyForm)runForm('verify-form',()=>postJson(`/api/v1/orders/${initial.id}/verify-payment`,actionData('verify-payment',{result:document.getElementById('verify-result').value,problem_reason:document.getElementById('problem-reason').value})));
@@ -242,8 +262,8 @@
     runForm('freight-form',()=>postJson(`/api/v1/orders/${initial.id}/freight`,actionData('freight',{outbound_freights:freightPayload('extra-freight')})));
 
     const review=document.getElementById('review-commission');
-    if(review)review.addEventListener('click',async()=>{if(review.disabled)return;review.disabled=true;try{await postJson(`/api/v1/orders/${initial.id}/review-commission`,actionData('review-commission'));location.reload();}catch(error){status.textContent=error.message;status.setAttribute('role','alert');review.disabled=false;}});
-    document.querySelectorAll('.complete-adjustment').forEach(button=>button.addEventListener('click',async()=>{if(button.disabled)return;button.disabled=true;try{await postJson(`/api/v1/commission-adjustments/${button.dataset.id}/complete`,actionData(`complete-adjustment-${button.dataset.id}`));location.reload();}catch(error){status.textContent=error.message;status.setAttribute('role','alert');button.disabled=false;}}));
+    if(review)review.addEventListener('click',async()=>{if(review.disabled)return;if(dirtyForms.size&&!confirm('其他表单有未保存内容，提交后页面刷新会丢失。继续吗？'))return;review.disabled=true;try{await postJson(`/api/v1/orders/${initial.id}/review-commission`,actionData('review-commission'));allowLeave=true;location.reload();}catch(error){status.textContent=error.message;status.setAttribute('role','alert');review.disabled=false;}});
+    document.querySelectorAll('.complete-adjustment').forEach(button=>button.addEventListener('click',async()=>{if(button.disabled)return;if(dirtyForms.size&&!confirm('其他表单有未保存内容，提交后页面刷新会丢失。继续吗？'))return;button.disabled=true;try{await postJson(`/api/v1/commission-adjustments/${button.dataset.id}/complete`,actionData(`complete-adjustment-${button.dataset.id}`));allowLeave=true;location.reload();}catch(error){status.textContent=error.message;status.setAttribute('role','alert');button.disabled=false;}}));
   </script>
 </div>
 {% endblock %}

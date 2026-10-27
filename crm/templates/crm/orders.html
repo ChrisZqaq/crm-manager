@@ -4,7 +4,8 @@
 {% block topbar_title %}销售订单{% endblock %}
 {% block content %}
 <section class="page-heading"><div><h1>销售订单</h1></div>{% if perms.crm.add_salesorder %}<a class="button-primary" href="{% url 'order-new' %}">新建订单</a>{% endif %}</section>
-<form class="data-card filter-bar" id="order-filters" role="search">
+<section class="data-card task-order-panel" id="order-task-panel" hidden><div class="card-head"><h2>待处理事项</h2><a href="{% url 'orders' %}">返回全部订单</a></div><div id="order-task-counts" class="task-counts"></div><div id="order-task-list" class="task-list" aria-live="polite"><p class="muted">正在加载待办…</p></div><p id="order-task-status" class="inline-status" role="status"></p><div class="pagination"><span id="order-task-page"></span><button id="order-task-previous" type="button">上一页</button><button id="order-task-next" type="button">下一页</button></div></section>
+<form class="data-card filter-bar" id="order-filters" data-order-list-panel role="search">
   <div class="filter-field filter-search"><label for="order-query">订单编号、客户、渠道或销售</label><input id="order-query" name="q" type="search" value="{{ request.GET.q }}" maxlength="120"></div>
   <input id="order-status" type="hidden" name="status" value="{{ request.GET.status }}">
   <nav class="tab-list order-status-tabs" aria-label="按履约状态筛选">
@@ -18,15 +19,22 @@
   <div class="filter-field"><label for="order-verification">收款核对</label><select id="order-verification" name="verification_status"><option value="">全部</option><option value="pending" {% if request.GET.verification_status == 'pending' %}selected{% endif %}>待核对</option><option value="problem" {% if request.GET.verification_status == 'problem' %}selected{% endif %}>待处理</option><option value="passed" {% if request.GET.verification_status == 'passed' %}selected{% endif %}>核对通过</option></select></div>
   <button class="button-primary" type="submit">筛选</button><a class="button-link" href="{% url 'orders' %}">重置</a>
 </form>
-<p class="inline-status" id="order-status-message" role="status" aria-live="polite"></p>
-<section class="data-card"><p id="orders-empty" class="empty-state">正在加载订单…</p><div class="table-scroll"><table><thead><tr><th>订单编号</th><th>客户</th><th>销售</th><th>出货仓</th><th class="numeric">订单金额</th><th>履约</th><th>收款核对</th><th>操作</th></tr></thead><tbody id="orders"></tbody></table></div>
+<p class="inline-status" id="order-status-message" data-order-list-panel role="status" aria-live="polite"></p>
+<section class="data-card" data-order-list-panel><p id="orders-empty" class="empty-state">正在加载订单…</p><div class="table-scroll"><table><thead><tr><th>订单编号</th><th>客户</th><th>销售</th><th>出货仓</th><th class="numeric">订单金额</th><th>履约</th><th>收款核对</th><th>操作</th></tr></thead><tbody id="orders"></tbody></table></div>
 <div class="pagination"><span id="order-page"></span><button id="order-previous" type="button">上一页</button><button id="order-next" type="button">下一页</button></div></section>
 <script>
 (() => {
+  const initial=new URLSearchParams(location.search);
+  if(initial.get('scope')==='todo'){
+    document.querySelectorAll('[data-order-list-panel]').forEach(node=>node.hidden=true);document.getElementById('order-task-panel').hidden=false;
+    const host=document.getElementById('order-task-list'),counts=document.getElementById('order-task-counts'),status=document.getElementById('order-task-status');let page=1,last=null;const labels={register_payment:'登记或补正收款',verify_payment:'核对收款',ship:'整单发货',deliver_on_site:'现场交付',receive:'确认收货',review_commission:'复核提成',complete_commission_adjustment:'登记线下处理',cost_correction_commission_decision:'确认提成差额'};
+    const targetUrl=item=>item.target?.type==='cost_correction_commission_suggestion'?`${item.target.page}?cost_correction_id=${encodeURIComponent(item.target.cost_correction_id)}&order_id=${encodeURIComponent(item.target.order_id)}`:`${item.target?.page||`/orders/${item.order_id}/`}?task_action=${encodeURIComponent(item.action_id)}${item.adjustment_id?`&adjustment_id=${encodeURIComponent(item.adjustment_id)}`:''}`;
+    async function load(){status.textContent='';host.setAttribute('aria-busy','true');try{const response=await fetch(`/api/v1/workbench/tasks?page=${page}&page_size=50`,{credentials:'same-origin'}),data=await response.json();if(!response.ok)throw new Error(data.error?.message||'待办加载失败。');last=data;counts.replaceChildren();for(const [key,label] of Object.entries(labels)){const item=document.createElement('div');item.className='task-count';const value=document.createElement('strong'),name=document.createElement('span');value.textContent=String(data.counts?.[key]||0);name.textContent=label;item.append(value,name);counts.append(item);}host.replaceChildren();if(!data.items?.length)host.innerHTML='<p class="empty-state">当前没有待处理事项。</p>';else for(const task of data.items){const card=document.createElement('article'),link=document.createElement('a'),summary=document.createElement('p'),products=task.summary?.products?.map(product=>product.product_name||product.sku_code).filter(Boolean).join('、');card.className='task-row';link.className='task-row-action';link.href=targetUrl(task);link.textContent=task.action_label||labels[task.action_id]||'处理事项';summary.textContent=`订单 ${task.order_sequence||task.order_id} · ${task.summary?.customer_name||'门店散客'} · ${products||'订单事项'}`;card.append(link,summary);host.append(card);}document.getElementById('order-task-page').textContent=`共${data.total}项 · 第${data.page}页`;document.getElementById('order-task-previous').disabled=!data.has_previous;document.getElementById('order-task-next').disabled=!data.has_next;}catch(error){status.textContent=`${error.message} 请刷新页面重试。`;host.innerHTML='<p class="empty-state">待办暂不可用。</p>';}finally{host.removeAttribute('aria-busy');}}
+    document.getElementById('order-task-previous').addEventListener('click',()=>{if(last?.has_previous){page--;load();}});document.getElementById('order-task-next').addEventListener('click',()=>{if(last?.has_next){page++;load();}});load();return;
+  }
   const form=document.getElementById('order-filters'), body=document.getElementById('orders'), message=document.getElementById('order-status-message');
   const emptyState=document.getElementById('orders-empty');
   const controls=[...form.querySelectorAll('input,select')];
-  const initial=new URLSearchParams(location.search);
   for(const control of controls)if(control.name&&initial.has(control.name)){if(control.dataset.filterOptions)control.dataset.requestedValue=initial.get(control.name);else control.value=initial.get(control.name);}
   function setOptions(select,options){
     const selected=select.dataset.requestedValue??select.value;

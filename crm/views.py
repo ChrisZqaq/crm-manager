@@ -1156,6 +1156,13 @@ def _order_action_state(actor, order, actor_roles=None):
         and (payment is None or payment.status == PaymentRecord.Status.PROBLEM or not payment_current)
     ):
         actions.append("register_payment")
+    elif (
+        can_change
+        and actor.has_perm("crm.register_payment")
+        and order.status != SalesOrder.Status.CANCELLED
+        and payment is not None
+    ):
+        actions.append("update_payment")
     if (
         actor.has_perm("crm.verify_payment")
         and payment is not None
@@ -1990,7 +1997,7 @@ def order_detail_page(request, order_id):
         "allowed_actions": action_state["actions"],
         "can_edit_sales_order": "amend_order" in action_state["actions"],
         "can_cancel_sales_order": "cancel_order" in action_state["actions"],
-        "can_register_payment": "register_payment" in action_state["actions"],
+        "can_register_payment": bool({"register_payment", "update_payment"} & set(action_state["actions"])),
         "can_confirm_salesorder_receipt": "receive" in action_state["actions"],
         "can_complete_commission_adjustment": (
             "complete_commission_adjustment" in action_state["actions"]
