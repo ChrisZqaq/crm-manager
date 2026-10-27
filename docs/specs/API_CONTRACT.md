@@ -265,6 +265,6 @@ POST客户可省略addresses或传[]，不建立地址记录；若提供地址�
 
 任务含稳定`id/action_id/action_label/order_id/order_sequence`、客户/最多三条商品摘要/订单金额、履约与收款状态和动作必要上下文；不得当整单完整明细。普通目标`target={type:order_action,page,order_id,action_id}`，差额任务另有`adjustment_id`；成本纠错任务目标`{type:cost_correction_commission_suggestion,page:/adjustments/,cost_correction_id,order_id}`，由既有精确纠错详情API读取实时建议及版本后定位原交互，不从任务复制期望金额版本。
 
-原订单列表/详情附当前用户`allowed_actions`，含待办及非待办`amend_order/cancel_order/update_freight`。呈现、业务归属与状态判断须保持服务一致，最终写入仍由服务复核，不靠隐藏按钮授权。已保存收款的低频更新能力须保留，其动作表示正澄清，不据无待办认为不再允许修改。
+原订单列表/详情附当前用户`allowed_actions`，含待办及非待办`amend_order/cancel_order/update_freight`。呈现、业务归属与状态判断须保持服务一致，最终写入仍由服务复核，不靠隐藏按钮授权。后端独立17项通过后，确认低频更新入口缺口：前端单写阶段追加非待办`update_payment`（已有收款、有原登记权限及单据可修改范围、订单未取消），不进入待办计数。普通有效收款不重复成为登记待办，更新仍走现服务并重新核对；表示增量与页面接入固定后另行验收。
 
 `GET /api/v1/orders/{id}/history?page=&page_size=`沿订单可见范围分页返回`id/sequence/action_label/actor_name/created_at`，仅现存订单操作摘要，不返回payload/result、图片或客户私密字段，不补造缺失事件。固定版独立QA及后续前端/视觉验收、发布状态以开发计划为准。
