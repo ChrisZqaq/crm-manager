@@ -258,3 +258,13 @@ UI-LIST-FILTERS集中核对补充（待实施）：orders.filter_options另含 `
 ### 客户档案地址选填（2026-10-22，ccefc51已发布）
 
 POST客户可省略addresses或传[]，不建立地址记录；若提供地址，每条仍需完整收件人、phone、省、市及详细地址并校验省市关系，不接受半条占位地址。PATCH省略addresses保留现有地址，显式[]依原软停用机制停用档案地址，不删除历史记录或改历史订单收件快照。客户姓名必填、联系方式选填；快递订单完整收件信息仍必填，不能借档案无地址绕过。网页默认/提交应能实际表达零地址，不发送空白地址对象。实施与正式发布状态见开发计划。
+
+### 待办与逐单动作（2026-10-27，2a5f7ab后端固定，未上线）
+
+`GET /api/v1/workbench/tasks?page=&page_size=`要求订单查看权限，沿当前单据可见范围，返回`items,total,page,page_size,has_previous,has_next,counts`。先从完整可操作事项集计数再分页，同单多职责动作分别计数，差额记录逐条计。`counts`按以下稳定动作ID分类：`register_payment`、`verify_payment`、`ship`、`deliver_on_site`、`receive`、`review_commission`、`complete_commission_adjustment`、`cost_correction_commission_decision`。沿现有分页校验，无通用任务表或新角色。
+
+任务含稳定`id/action_id/action_label/order_id/order_sequence`、客户/最多三条商品摘要/订单金额、履约与收款状态和动作必要上下文；不得当整单完整明细。普通目标`target={type:order_action,page,order_id,action_id}`，差额任务另有`adjustment_id`；成本纠错任务目标`{type:cost_correction_commission_suggestion,page:/adjustments/,cost_correction_id,order_id}`，由既有精确纠错详情API读取实时建议及版本后定位原交互，不从任务复制期望金额版本。
+
+原订单列表/详情附当前用户`allowed_actions`，含待办及非待办`amend_order/cancel_order/update_freight`。呈现、业务归属与状态判断须保持服务一致，最终写入仍由服务复核，不靠隐藏按钮授权。已保存收款的低频更新能力须保留，其动作表示正澄清，不据无待办认为不再允许修改。
+
+`GET /api/v1/orders/{id}/history?page=&page_size=`沿订单可见范围分页返回`id/sequence/action_label/actor_name/created_at`，仅现存订单操作摘要，不返回payload/result、图片或客户私密字段，不补造缺失事件。固定版独立QA及后续前端/视觉验收、发布状态以开发计划为准。
