@@ -226,6 +226,13 @@ class ApprovedWorkbenchAndPaymentUITests(TestCase):
             css.read_text(encoding="utf-8"),
         )
 
+    def test_payment_report_verify_controls_meet_touch_target_height(self):
+        css = Path(__file__).parent / "static" / "crm" / "app.css"
+        self.assertIn(
+            "#payment-detail .verify-payment-form select, #payment-detail .verify-payment-form input { min-height: 44px; }",
+            css.read_text(encoding="utf-8"),
+        )
+
     def test_status_shortcuts_keep_existing_statuses_and_selected_filters(self):
         self.client.force_login(self.orders)
 

@@ -267,6 +267,7 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
 .customer-detail-dialog::backdrop { background: rgb(22 24 48 / 48%); }
 .customer-detail-dialog .card-head { padding: 16px 20px 0; }
 .customer-detail-dialog .card-body { overflow-wrap: anywhere; }
+#payment-detail .verify-payment-form select, #payment-detail .verify-payment-form input { min-height: 44px; }
 #customers tr[data-customer-row] { cursor: pointer; }
 #customers tr[data-customer-row]:hover, #customers tr[data-customer-row]:focus-visible { background: var(--soft-indigo); }
 #customers tr[data-customer-row] .link-button { text-decoration: underline; text-underline-offset: 3px; }
