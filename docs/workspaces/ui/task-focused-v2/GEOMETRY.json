@@ -1,0 +1,223 @@
+{
+  "desktopDraft": {
+    "amount": "600",
+    "client": 1265,
+    "controls": [
+      {
+        "h": 44,
+        "tag": "SELECT"
+      },
+      {
+        "h": 44,
+        "tag": "INPUT"
+      },
+      {
+        "h": 44,
+        "tag": "BUTTON"
+      },
+      {
+        "h": 44,
+        "tag": "BUTTON"
+      },
+      {
+        "h": 44,
+        "tag": "BUTTON"
+      }
+    ],
+    "proof": "演示凭证已选择",
+    "reason": "演示：待补余款。",
+    "scroll": 1265,
+    "selected": "待我处理",
+    "w": 1280
+  },
+  "phoneHome": {
+    "client": 375,
+    "scroll": 375,
+    "tabs": [
+      {
+        "height": 50,
+        "text": "我的待办",
+        "width": 76
+      },
+      {
+        "height": 50,
+        "text": "经营概况",
+        "width": 76
+      }
+    ],
+    "width": 390
+  },
+  "phoneBusiness": {
+    "cards": [
+      {
+        "height": 210,
+        "overflow": false,
+        "width": 347
+      },
+      {
+        "height": 210,
+        "overflow": false,
+        "width": 347
+      },
+      {
+        "height": 210,
+        "overflow": false,
+        "width": 347
+      },
+      {
+        "height": 210,
+        "overflow": false,
+        "width": 347
+      },
+      {
+        "height": 210,
+        "overflow": false,
+        "width": 347
+      },
+      {
+        "height": 210,
+        "overflow": false,
+        "width": 347
+      },
+      {
+        "height": 210,
+        "overflow": false,
+        "width": 347
+      },
+      {
+        "height": 210,
+        "overflow": false,
+        "width": 347
+      }
+    ],
+    "client": 375,
+    "scroll": 375
+  },
+  "phoneDraft": {
+    "client": 375,
+    "inputs": [
+      {
+        "name": "amount",
+        "value": "600"
+      },
+      {
+        "name": "difference",
+        "value": "演示：待补余款。"
+      }
+    ],
+    "proof": "选择凭证演示凭证已选择",
+    "scroll": 375,
+    "selected": "待我处理",
+    "tabs": [
+      {
+        "height": 48.5,
+        "text": "待我处理",
+        "width": 86
+      },
+      {
+        "height": 48.5,
+        "text": "订单资料",
+        "width": 86
+      },
+      {
+        "height": 48.5,
+        "text": "处理记录",
+        "width": 86
+      }
+    ]
+  },
+  "desktopBusiness": {
+    "cards": [
+      {
+        "height": 202,
+        "overflow": false,
+        "width": 243.75
+      },
+      {
+        "height": 202,
+        "overflow": false,
+        "width": 243.75
+      },
+      {
+        "height": 202,
+        "overflow": false,
+        "width": 243.75
+      },
+      {
+        "height": 202,
+        "overflow": false,
+        "width": 243.75
+      },
+      {
+        "height": 202,
+        "overflow": false,
+        "width": 243.75
+      },
+      {
+        "height": 202,
+        "overflow": false,
+        "width": 243.75
+      },
+      {
+        "height": 202,
+        "overflow": false,
+        "width": 243.75
+      },
+      {
+        "height": 202,
+        "overflow": false,
+        "width": 243.75
+      }
+    ],
+    "client": 1265,
+    "scroll": 1265,
+    "sideAlignment": [
+      "left",
+      "left",
+      "left",
+      "left",
+      "left",
+      "left",
+      "left"
+    ],
+    "width": 1280
+  },
+  "phoneFinal": {
+    "cards": [
+      {
+        "height": 210,
+        "overflow": false
+      },
+      {
+        "height": 210,
+        "overflow": false
+      },
+      {
+        "height": 210,
+        "overflow": false
+      },
+      {
+        "height": 210,
+        "overflow": false
+      },
+      {
+        "height": 210,
+        "overflow": false
+      },
+      {
+        "height": 210,
+        "overflow": false
+      },
+      {
+        "height": 210,
+        "overflow": false
+      },
+      {
+        "height": 210,
+        "overflow": false
+      }
+    ],
+    "client": 375,
+    "scroll": 375
+  }
+}
