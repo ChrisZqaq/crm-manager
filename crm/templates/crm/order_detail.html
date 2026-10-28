@@ -1,11 +1,11 @@
 {% extends 'crm/base.html' %}
 {% load static %}
-{% block title %}订单 {{ order.pk }} · 阿罗拉潮玩空间{% endblock %}
-{% block topbar_title %}订单 {{ order.pk }}{% endblock %}
+{% block title %}订单 {{ order.order_number|default:order.pk }} · 阿罗拉潮玩空间{% endblock %}
+{% block topbar_title %}订单 {{ order.order_number|default:order.pk }}{% endblock %}
 {% block content %}
-<section class="page-heading"><h1>订单 {{ order.pk }}</h1></section>
+<section class="page-heading"><h1>订单 {{ order.order_number|default:order.pk }}</h1></section>
 <div class="legacy-content">
-<div class="order-detail-summary"><strong>订单 {{ order.pk }}</strong><span>{{ order.get_status_display }}</span><span>{{ order.customer_name_snapshot|default:"现场客户" }}</span><strong>¥{{ order.revenue_amount }}</strong></div>
+<div class="order-detail-summary"><strong>订单 {{ order.order_number|default:order.pk }}</strong><span>{{ order.get_status_display }}</span><span>{{ order.customer_name_snapshot|default:"现场客户" }}</span><strong>¥{{ order.revenue_amount }}</strong></div>
 <nav class="tab-list detail-tabs" aria-label="订单页面"><button class="is-active" type="button" data-detail-tab="actions" aria-selected="true">待我处理</button><button type="button" data-detail-tab="info" aria-selected="false">订单资料</button><button type="button" data-detail-tab="history" aria-selected="false">处理记录</button></nav>
 <section class="order-workflow-panel" data-detail-panel="info" hidden>
 <p>状态：{{ order.get_status_display }}；交付方式：{{ order.get_delivery_mode_display }}；销售：{{ order.salesperson.get_username }}；渠道：{{ order.channel.name }}</p>
@@ -38,7 +38,7 @@
     <section>
       <h2>收款凭证</h2>
       <p>账户：{{ initial.payment.account_name }}（{{ initial.payment.account_method_label }}；{{ initial.payment.account_responsibility_label }}）；登记金额 {{ initial.payment.received_amount }}；核对状态 {{ initial.payment.status_label }}；暂停出库：{{ initial.payment.paused|yesno:"是,否" }}</p>
-      <p>收款时间：<span id="payment-received-at">{{ initial.payment.received_at|default:"未填写" }}</span>；订单金额版本 {{ order.payment_version }}；凭证版本 {{ initial.payment.expected_payment_version }}；差额原因：{{ initial.payment.difference_reason|default:"—" }}；问题原因：{{ initial.payment.problem_reason|default:"—" }}</p>
+      <p>收款时间：<span id="payment-received-at">{{ initial.payment.received_at|default:"未填写" }}</span>；差额原因：{{ initial.payment.difference_reason|default:"—" }}；问题原因：{{ initial.payment.problem_reason|default:"—" }}</p>
       <div id="payment-images"></div>
     </section>
   {% endif %}
@@ -82,7 +82,7 @@
           <label>收款账户 <select id="payment-account" required><option value="">加载中…</option></select></label>
           <label>登记金额 <input id="received-amount" type="number" min="0" step="0.001" value="{{ order.revenue_amount }}" required></label>
           <label>收款时间（可空） <input id="received-at" type="datetime-local" step="0.000001"></label>
-          <label>金额不一致原因 <textarea id="difference-reason"></textarea></label>
+          <label id="difference-reason-label" hidden>金额不一致原因 <textarea id="difference-reason"></textarea></label>
           <label>收款图片（JPEG/PNG/WebP，每张≤10MB，整单最多20张） <input id="payment-files" type="file" accept="image/jpeg,image/png,image/webp" multiple></label>
           <p id="payment-image-status" role="status"></p>
           <button class="button-primary" type="submit">{% if 'update_payment' in allowed_actions and 'register_payment' not in allowed_actions %}保存收款更新{% else %}保存收款凭证{% endif %}</button>
@@ -98,7 +98,7 @@
         <h2>收款核对</h2>
         <form id="verify-form">
           <label>结果 <select id="verify-result"><option value="passed">核对通过</option><option value="problem">待处理</option></select></label>
-          <label>问题原因 <textarea id="problem-reason"></textarea></label>
+          <label id="problem-reason-label" hidden>问题原因 <textarea id="problem-reason"></textarea></label>
           <button class="button-primary" type="submit">提交核对结果</button>
         </form>
       </section>
@@ -132,24 +132,26 @@
     <section id="receive-order">
       <h2>确认收货</h2>
       <form id="receive-form">
-        <div class="table-scroll" role="region" aria-label="收货商品运费，可左右滚动查看更多列"><table><thead><tr><th>SKU</th><th>供货仓库</th><th>运费（留空沿用，0清零）</th></tr></thead><tbody id="receive-freight"></tbody></table></div>
         <button class="button-primary" type="submit">确认收货并完成订单</button>
       </form>
     </section>
   {% endif %}
 
   {% if 'update_freight' in allowed_actions %}
+    <details class="other-order-operations">
+      <summary>其他操作</summary>
       <section>
-        <h2>补录或调整出库运费</h2>
+        <h2>调整运费</h2>
         <form id="freight-form">
           <div class="table-scroll" role="region" aria-label="订单商品运费，可左右滚动查看更多列"><table><thead><tr><th>SKU</th><th>供货仓库</th><th>运费（留空沿用，0清零）</th></tr></thead><tbody id="extra-freight"></tbody></table></div>
           <button class="button-primary" type="submit">保存运费并更新毛利、提成</button>
         </form>
       </section>
+    </details>
   {% endif %}
 
   {% if 'review_commission' in allowed_actions %}
-    <section><h2>提成复核</h2><p>当前计算金额：{{ order.commission_estimate }}；金额版本：{{ order.amount_version }}</p>
+    <section><h2>提成复核</h2><p>当前计算提成：{{ order.commission_estimate }}</p>
       {% if not initial.commission_review or initial.commission_review.needs_review %}<button id="review-commission" type="button">复核当前提成</button>{% endif %}
     </section>
   {% endif %}
@@ -171,6 +173,8 @@
     const status=document.getElementById('status');
     document.querySelectorAll('.table-scroll').forEach(region=>{const syncKeyboardScroll=()=>{if(region.scrollWidth>region.clientWidth+1)region.tabIndex=0;else region.removeAttribute('tabindex');};syncKeyboardScroll();new ResizeObserver(syncKeyboardScroll).observe(region.querySelector('table'));});
     const detailTabs=[...document.querySelectorAll('[data-detail-tab]')],detailPanels=[...document.querySelectorAll('[data-detail-panel]')];let historyPage=1,historyData=null,allowLeave=false;
+    function finishOrderAction(received=false){allowLeave=true;if(received){location.replace('/?notice=received');return;}const url=new URL(location.href),taskAction=url.searchParams.get('task_action');url.searchParams.delete('task_action');if(taskAction==='complete_commission_adjustment')url.searchParams.delete('adjustment_id');url.searchParams.set('notice','action-success');location.replace(url);}
+    if(new URLSearchParams(location.search).get('notice')==='action-success'){status.textContent='操作成功，订单状态已更新。';status.setAttribute('role','status');const url=new URL(location.href);url.searchParams.delete('notice');history.replaceState(null,'',url);}
     const dirtyForms=new Set();document.querySelectorAll('[data-detail-panel] form').forEach(form=>{form.addEventListener('input',()=>dirtyForms.add(form));form.addEventListener('change',()=>dirtyForms.add(form));});
     window.addEventListener('beforeunload',event=>{if(!allowLeave&&dirtyForms.size){event.preventDefault();event.returnValue='';}});
     function activateDetailTab(name){for(const tab of detailTabs){const active=tab.dataset.detailTab===name;tab.setAttribute('aria-selected',String(active));tab.classList.toggle('is-active',active);}for(const panel of detailPanels)panel.hidden=panel.dataset.detailPanel!==name;if(name==='history')loadOrderHistory();}
@@ -182,12 +186,13 @@
     function csrfToken(){return document.cookie.split('; ').find(x=>x.startsWith('csrftoken='))?.split('=')[1]||'';}
     function beijingDateTime(value){if(!value)return '';const date=new Date(value);if(Number.isNaN(date.getTime()))return '';const parts=Object.fromEntries(new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'}).formatToParts(date).map(part=>[part.type,part.value]));const fraction=value.match(/\.(\d+)(?=Z|[+-]\d{2}:\d{2}$)/)?.[1]||'';return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:${parts.second}${fraction?`.${fraction}`:''}`;}
     if(initial.payment?.received_at){const localTime=beijingDateTime(initial.payment.received_at);if(localTime)document.getElementById('payment-received-at').textContent=localTime.replace('T',' ');}
-    async function postJson(url,data){const response=await fetch(url,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-CSRFToken':csrfToken()},body:JSON.stringify(data)});const result=await response.json();if(!response.ok)throw new Error(result.error?.message||'请求失败');return result;}
+    async function postJson(url,data){const response=await fetch(url,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-CSRFToken':csrfToken()},body:JSON.stringify(data)});const result=await response.json();if(!response.ok){const error=new Error(result.error?.message||'请求失败');error.status=response.status;throw error;}return result;}
     const operationKeys=new Map();
     function actionData(action,extra={}){const data={expected_version:initial.version,...extra},signature=`${action}:${JSON.stringify(data)}`;if(!operationKeys.has(signature))operationKeys.set(signature,CrmCrypto.uuidV4());return {...data,operation_key:operationKeys.get(signature)};}
     function freightRows(tableId){const table=document.getElementById(tableId);if(!table)return;for(const line of initial.lines){const row=document.createElement('tr'),sku=document.createElement('td'),warehouse=document.createElement('td'),freight=document.createElement('td'),input=document.createElement('input');sku.textContent=line.sku_code;warehouse.textContent=line.warehouse;input.type='number';input.min='0';input.step='0.001';input.dataset.lineId=line.line_id;input.value=line.outbound_freight;freight.appendChild(input);row.append(sku,warehouse,freight);table.appendChild(row);}}
     function freightPayload(tableId){return [...document.querySelectorAll(`#${tableId} input[data-line-id]`)].filter(input=>input.value!=='').map(input=>({line_id:Number(input.dataset.lineId),amount:input.value}));}
-    async function runForm(formId,callback){const form=document.getElementById(formId);if(!form)return;let submitting=false;form.addEventListener('submit',async event=>{event.preventDefault();if(submitting)return;if([...dirtyForms].some(item=>item!==form)&&!confirm('其他表单有未保存内容，提交后页面刷新会丢失。继续吗？'))return;submitting=true;const controls=[...form.elements].map(control=>[control,control.disabled]);for(const [control] of controls)control.disabled=true;status.textContent='正在提交…';status.setAttribute('role','status');try{await callback();allowLeave=true;location.reload();}catch(error){status.textContent=error.message;status.setAttribute('role','alert');submitting=false;for(const [control,disabled] of controls)control.disabled=disabled;}});}
+    function showActionError(error){status.replaceChildren(document.createTextNode(error.message));if(error.status===409){const refresh=document.createElement('button');refresh.type='button';refresh.textContent='刷新为最新订单状态';refresh.addEventListener('click',()=>{allowLeave=true;location.reload();},{once:true});status.append(' ',refresh);}status.setAttribute('role','alert');}
+    async function runForm(formId,callback){const form=document.getElementById(formId);if(!form)return;let submitting=false;form.addEventListener('submit',async event=>{event.preventDefault();if(submitting)return;if([...dirtyForms].some(item=>item!==form)&&!confirm('其他表单有未保存内容，提交后页面刷新会丢失。继续吗？'))return;submitting=true;const controls=[...form.elements].map(control=>[control,control.disabled]);for(const [control] of controls)control.disabled=true;status.textContent='正在提交…';status.setAttribute('role','status');try{await callback();finishOrderAction(formId==='receive-form');}catch(error){showActionError(error);submitting=false;for(const [control,disabled] of controls)control.disabled=disabled;}});}
 
     const cancel=document.getElementById('cancel');
     const cancelConfirmation=document.getElementById('cancel-confirmation');
@@ -221,9 +226,9 @@
         if(!cancelOperationKey)cancelOperationKey=CrmCrypto.uuidV4();
         try{
           await postJson(`/api/v1/orders/${initial.id}/cancel`,{expected_version:initial.version,operation_key:cancelOperationKey});
-          allowLeave=true;location.reload();
+            finishOrderAction();
         }catch(error){
-          status.textContent=error.message;
+            showActionError(error);
           cancelSubmitting=false;
           confirmCancel.disabled=false;
           cancelBack.disabled=false;
@@ -235,36 +240,40 @@
     const paymentForm=document.getElementById('payment-form');
     let paymentImageIds=initial.payment?.image_ids||[];
     if(paymentForm){
-      const accounts=document.getElementById('payment-account');
-      const receivedAmount=document.getElementById('received-amount'),receivedAt=document.getElementById('received-at'),differenceReason=document.getElementById('difference-reason'),savePayment=paymentForm.querySelector('button[type="submit"]');let savedPaymentSignature=null;
-      const paymentSignature=()=>JSON.stringify({account_id:accounts.value,received_amount:receivedAmount.value,image_ids:paymentImageIds,received_at:receivedAt.value||null,difference_reason:differenceReason.value});
+        const accounts=document.getElementById('payment-account');
+        const receivedAmount=document.getElementById('received-amount'),receivedAt=document.getElementById('received-at'),differenceReason=document.getElementById('difference-reason'),differenceReasonLabel=document.getElementById('difference-reason-label'),savePayment=paymentForm.querySelector('button[type="submit"]'),savedDifferenceReason=initial.payment?.difference_reason||'';let savedPaymentSignature=null;
+        const normalizedAmount=value=>{const match=String(value).trim().match(/^(\d+)(?:\.(\d{0,3}))?$/);return match?`${match[1].replace(/^0+(?=\d)/,'')}.${(match[2]||'').padEnd(3,'0')}`:null;};
+        const amountDiffers=()=>{const received=normalizedAmount(receivedAmount.value),expected=normalizedAmount(initial.revenue_amount);return received===null||expected===null||received!==expected;};
+        const syncDifferenceReason=()=>{differenceReason.required=amountDiffers();differenceReasonLabel.hidden=!differenceReason.required;};
+        if(initial.payment){receivedAmount.value=initial.payment.received_amount;receivedAt.value=beijingDateTime(initial.payment.received_at);differenceReason.value=savedDifferenceReason;}syncDifferenceReason();
+        const paymentSignature=()=>JSON.stringify({account_id:accounts.value,received_amount:receivedAmount.value,image_ids:paymentImageIds,received_at:receivedAt.value||null,difference_reason:amountDiffers()?differenceReason.value:savedDifferenceReason});
       const updatePaymentSave=()=>{if(savedPaymentSignature!==null)savePayment.disabled=paymentSignature()===savedPaymentSignature;};
-      for(const control of [accounts,receivedAmount,receivedAt,differenceReason]){control.addEventListener('input',updatePaymentSave);control.addEventListener('change',updatePaymentSave);}
-      fetch('/api/v1/payment-accounts',{credentials:'same-origin'}).then(response=>response.json()).then(data=>{accounts.innerHTML='<option value="">请选择</option>';for(const item of data.items){const option=document.createElement('option');option.value=item.id;option.textContent=`${item.name} · ${item.method_label} · ${item.responsibility_label}`;if(item.id===initial.payment?.account_id)option.selected=true;accounts.appendChild(option);}if(initial.payment){receivedAmount.value=initial.payment.received_amount;receivedAt.value=beijingDateTime(initial.payment.received_at);differenceReason.value=initial.payment.difference_reason||'';savedPaymentSignature=paymentSignature();updatePaymentSave();}}).catch(error=>status.textContent=error.message);
+        for(const control of [accounts,receivedAmount,receivedAt,differenceReason]){const update=()=>{if(control===receivedAmount)syncDifferenceReason();updatePaymentSave();};control.addEventListener('input',update);control.addEventListener('change',update);}
+        fetch('/api/v1/payment-accounts',{credentials:'same-origin'}).then(response=>response.json()).then(data=>{accounts.innerHTML='<option value="">请选择</option>';for(const item of data.items){const option=document.createElement('option');option.value=item.id;option.textContent=`${item.name} · ${item.method_label} · ${item.responsibility_label}`;if(item.id===initial.payment?.account_id)option.selected=true;accounts.appendChild(option);}savedPaymentSignature=paymentSignature();updatePaymentSave();}).catch(error=>status.textContent=error.message);
       document.getElementById('payment-image-status').textContent=paymentImageIds.length?`已关联${paymentImageIds.length}张凭证图片`:'';
       document.getElementById('payment-files').addEventListener('change',async event=>{for(const file of event.target.files){if(paymentImageIds.length>=20){status.textContent='每张订单最多20张收款图片。';break;}const form=new FormData();form.append('file',file);try{const response=await fetch('/api/v1/images',{method:'POST',credentials:'same-origin',headers:{'X-CSRFToken':csrfToken()},body:form});const result=await response.json();if(!response.ok)throw new Error(result.error?.message||'图片上传失败');paymentImageIds.push(Number(result.image_id));}catch(error){status.textContent=error.message;}}document.getElementById('payment-image-status').textContent=`已关联${paymentImageIds.length}张凭证图片`;updatePaymentSave();event.target.value='';});
-      runForm('payment-form',()=>postJson(`/api/v1/orders/${initial.id}/payment`,actionData('register-payment',{account_id:Number(accounts.value),received_amount:document.getElementById('received-amount').value,image_ids:paymentImageIds,received_at:document.getElementById('received-at').value||null,difference_reason:document.getElementById('difference-reason').value})));
+        runForm('payment-form',()=>postJson(`/api/v1/orders/${initial.id}/payment`,actionData('register-payment',{account_id:Number(accounts.value),received_amount:document.getElementById('received-amount').value,image_ids:paymentImageIds,received_at:document.getElementById('received-at').value||null,difference_reason:amountDiffers()?differenceReason.value:savedDifferenceReason})));
     }
 
     const imagesBox=document.getElementById('payment-images');
     if(imagesBox&&initial.payment){for(const id of initial.payment.image_ids){const image=document.createElement('img');image.src=`/api/v1/images/${id}`;image.alt='收款凭证';image.width=180;image.loading='lazy';imagesBox.appendChild(image);}const target=document.getElementById('payment-action-images');if(target)target.replaceWith(imagesBox);}
 
     const verifyForm=document.getElementById('verify-form');
-    if(verifyForm)runForm('verify-form',()=>postJson(`/api/v1/orders/${initial.id}/verify-payment`,actionData('verify-payment',{result:document.getElementById('verify-result').value,problem_reason:document.getElementById('problem-reason').value})));
+      if(verifyForm){const result=document.getElementById('verify-result'),reason=document.getElementById('problem-reason'),reasonLabel=document.getElementById('problem-reason-label');reason.value=initial.payment?.problem_reason||'';const syncProblemReason=()=>{reason.required=result.value==='problem';reasonLabel.hidden=!reason.required;};result.addEventListener('change',syncProblemReason);syncProblemReason();runForm('verify-form',()=>postJson(`/api/v1/orders/${initial.id}/verify-payment`,actionData('verify-payment',{result:result.value,problem_reason:result.value==='problem'?reason.value.trim():''})));}
 
     function makeShipmentRow(){const row=document.createElement('fieldset');row.className='shipment-row';const warehouses=[...new Map(initial.lines.map(line=>[line.warehouse_id,line.warehouse])).entries()];row.innerHTML='<legend>物流信息</legend><label>承运方 <select class="carrier"><option value="crossing">跨越</option><option value="sf">顺丰</option><option value="huolala">货拉拉</option></select></label> <label>运单号／平台订单号 <input class="tracking" required></label><div class="warehouse-options"></div><button class="remove-shipment" type="button">移除此物流</button>';const options=row.querySelector('.warehouse-options');for(const [id,name] of warehouses){const label=document.createElement('label'),checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.value=id;label.append(checkbox,document.createTextNode(` ${name}`));options.appendChild(label);}row.querySelector('.remove-shipment').addEventListener('click',()=>{if(document.querySelectorAll('.shipment-row').length>1)row.remove();});return row;}
     const shipmentRows=document.getElementById('shipment-rows');
     if(shipmentRows){shipmentRows.appendChild(makeShipmentRow());document.getElementById('add-shipment').addEventListener('click',()=>shipmentRows.appendChild(makeShipmentRow()));freightRows('ship-freight');runForm('ship-form',()=>{const shipments=[...shipmentRows.querySelectorAll('.shipment-row')].map(row=>({carrier:row.querySelector('.carrier').value,tracking_number:row.querySelector('.tracking').value,warehouse_ids:[...row.querySelectorAll('.warehouse-options input:checked')].map(input=>Number(input.value))}));return postJson(`/api/v1/orders/${initial.id}/ship`,actionData('ship',{shipments,outbound_freights:freightPayload('ship-freight')}));});}
 
-    for(const tableId of ['onsite-freight','receive-freight','extra-freight'])freightRows(tableId);
+      for(const tableId of ['onsite-freight','extra-freight'])freightRows(tableId);
     runForm('onsite-form',()=>postJson(`/api/v1/orders/${initial.id}/deliver-on-site`,actionData('deliver-on-site',{outbound_freights:freightPayload('onsite-freight')})));
-    runForm('receive-form',()=>postJson(`/api/v1/orders/${initial.id}/receive`,actionData('receive',{outbound_freights:freightPayload('receive-freight')})));
+      runForm('receive-form',()=>postJson(`/api/v1/orders/${initial.id}/receive`,actionData('receive')));
     runForm('freight-form',()=>postJson(`/api/v1/orders/${initial.id}/freight`,actionData('freight',{outbound_freights:freightPayload('extra-freight')})));
     const taskAction=new URLSearchParams(location.search).get('task_action');if(taskAction){const actionNodes={register_payment:'#register-payment',update_payment:'#register-payment',verify_payment:'#verify-payment',ship:'#ship-order',deliver_on_site:'#onsite-order',receive:'#receive-order',review_commission:'#review-commission',complete_commission_adjustment:'#commission-adjustments',amend_order:'a[href*="/edit"]',cancel_order:'#cancel'};const selector=actionNodes[taskAction],target=selector&&document.querySelector(selector),adjustmentId=new URLSearchParams(location.search).get('adjustment_id'),exact=taskAction==='complete_commission_adjustment'&&adjustmentId?document.querySelector(`.complete-adjustment[data-id="${CSS.escape(adjustmentId)}"]`):target,focusSelector='input:not([disabled]),select:not([disabled]),textarea:not([disabled]),button:not([disabled]),a[href]',focusTarget=exact||target,actionControl=focusTarget?.matches(focusSelector)?focusTarget:focusTarget?.querySelector(focusSelector),actionTarget=actionControl||focusTarget;if(!initial.allowed_actions?.includes(taskAction)||!target||taskAction==='complete_commission_adjustment'&&!exact){status.textContent='此待办已失效或当前不可处理，请刷新待办列表。';status.setAttribute('role','status');}else{if(taskAction==='update_payment')document.querySelector('.payment-update-disclosure').open=true;activateDetailTab('actions');actionTarget.scrollIntoView({block:'center'});actionTarget.focus?.();}}
 
     const review=document.getElementById('review-commission');
-    if(review)review.addEventListener('click',async()=>{if(review.disabled)return;if(dirtyForms.size&&!confirm('其他表单有未保存内容，提交后页面刷新会丢失。继续吗？'))return;review.disabled=true;try{await postJson(`/api/v1/orders/${initial.id}/review-commission`,actionData('review-commission'));allowLeave=true;location.reload();}catch(error){status.textContent=error.message;status.setAttribute('role','alert');review.disabled=false;}});
-    document.querySelectorAll('.complete-adjustment').forEach(button=>button.addEventListener('click',async()=>{if(button.disabled)return;if(dirtyForms.size&&!confirm('其他表单有未保存内容，提交后页面刷新会丢失。继续吗？'))return;button.disabled=true;try{await postJson(`/api/v1/commission-adjustments/${button.dataset.id}/complete`,actionData(`complete-adjustment-${button.dataset.id}`));allowLeave=true;location.reload();}catch(error){status.textContent=error.message;status.setAttribute('role','alert');button.disabled=false;}}));
+      if(review)review.addEventListener('click',async()=>{if(review.disabled)return;if(dirtyForms.size&&!confirm('其他表单有未保存内容，提交后页面刷新会丢失。继续吗？'))return;review.disabled=true;try{await postJson(`/api/v1/orders/${initial.id}/review-commission`,actionData('review-commission'));finishOrderAction();}catch(error){showActionError(error);review.disabled=false;}});
+      document.querySelectorAll('.complete-adjustment').forEach(button=>button.addEventListener('click',async()=>{if(button.disabled)return;if(dirtyForms.size&&!confirm('此订单有未保存内容，操作成功后页面会刷新并丢失。继续吗？'))return;button.disabled=true;try{await postJson(`/api/v1/commission-adjustments/${button.dataset.id}/complete`,actionData(`complete-adjustment-${button.dataset.id}`));finishOrderAction();}catch(error){showActionError(error);button.disabled=false;}}));
   </script>
 </div>
 {% endblock %}

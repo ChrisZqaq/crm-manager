@@ -772,6 +772,9 @@ class ReportPhase6Tests(Phase4Base):
         self.assertEqual([row["order_id"] for row in searched_by_id["items"]], [str(orders[2].pk)])
         self.assertEqual([row["order_id"] for row in searched_by_number["items"]], [str(orders[2].pk)])
         self.assertEqual(searched_by_number["items"][0]["order_number"], orders[2].order_number)
+        self.assertIn(("order_number", "订单编号", "text"), custom["columns"])
+        self.assertNotIn("order_id", {column[0] for column in custom["columns"]})
+        self.assertEqual(custom["items"][0]["order_id"], str(orders[2].pk))
         self.assertEqual(searched["items"][0]["order_status"], orders[2].status)
         self.assertEqual(searched["items"][0]["order_status_label"], orders[2].get_status_display())
         self.assertEqual(searched["items"][0]["status"], PaymentRecord.Status.PENDING)
@@ -794,6 +797,9 @@ class ReportPhase6Tests(Phase4Base):
 
         self.assertEqual(api.status_code, 200)
         self.assertEqual(api.json()["total"], 2)
+        self.assertIn("order_id", api.json()["items"][0])
+        self.assertIn("订单编号", {column["label"] for column in api.json()["columns"]})
+        self.assertNotIn("order_id", {column["key"] for column in api.json()["columns"]})
         self.assertEqual({row["order_id"] for row in api.json()["items"]}, {str(orders[2].pk), str(orders[3].pk)})
         self.assertEqual(api_by_number.status_code, 200)
         self.assertEqual(api_by_number.json()["total"], 1)
@@ -809,6 +815,7 @@ class ReportPhase6Tests(Phase4Base):
         self.assertEqual(page.status_code, 200)
         self.assertEqual(page.context["total"], 2)
         self.assertEqual(page.context["page"], 2)
+        self.assertEqual(page.context["items"][0]["order_id"], str(orders[3].pk))
         self.assertContains(page, "首次登记收款凭证时间")
         self.assertEqual(export.status_code, 200)
         from io import BytesIO
@@ -817,12 +824,10 @@ class ReportPhase6Tests(Phase4Base):
         sheet = load_workbook(BytesIO(export.content), data_only=False).active
         self.assertEqual(sheet.max_row, 8)
         headers = [sheet.cell(6, column).value for column in range(1, sheet.max_column + 1)]
-        order_number_column = headers.index("订单编号（旧单显示内部ID）") + 1
+        order_number_column = headers.index("订单编号") + 1
         exported_numbers = {str(sheet.cell(row, order_number_column).value) for row in range(7, 9)}
         self.assertEqual(exported_numbers, {orders[2].order_number, str(orders[3].pk)})
-        internal_id_column = headers.index("内部订单ID（兼容字段）") + 1
-        exported_ids = {str(sheet.cell(row, internal_id_column).value) for row in range(7, 9)}
-        self.assertEqual(exported_ids, {str(orders[2].pk), str(orders[3].pk)})
+        self.assertNotIn("内部订单ID（兼容字段）", headers)
         self.assertIn("履约状态", headers)
         self.assertIn("核对状态", headers)
         registered_at_column = headers.index("首次登记收款凭证时间") + 1
@@ -897,6 +902,9 @@ class ReportPhase6Tests(Phase4Base):
         response = self.client.get("/api/v1/reports/commissions")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["total"], 1)
+        self.assertIn("订单编号", {column["label"] for column in response.json()["columns"]})
+        self.assertNotIn("order_id", {column["key"] for column in response.json()["columns"]})
+        self.assertIn("order_id", response.json()["items"][0])
 
         view_all_orders = Permission.objects.get(content_type__app_label="crm", codename="view_all_sales_orders")
         view_all_commissions = Permission.objects.get(content_type__app_label="crm", codename="view_all_commissions")

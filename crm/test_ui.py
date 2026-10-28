@@ -212,6 +212,10 @@ class ApprovedWorkbenchAndPaymentUITests(TestCase):
         self.client.force_login(self.verifier)
         response = self.client.get("/reports/payments/")
         self.assertContains(response, "verify-payment")
+        self.assertContains(response, 'id="payment-detail"')
+        self.assertContains(response, "payment-report-items")
+        self.assertContains(response, "panel.showModal()")
+        self.assertContains(response, "event.target.closest('a,button,input,select,textarea')")
 
     def test_status_shortcuts_keep_existing_statuses_and_selected_filters(self):
         self.client.force_login(self.orders)

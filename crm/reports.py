@@ -561,8 +561,8 @@ def _payment_data(actor, query, *, today=None):
             "difference_reason": payment.difference_reason, "problem_reason": payment.problem_reason,
         })
     columns = [
-        ("order_number", "订单编号（旧单显示内部ID）", "text"),
-        ("order_id", "内部订单ID（兼容字段）", "text"), ("submitted_at", "订单提交时间", "text"),
+        ("order_number", "订单编号", "text"),
+        ("submitted_at", "订单提交时间", "text"),
         ("salesperson", "销售", "text"), ("customer", "客户快照", "text"), ("channel", "渠道", "text"),
         ("order_status_label", "履约状态", "text"),
         ("status_label", "核对状态", "text"), ("paused", "出库暂停", "text"),
@@ -674,8 +674,7 @@ def _commission_data(actor, query, *, today=None):
     items.sort(key=lambda row: (row["effective_at"], row["entry_type"], row["order_id"]))
     columns = [
         ("effective_at", "统计日期", "text"), ("entry_type_label", "记录类型", "text"),
-        ("order_number", "订单编号（旧单显示内部ID）", "text"),
-        ("order_id", "内部订单ID（兼容字段）", "text"), ("salesperson", "销售", "text"),
+        ("order_number", "订单编号", "text"), ("salesperson", "销售", "text"),
         ("customer", "客户", "text"), ("channel", "渠道", "text"),
         ("status_label", "提成状态", "text"), ("estimate_amount", "当前预估", "amount"),
         ("approved_amount", "最后批准金额（正式值）", "amount"),

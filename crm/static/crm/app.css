@@ -270,6 +270,10 @@ td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; 
 #customers tr[data-customer-row] { cursor: pointer; }
 #customers tr[data-customer-row]:hover, #customers tr[data-customer-row]:focus-visible { background: var(--soft-indigo); }
 #customers tr[data-customer-row] .link-button { text-decoration: underline; text-underline-offset: 3px; }
+.payment-split tbody tr[data-payment-row-index] { cursor: pointer; }
+.payment-split tbody tr[data-payment-row-index]:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; }
+.other-order-operations { margin: 12px 0; }
+.other-order-operations > summary { display: flex; min-height: 44px; align-items: center; cursor: pointer; }
 .workbench-summary .summary-card { display: grid; grid-template-columns: 1fr; align-content: start; }
 .workbench-summary .summary-card .card-head { min-height: 26px; padding: 0 0 8px; }
 .workbench-summary .summary-card .card-head h2 { margin: 0; font-size: 14px; }

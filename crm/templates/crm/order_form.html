@@ -3,7 +3,7 @@
 {% block title %}{% if order %}修改订单{% else %}新建订单{% endif %} · 阿罗拉潮玩空间{% endblock %}
 {% block topbar_title %}{% if order %}修改订单{% else %}新建订单{% endif %}{% endblock %}
 {% block content %}
-<section class="page-heading"><h1>{% if order %}修改订单 {{ order.pk }}{% else %}新建订单{% endif %}</h1></section>
+<section class="page-heading"><h1>{% if order %}修改订单 {{ order.order_number|default:order.pk }}{% else %}新建订单{% endif %}</h1></section>
 <div class="legacy-content order-editor">
   <form id="order-form" class="order-form">
     <nav class="workflow-steps" aria-label="订单填写阶段">
