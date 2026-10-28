@@ -21,7 +21,7 @@
 | 任务 | 状态／角色 | 当前范围与下一步 |
 | --- | --- | --- |
 | ORDER-OPERATION-REFINE-1028 | 31df9e9限定验收通过；应用停写，待Windows交付 | [实施范围](ORDER_OPERATION_REFINEMENT_20261028.md)：ef1b14a独立6项/四单真实链证据保留，31df9e9两项CSS及1280/390隐藏/44px/收货只读区通过；媒体归档缺失已补并核授权。0019未用于云正式或用户Windows；现有正式不动 |
-| WINDOWS-NATIVE-DEPLOY-1028 | 本机基础运行由用户核；bac28a6依赖固定，待Windows验证 | Windows11/N100/16GB/余300GB兼办公；Python3.13.14/PG17.6、独立dev库及0018/check/页面200已由用户核。原部署会话指导Waitress/静态资源/自启恢复、独立测试隧道及备份准备，不安装Linux。当前本机Git为另建快照de4d9eb（源码caed633），须核远端祖先关系后给安全更新方案，不能直接reset/覆盖。云端本轮先只读调查与方案，不切正式Nginx/入口、不迁移真实数据，需远端配置时报负责人排环境写入窗口 |
+| WINDOWS-NATIVE-DEPLOY-1028 | 固定SHA与独立目录手册已交付；等待Windows执行反馈 | Windows11/N100/16GB；原dev0018保持。旧de4d9eb已确认无父根快照、不含caed633对象；在旧目录旁新clone并固定35434ac，旧目录/.venv/.local/dev.ps1保留，不pull/reset/覆盖。原部署会话按[手册](../workspaces/deploy/WINDOWS-NATIVE-DEPLOY-GUIDE-1028.md)指导locked windows extra、新目录8001匿名/静态验证。0019、完整登录业务及自启等待该dev库备份/回退与负责人迁移窗口；Windows尚未执行，远端隧道仍仅方案，不改正式云/真实数据 |
 | TASK-FOCUSED-UI-1023 | 7eb89f6限定验收通过，已正式发布；应用停写 | 后端独立17/17、七类UI返修/实际几何与精确数值、凭证授权GET及一次合成收款修改通过。正式三角色真实登录/待办计数/只读页和实际CSS通过；无迁移/业务写入。备份与回退见发布记录；未测真机/实际浏览器保存，原生提示文案未追。数据暂停，不自行启动下一功能 |
 | ORDER-CUSTOMER-CONTROLS-1021 | 360b7fc综合验收通过，已正式发布；应用停写 | 2987d94独立6项及实际订单链通过；74f2a5a桌面/手机三项及长名/非空库存成本独立UI通过；360b7fc无客户查看权限下散客实际预览通过。负责人备份后发布正式HTTPS、同步实际Nginx静态CSS并校验指纹，三角色真实密码登录/新订单等只读请求通过；无迁移/业务写入，旧94代码与CSS保留。详见[发布记录](RELEASE_ORDER_CONTROLS_20261022.md) |
 | UI-INVENTORY-1021 | 2de7ff1独立QA/UI通过，已正式发布；本轮停写 | 后端3项、前端8项及真实筛选/分页/51行完整汇总/Excel、1280/390 UI通过。负责人仅固定归档发布，备份/实际静态CSS/三角色HTTPS只读核验通过；无迁移/业务或设置写入，后续客户规则未混入。详见[发布记录](RELEASE_INVENTORY_20261022.md) |

@@ -500,11 +500,11 @@ Nginx新增独立配置`/etc/nginx/sites-available/aluola-crm-iptest.conf`及启
 
 下一步等待dev合成烟测最终交付及负责人对HTTPS settings修复范围、用户备份/密码答案、真实Channel/PaymentAccount配置和切换窗口的安排。本任务完成loopback服务核验后停止配置写入；未切换入口、未启周期备份、未改正式DB内容。
 
-## WINDOWS-NATIVE-DEPLOY-1028 Windows本机运行与受限隧道准备（2026-10-28，只读）
+## WINDOWS-NATIVE-DEPLOY-1028 Windows本机运行与受限隧道准备（2026-10-29，只读）
 
 依据开发计划中当前任务，指导Windows 11/N100本机独立dev环境运行、启动恢复与后续测试隧道；不安装Linux/WSL/Docker，不触真实数据，不改云端正式入口、18888、数据库、媒体、账号、共享应用或依赖。用户报告Python 3.13.14、PostgreSQL 17.6、CRM迁移0018、Django检查和页面访问已通过；Windows snapshot为de4d9eb，源码来自caed633，另保留旧版备份crm-manager.bak-f590784。不得直接pull/reset/覆盖。
 
-- 可交接的原生Windows部署步骤、命令、私有settings内容和验收/回退见[执行手册](WINDOWS-NATIVE-DEPLOY-GUIDE-1028.md)。Windows extra已固定于后端独立提交`bac28a6dd26cf04e53ab842f8c373658ae6ec0ed`，但非最终发布SHA。负责人验收推送固定SHA并给规范仓库URL后，在原目录旁新建独立clone及venv，再按`uv sync --locked --extra windows`安装；完整保留原目录、旧`.venv`、`.local`和未跟踪`dev.ps1`。
+- 可交接的原生Windows部署步骤、命令、私有settings内容和验收/回退见[执行手册](WINDOWS-NATIVE-DEPLOY-GUIDE-1028.md)。负责人已确认最终`origin/main` SHA为`35434ac3404fbe5dd34b399ce4981b315b2b11b7`。在原目录旁全新clone并核对该完整SHA，只在新clone按`uv sync --locked --extra windows`建venv；完整保留原目录、旧`.venv`、`.local`和未跟踪`dev.ps1`。
 
 - 用户已回报Git只读核验：`git status --short`仅有未跟踪文件`scripts/dev.ps1`；HEAD为`de4d9eb6ac16bc8b3f9b952c552da7d55d5496ee`且无父提交；仓库非shallow；`caed633cfb`对象不存在；`.local/deploy_settings.py`忽略规则匹配。`.local`内settings/secret/static具体是否存在仍待用户回报。
 
@@ -512,7 +512,7 @@ Nginx新增独立配置`/etc/nginx/sites-available/aluola-crm-iptest.conf`及启
 
 ### Windows WSGI与静态文件候选
 
-- codebase graph确认WSGI入口为config.wsgi.application。Windows源快照当时只有Django、openpyxl、Pillow、psycopg；后端随后固定依赖提交`bac28a6dd26cf04e53ab842f8c373658ae6ec0ed`，新增锁定`windows` extra（Waitress 3.0.2/WhiteNoise 6.12.0），命令见docs/README.md。锁定安装/导入仅在隔离macOS CPython 3.13.15验证，未做Windows验收。config/settings.py只有STATIC_URL，没有STATIC_ROOT，MEDIA_ROOT位于项目.local/private-media。现有业务文件日志BoundedRotatingFileHandler限制为10 MiB、9份、7天。Windows根快照de4d9eb无父提交且没有caed633对象。负责人决定最终SHA发布后在旧目录旁正常clone固定版本；依赖只装在新clone的独立venv，旧目录/.venv/.local/未跟踪scripts/dev.ps1完整保留。
+- codebase graph确认WSGI入口为config.wsgi.application。Windows源快照当时只有Django、openpyxl、Pillow、psycopg；后端固定依赖提交`bac28a6dd26cf04e53ab842f8c373658ae6ec0ed`，新增锁定`windows` extra（Waitress 3.0.2/WhiteNoise 6.12.0），命令见docs/README.md。锁定安装/导入仅在隔离macOS CPython 3.13.15验证，未做Windows验收。config/settings.py只有STATIC_URL，没有STATIC_ROOT，MEDIA_ROOT位于项目.local/private-media。现有业务文件日志BoundedRotatingFileHandler限制为10 MiB、9份、7天。Windows根快照de4d9eb无父提交且没有caed633对象；负责人已确认最终clone SHA `35434ac3404fbe5dd34b399ce4981b315b2b11b7`。只在新目录创建venv与静态预览，旧目录/.venv/.local/未跟踪scripts/dev.ps1完整保留。
 - 候选运行链：本机私有.local Windows settings overlay，DEBUG=False，使用用户自行保管的唯一SECRET_KEY；STATIC_ROOT单独指向.local/static；在SecurityMiddleware后放WhiteNoiseMiddleware；运行collectstatic；Waitress仅监听127.0.0.1，WSGI目标config.wsgi:application。STATIC_URL沿用项目现值，逐页验静态路径；若路径实测失败再报负责人，不先改共享settings。WhiteNoise仅供静态，不承载用户MEDIA。先不启用额外Manifest/Brotli压缩配置，不加新logger/日志点；沿用已批准应用日志，应用进程错误由任务管理器结果辅助定位。
 - Waitress 3.0.2 PyPI说明其运行于CPython Windows且Requires Python >=3.9；因此3.13处于声明支持范围。WhiteNoise 6.12.0上游变更记录：Python 3.13支持始于6.8，Django 5.2支持始于6.9；Django集成要求配置STATIC_ROOT、collectstatic，middleware紧随SecurityMiddleware。依据：[Waitress PyPI](https://pypi.org/project/waitress/3.0.2/)、[Waitress命令行](https://docs.pylonsproject.org/projects/waitress/en/stable/runner.html)、[WhiteNoise Django配置](https://whitenoise.readthedocs.io/en/stable/django.html)、[WhiteNoise变更记录](https://whitenoise.readthedocs.io/en/stable/changelog.html)。这是上游兼容声明，不替代该Windows环境的真实页面/依赖验证。
 - 首次手动预览用新clone的127.0.0.1:8001，旧8000服务保持原样；共享新代码含0019、用户DB仍0018，`migrate --check`预期显示未应用项，不能据此执行migrate。只验匿名登录页/静态资源，不做登录/业务读写。完整登录、深层页面和任务计划必须等待负责人批准备份/回退/迁移窗口。WhiteNoise不承载MEDIA；检查非法Host。参考：[Microsoft任务失败重启设置](https://learn.microsoft.com/en-us/windows/win32/taskschd/taskschedulerschema-restartonfailure-settingstype-element)。
@@ -525,11 +525,11 @@ Nginx新增独立配置`/etc/nginx/sites-available/aluola-crm-iptest.conf`及启
 - **FRP候选**：云端需另装frps及systemd unit，新增专用控制监听和安全组/UFW规则；使用独立TLS/token、单一代理端口allowlist、proxyBindAddr=127.0.0.1并关闭dashboard，Windows侧frpc凭据私存并设失败重连。此方案增加公网控制面与服务器服务；回退为停用/移除本任务frps配置和unit、撤销相应公网规则及专用代理入口。上游配置示例明确bindPort和proxyBindAddr，并标注示例不可直接作为生产配置：[frp frps配置示例](https://github.com/fatedier/frp/blob/dev/conf/frps_full_example.toml)。当前不部署/启用FRP。
 - 两条隧道候选都还需独立的HTTPS测试入口与认证，反代只指向服务器localhost上的隧道端口，不能借用正式域名现有入口或18888；新测试主机的DNS和证书待负责人确认。当前首选先按SSH方案做只读核验，但实际AllowTcpForwarding=no，尚未获准更改用户级SSH授权；不建账号、生成/接收密钥、修改SSH/Nginx/DNS/防火墙/安全组或reload服务。负责人已收到这个阻断和两方案差异，待其指定环境窗口。
 
-### Git谱系与当前未验证项
+### 固定版本获取与当前未验证项
 
-当前Mac checkout包含caed633，但没有Windows快照de4d9eb对象；git ls-remote当时读取到origin/main为e08ee126，不能据此证明用户Windows快照与远端的共同祖先。不得建议普通pull、reset或覆盖。后续在Windows只读检查HEAD父提交、caed633是否存在及其祖先关系；如需生成SSH密钥，先定账号/入口后在Windows本地生成，私钥不索取、不转存，公钥通过负责人批准的私有交付渠道处理。
+Windows旧目录HEAD `de4d9eb6ac16bc8b3f9b952c552da7d55d5496ee` 是无父根快照，`caed633cfb` 对象不存在；因此不在旧目录合并、pull、reset或覆盖。负责人已核验 `origin/main` 固定 SHA `35434ac3404fbe5dd34b399ce4981b315b2b11b7`，手册改为在旧目录旁新建独立clone，核完整SHA及干净工作树。若原origin含嵌入凭据、不可访问或没有origin，先停止并取得无凭据HTTPS地址，通过本机Git Credential Manager认证；不索要私钥、不使用来源不明ZIP。如未来隧道任务需密钥，须先获批目标账号/入口，再在Windows本地生成，私钥不索取、不转存。
 
-本节截至2026-10-28仅有仓库/云端只读检查和方案；没有Windows实机Waitress、WhiteNoise、collectstatic、Task Scheduler、业务保存、恢复或隧道验证。无共享依赖/应用/配置、云服务、SSH策略、DNS、证书、防火墙或备份变更。
+截至2026-10-29，交付手册和固定SHA安全clone步骤已更新；Windows agent尚未回报clone、Waitress、WhiteNoise、collectstatic、Task Scheduler、业务保存、恢复或隧道实机结果。没有共享依赖/应用/配置、云服务、SSH策略、DNS、证书、防火墙或备份变更。
 
 ## CRM-GO-LIVE-1021 正式私有HTTPS settings（2026-10-21）
 

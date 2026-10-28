@@ -4,7 +4,7 @@
 
 **项目目录：** `D:\ALUOLA-CRM\crm-manager`
 
-**更新日期：** 2026-10-28
+**更新日期：** 2026-10-29
 
 **范围：** 本机 CRM 稳定运行、静态文件和开机登录后自启；外网隧道仅记录前置条件，不在本手册授权执行。
 
@@ -32,7 +32,8 @@
 | Git | HEAD `de4d9eb6ac16bc8b3f9b952c552da7d55d5496ee` 是无父提交的根快照；`caed633cfb` 不在本机 Git 对象库；仓库非 shallow |
 | 用户文件 | `scripts/dev.ps1` 是未跟踪文件，必须保留；旧目录、`.venv`、`.local` 和该脚本均保持原样。不得在原目录 `git clean`、`reset`、`pull`、cherry-pick 或覆盖 |
 | 本地私有目录 | 旧目录 `.local/` 已确认被 `.gitignore` 忽略；其配置/静态目录是否已存在仍需 Windows agent 检查。新代码目录只重建所需私有配置，不整目录复制 `.local` |
-| Waitress/WhiteNoise | 后端已固定依赖提交 `bac28a6dd26cf04e53ab842f8c373658ae6ec0ed`，`windows` extra 锁定 Waitress 3.0.2 / WhiteNoise 6.12.0；只在隔离 macOS CPython 3.13.15 验证过锁定安装与导入，Windows 实机未验。负责人尚未提供最终发布 SHA |
+| 最终代码 | 负责人只读核实 `origin/main` 固定为 `35434ac3404fbe5dd34b399ce4981b315b2b11b7`（应用 `31df9e9` + Windows extra `bac28a6` + 交付文档）；这是新 clone 的目标 SHA |
+| Waitress/WhiteNoise | `windows` extra 锁定 Waitress 3.0.2 / WhiteNoise 6.12.0；只在隔离 macOS CPython 3.13.15 验证过锁定安装与导入，Windows 实机未验 |
 | 云端 SSH | 当前有效 `AllowTcpForwarding=no`、`GatewayPorts=no`；22 端口可连不代表支持反向隧道 |
 
 **立即停止并报告负责人**，如果数据库身份不是 `aluola_crm_dev` / `crm_dev`、旧目录 `.local` 有现成同名配置、服务已占用相关端口但无法确认归属、或需要迁移用户数据库/改云配置才能继续。新发布版本的 `0019` 在当前 0018 数据库上属于待应用迁移；`migrate --check` 报出它是预期结果，绝不能自行 `migrate`。
@@ -68,14 +69,19 @@ Windows agent 应在本机阅读 `scripts/dev.ps1`，确认它如何选择 Pytho
 
 ## 4. 阶段 B：依赖门槛
 
-后端已固定依赖提交 `bac28a6dd26cf04e53ab842f8c373658ae6ec0ed`，`windows` extra 锁定 Waitress 3.0.2 与 WhiteNoise 6.12.0。项目[文档入口](../../README.md)规定命令为 `uv sync --locked --extra windows`。该锁定安装与导入只在隔离 macOS CPython 3.13.15 环境验证，不能当作 Windows 实机验收；此提交也不是负责人最终发布 SHA。
+后端依赖提交 `bac28a6` 已纳入负责人核验过的最终代码 SHA `35434ac3404fbe5dd34b399ce4981b315b2b11b7`；其中 `windows` extra 锁定 Waitress 3.0.2 与 WhiteNoise 6.12.0。项目[文档入口](../../README.md)规定命令为 `uv sync --locked --extra windows`。锁定安装与导入只在隔离 macOS CPython 3.13.15 环境验证，不能当作 Windows 实机验收。
 
-`bac28a6` 只是依赖提交，不是可直接部署的最终固定 SHA。负责人验收并推送最终固定 SHA、给出规范仓库 URL 后，才在旧目录旁新建空目录，例如 `D:\ALUOLA-CRM\crm-manager-deploy-FINALSHA`。确认目标不存在后执行以下步骤；把两个占位值替换为负责人提供的值：
+不要在旧目录更新。使用旧目录配置的 `origin`，在旁边新建独立目录 `D:\ALUOLA-CRM\crm-manager-deploy-35434ac`，checkout 完整固定 SHA：
 
 ```powershell
-$RepoUrl = 'OWNER_PROVIDED_CANONICAL_REPO_URL'
-$TargetSha = 'OWNER_PROVIDED_FULL_SHA'
-$TargetDir = 'D:\ALUOLA-CRM\crm-manager-deploy-FINALSHA'
+$OldRoot = 'D:\ALUOLA-CRM\crm-manager'
+$RepoUrl = git -C $OldRoot config --get remote.origin.url
+$RemoteExit = $LASTEXITCODE
+if ($RemoteExit -ne 0 -or -not $RepoUrl) { throw 'No origin URL; stop and ask for an approved HTTPS clone URL.' }
+$RepoUrl = $RepoUrl.Trim()
+$TargetSha = '35434ac3404fbe5dd34b399ce4981b315b2b11b7'
+$TargetDir = 'D:\ALUOLA-CRM\crm-manager-deploy-35434ac'
+if ($RepoUrl -match '://[^/]*@') { throw 'Origin embeds credentials; do not clone or print it. Use Git Credential Manager with a credential-free URL.' }
 if (Test-Path $TargetDir) { throw 'Target exists; choose a new empty sibling directory.' }
 git clone --no-checkout $RepoUrl $TargetDir
 if ($LASTEXITCODE -ne 0) { throw 'Clone failed.' }
@@ -83,12 +89,15 @@ git -C $TargetDir checkout --detach $TargetSha
 if ($LASTEXITCODE -ne 0) { throw 'Checkout failed.' }
 $ActualSha = (git -C $TargetDir rev-parse HEAD).Trim()
 if ($ActualSha -ne $TargetSha) { throw 'Checked out SHA differs from approved SHA.' }
-git -C $TargetDir status --short --branch
+$Status = git -C $TargetDir status --porcelain
+if ($LASTEXITCODE -ne 0 -or $Status) { throw 'New checkout is not clean; stop and inspect.' }
+"clone_verified_sha=$ActualSha"
+"working_tree_clean=True"
 ```
 
-确认新目录工作树干净后，只在新目录执行 `uv sync --locked --extra windows`。原目录、旧 `.venv`、旧 `.local`、数据库和未跟踪 `scripts/dev.ps1` 完整保留；不从旧目录复制 `.local`、`.venv` 或整个启动脚本。按旧脚本确认的安全方式，只重建新代码运行必需的私有设置；不要复制 PostgreSQL 数据目录或媒体。
+仅在输出确认固定 SHA 正确且工作树干净后，才在新目录执行 `uv sync --locked --extra windows`。原目录、旧 `.venv`、旧 `.local`、数据库和未跟踪 `scripts/dev.ps1` 完整保留；不从旧目录复制 `.local`、`.venv` 或整个启动脚本。若 Git HTTPS/SSH 访问失败，不索取或粘贴私钥；让负责人提供无凭据 HTTPS clone URL并使用本机 Git Credential Manager。不要改用来源不明的 ZIP。
 
-最终 SHA/仓库地址未给之前，只做旧目录只读检查和私有配置准备，不执行 clone、配置搬运或依赖安装；不在原目录运行 `uv sync`、`pip install`、`pull`、`reset` 或 `cherry-pick`。共享新版本含迁移 `0019`，对用户现有 0018 数据库的升级必须先提交备份/回退方案，由负责人另开窗口批准。
+原目录持续保留，不运行 `uv sync`、`pip install`、`pull`、`reset` 或 `cherry-pick`。共享新版本含迁移 `0019`，对用户现有 0018 数据库的升级必须先提交备份/回退方案，由负责人另开窗口批准。
 
 - 使用获批的锁定版本及安装命令；优先使用隔离的部署虚拟环境，不改动当前开发环境。
 - 不自行运行 `pip install waitress whitenoise`，不升级 Django/Python/PostgreSQL，不编辑锁文件。
@@ -96,7 +105,7 @@ git -C $TargetDir status --short --branch
 
 ## 5. 阶段 C：私有配置
 
-只在负责人给出最终 SHA 并成功克隆的新目录准备私有配置；不要在旧目录修改或覆盖 `.local`。在新目录确认 `.local/deploy_settings.py`、`.local/django_secret_key.txt` 均不存在后再创建。不要整目录复制旧 `.local`（里面可能含数据库、媒体和旧配置）；若旧目录有媒体文件，先保留原处并报告，不要擅自映射到新代码。不要输出生成的密钥；确认新 `.local` 访问权限只覆盖需要使用该机器的账户。
+只在已核对固定 SHA `35434ac3404fbe5dd34b399ce4981b315b2b11b7` 的新目录准备私有配置；不要在旧目录修改或覆盖 `.local`。在新目录确认 `.local/deploy_settings.py`、`.local/django_secret_key.txt` 均不存在后再创建。不要整目录复制旧 `.local`（里面可能含数据库、媒体和旧配置）；若旧目录有媒体文件，先保留原处并报告，不要擅自映射到新代码。不要输出生成的密钥；确认新 `.local` 访问权限只覆盖需要使用该机器的账户。
 
 ```powershell
 if (Test-Path .local\deploy_settings.py) { throw 'Private settings already exists; preserve and inspect locally.' }
@@ -107,7 +116,7 @@ if (-not (Test-Path .local)) { New-Item -ItemType Directory -Path .local | Out-N
 在新目录的隔离 Python 环境里生成密钥并直接写入新 `.local`，不把密钥显示在终端或发给他人：
 
 ```powershell
-python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())" |
+.\.venv\Scripts\python.exe -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())" |
     Set-Content -NoNewline -Encoding ascii .local\django_secret_key.txt
 ```
 
@@ -140,32 +149,34 @@ $env:DJANGO_SECRET_KEY = (Get-Content .local\django_secret_key.txt -Raw).Trim()
 $env:DJANGO_ALLOWED_HOSTS = 'localhost,127.0.0.1'
 ```
 
+后续 Django 命令均使用新目录的 `.\.venv\Scripts\python.exe`，避免误用旧目录解释器。
+
 同样按阶段 A 读过的 `scripts/dev.ps1` 安全复用现有 dev 数据库环境；不要复制原 `.local` 或输出/硬编码密码。新版本连到 `aluola_crm_dev` / `crm_dev` 后，运行只读检查：
 
 ```powershell
-python manage.py check
-python manage.py migrate --check
-python manage.py shell -c "from django.db import connection; c=connection.cursor(); c.execute('select current_database(), current_user'); print(c.fetchone())"
+.\.venv\Scripts\python.exe manage.py check
+.\.venv\Scripts\python.exe manage.py migrate --check
+.\.venv\Scripts\python.exe manage.py shell -c "from django.db import connection; c=connection.cursor(); c.execute('select current_database(), current_user'); print(c.fetchone())"
 ```
 
 `migrate --check` 若报告 0019 尚未应用，这是当前预期状态；保存退出状态并停止在此，不运行迁移。确认数据库身份仍是 `aluola_crm_dev` / `crm_dev` 后再收集静态文件：
 
 ```powershell
-python manage.py collectstatic --noinput
+.\.venv\Scripts\python.exe manage.py collectstatic --noinput
 ```
 
 目标只能是 `.local/static`。首次执行前确认该目录不存在或为空；不要加 `--clear`。WhiteNoise 只服务静态文件，`MEDIA_ROOT` 仍留在 `.local/private-media`，不得通过 WhiteNoise 或 Web 服务器公开用户上传媒体。
 
 ## 7. 阶段 E：手动运行与验收
 
-仅在负责人给出已验收 SHA 和隔离交付目录后，按项目锁定方式执行 `uv sync --locked --extra windows` 并确认使用的是该目录虚拟环境。不得在原快照上安装。新版本仅先用独立端口 8001 手动启动，旧的 8000 服务保持原样；不要停止或替换旧服务。
+仅在新目录 SHA 与固定值一致、工作树干净后，按项目锁定方式执行 `uv sync --locked --extra windows` 并确认使用的是该目录虚拟环境。不得在原快照上安装。新版本仅先用独立端口 8001 手动启动，旧的 8000 服务保持原样；不要停止或替换旧服务。
 
 建立新目录内的本机启动脚本 `.local\run_waitress.ps1`。将 `$ProjectRoot` 和 `$Python` 替换为新目录及其隔离虚拟环境的绝对路径。先阅读旧 `scripts/dev.ps1`，只把它安全设置 dev 数据库环境的方式放进下方标注位置；不要 dot-source 一个会自动启动 runserver 的脚本，也不要打印变量值。若不能安全复用当前 DB 环境，暂停。
 
 ```powershell
 $ErrorActionPreference = 'Stop'
-$ProjectRoot = 'D:\ALUOLA-CRM\crm-manager-deploy-FINALSHA'
-$Python = 'REPLACE_WITH_RECORDED_PYTHON_EXE'
+$ProjectRoot = 'D:\ALUOLA-CRM\crm-manager-deploy-35434ac'
+$Python = (Resolve-Path (Join-Path $ProjectRoot '.venv\Scripts\python.exe')).Path
 Set-Location $ProjectRoot
 
 # 在这里加载现有 dev 数据库连接环境；不要输出环境变量值。

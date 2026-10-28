@@ -1209,3 +1209,5 @@ UI设计师已在1280×900真实浏览器完成补验：选择指定SKU与仓库
 一条自动化定位因精确按钮role名称未匹配而失败；改按页面可见文字定位后成功，属于测试选择器问题，非产品失败。整个最终复验只登录并GET页面/静态资源，未提交业务表单、未写业务数据；qa-sales销售收货区和qa-owner-warehouse核对弹窗均为隔离合成账号。结论：负责人指定的原因隐藏/差额必填切换、弹窗两个44px目标及订单3收货区相邻布局在最终固定版通过。未测实体手机、Windows、屏幕阅读器/读屏及全套测试；不替代负责人整合验收或生产验收。
 
 **UI媒体限制追查（同日）**：最终归档克隆的 `MEDIA_ROOT` 指向 `.local/QA-ORDER-OPERATION-REFINE-1028-31DF9E9/source/.local/private-media`；只读DB显示相关 `ReceiptImage` id2（订单2）与id3（订单3）记录各为PNG/78字节，但归档目标路径文件缺失。前一固定副本的同名私有合成文件存在，字节均为78、SHA-256 `f9a5d930ba59322e7ac3d7434c0e8404ab99d5e3d247fbe47c6d50a6ca07aab3`。按负责人指示只将这两张目标样例恢复到最终副本 `.local/` MEDIA_ROOT，未改DB或上传。经只读代理验证：qa-sales GET `/api/v1/images/3` 返回200 `image/png`/78字节；qa-owner-warehouse GET `/api/v1/images/2` 同为200；匿名GET id3返回401。此复现归因于归档切换未携带本地合成媒体，不是固定应用读图回归。未扩大其它图片、上传或完整媒体权限矩阵检查。
+
+**本轮环境清理（2026-10-29）**：按负责人授权，只停止本轮自有最终Django应用PID 88447（19310）、只读代理PID 75198（19312）及私有PostgreSQL PID 85735（数据目录 `.local/QA-ORDER-OPERATION-REFINE-1028-EF1B14A/pgdata`、socket `/tmp/qaopef1b14a`）。逐项确认两个HTTP端口无监听、pg_ctl报告无运行服务、PG socket已消失。未删除源码、归档证据、私有数据库数据目录或合成媒体；未停止其它服务。
