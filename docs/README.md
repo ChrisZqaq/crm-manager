@@ -29,6 +29,10 @@
 
 ## 本地开发命令
 
+Python允许3.12、3.13、3.14系列，不固定补丁版本；建议安装所选系列的最新正式补丁版。3.12是现有已验收运行基线，允许安装其它系列不等于已经完成对应平台/版本的业务验收。上限跟随当前Django 5.2的官方支持范围，暂不接受3.15及预发布解释器。项目不再使用`.python-version`强制选择3.12.13；使用已有合适解释器即可，必要时显式指定，例如`uv sync --locked --python 3.13`。固定依赖版本保持不变，不因放宽Python限制升级业务依赖。
+
+2026-10-28兼容性检查：macOS常规CPython 3.12.13、3.13.15、3.14.7分别通过Django系统检查、无数据库访问的登录页渲染、PNG和XLSX内存读写及PostgreSQL驱动导入。锁文件校验通过，原11个包版本不变，Pillow/psycopg-binary均有上述三个系列Windows x64 wheel记录。该检查不替代Windows实机及业务数据库回归，现有云服务解释器不变；框架支持依据见[Django官方版本表](https://docs.djangoproject.com/en/5.2/faq/install/#what-python-version-can-i-use-with-django)。
+
 固定依赖由pyproject.toml/uv.lock维护。本地准备与启动：
 
 ```sh
