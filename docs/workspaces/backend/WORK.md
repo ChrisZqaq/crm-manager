@@ -666,3 +666,11 @@ UV_PROJECT_ENVIRONMENT=/Users/chrisz/.cache/aluola-crm-uiquery1-venv CRM_DB_NAME
 - 变更范围：模型、服务、订单/工作台API、付款/提成报表、加法迁移 `0019`、对应 phase3/4/6 与迁移回归，以及本WORK。未改前端、Windows部署配置、依赖、云/正式数据库、历史记录或线上行为。
 - 验证：Python `py_compile`、Django `check`、`makemigrations crm --check --dry-run`、`git diff --check` 均通过；专属合成 PostgreSQL 17 集群（`.local/ORDER-OPERATION-REFINE-1028-BACKEND/`，仅 Unix socket、监听地址关闭）运行定向12项，通过并自动销毁测试库。覆盖幂等/不可变/取消后不复用、北京跨日、超过9999、并发写入、订单搜索、工作台字段、付款/提成报表及Excel、旧单无回填迁移。
 - 未执行全量回归、浏览器验收、Windows运行、云/正式迁移或部署；这些不属于本后端固定版验证范围。前端显示接入和独立QA仍待后续流程。负责人另派的 Waitress/WhiteNoise Windows 可选依赖是单独后续修改，本暂停点尚未开始。
+
+### WINDOWS-NATIVE-DEPLOY-1028｜可选运行依赖固定（2026-10-28）
+
+- 依据：负责人确认前端 `4eee096` 已固定停写后开启后端独立应用窗口；当前基线 `6ba431d`。只在项目可选依赖组增加 `windows`（Waitress 3.0.2、WhiteNoise 6.12.0），更新锁文件及本入口安装说明；未改默认依赖、`settings.py`、业务代码、数据库、云环境或全局Python环境。
+- 安装方式写入 `docs/README.md`：Windows本机部署按部署指南执行 `uv sync --locked --extra windows`。默认开发同步命令保持原样。
+- `uv lock` 与 `uv lock --check` 均通过。逐项比较变更前 `uv.lock`：原10个第三方包版本完全不变，新增且仅新增 Waitress 3.0.2 和 WhiteNoise 6.12.0；项目根记录仍在，所以原锁文件共11条记录。
+- 安装/导入验证使用本任务独立环境 `.local/WINDOWS-NATIVE-DEPLOY-1028-BACKEND/.venv`，CPython 3.13.15：`uv sync --locked --extra windows --python 3.13` 成功；成功导入 `waitress.serve`、`whitenoise.WhiteNoise` 及静态存储后端，版本分别为 Django 5.2.17、Waitress 3.0.2、WhiteNoise 6.12.0。`git diff --check` 通过。
+- 未在Windows实机运行、未设置WhiteNoise中间件或服务、未执行数据库/业务测试、部署或推送；前述由部署角色按独立Windows指导阶段继续验收。兼容性依据为Waitress/WhiteNoise PyPI官方元数据、WhiteNoise changelog及Django官方5.2支持表。

@@ -10,5 +10,11 @@ dependencies = [
     "psycopg[binary]==3.3.6",
 ]
 
+[project.optional-dependencies]
+windows = [
+    "waitress==3.0.2",
+    "whitenoise==6.12.0",
+]
+
 [tool.uv]
 package = false

@@ -35,6 +35,8 @@ Python允许3.12、3.13、3.14系列，不固定补丁版本；建议安装所�
 
 固定依赖由pyproject.toml/uv.lock维护。本地准备与启动：
 
+Windows本机部署在项目虚拟环境执行 `uv sync --locked --extra windows` 安装额外运行依赖（Waitress 3.0.2、WhiteNoise 6.12.0）。
+
 ```sh
 uv sync --locked
 scripts/install-dev-postgres.sh
