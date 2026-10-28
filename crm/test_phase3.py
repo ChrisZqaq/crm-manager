@@ -5,6 +5,7 @@ from datetime import datetime
 from decimal import Decimal
 from unittest.mock import patch
 from uuid import uuid4
+from zoneinfo import ZoneInfo
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group, Permission
@@ -1287,6 +1288,50 @@ class SalesOrderPhase3Tests(Phase3Base):
             cancel_sales_order(self.sales, first["order_id"], {"expected_version": cancelled["version"], "operation_key": str(uuid4())})
         self.assertEqual(error.exception.code, "state_conflict")
 
+    def test_order_number_is_idempotent_immutable_and_not_recycled_after_cancel(self):
+        created_at = datetime(2026, 10, 28, 16, 0, tzinfo=ZoneInfo("UTC"))
+        with patch("django.db.models.fields.timezone.now", return_value=created_at):
+            preview = preview_sales_order(self.sales, self.order_payload())
+            key = uuid4()
+            first = confirm_sales_order(self.sales, key, preview["preview_token"])
+            self.assertEqual(first["order_number"], "202610290001")
+            self.assertEqual(confirm_sales_order(self.sales, key, preview["preview_token"]), first)
+
+            order = SalesOrder.objects.get(pk=first["order_id"])
+            amendment = self.amendment_payload(order)
+            amendment_preview = preview_sales_order(self.sales, amendment, order_id=order.pk)
+            amended = confirm_sales_order(self.sales, uuid4(), amendment_preview["preview_token"])
+            self.assertEqual(amended["order_number"], first["order_number"])
+
+            order.refresh_from_db()
+            cancel_sales_order(self.sales, order.pk, {
+                "expected_version": order.version,
+                "operation_key": str(uuid4()),
+            })
+            next_preview = preview_sales_order(self.sales, self.order_payload())
+            second = confirm_sales_order(self.sales, uuid4(), next_preview["preview_token"])
+            self.assertEqual(second["order_number"], "202610290002")
+
+    def test_order_number_uses_persisted_beijing_date_and_allows_more_than_9999_per_day(self):
+        before_midnight = datetime(2026, 10, 28, 15, 59, 59, tzinfo=ZoneInfo("UTC"))
+        after_midnight = datetime(2026, 10, 28, 16, 0, tzinfo=ZoneInfo("UTC"))
+        payload = self.order_payload(lines=[{
+            "sku_id": self.sku.pk, "warehouse_id": self.warehouse.pk, "quantity": 1, "sale_price": "5.000",
+        }])
+        with patch("django.db.models.fields.timezone.now", return_value=before_midnight):
+            first = self.preview_and_confirm(payload)[2]
+        with patch("django.db.models.fields.timezone.now", return_value=after_midnight):
+            second = self.preview_and_confirm(payload)[2]
+        self.assertEqual((first.order_number, second.order_number), ("202610280001", "202610290001"))
+
+        control = BusinessControl.objects.get(pk=1)
+        control.last_sales_order_date = datetime(2026, 10, 29).date()
+        control.last_sales_order_daily_sequence = 9999
+        control.save(update_fields=("last_sales_order_date", "last_sales_order_daily_sequence"))
+        with patch("django.db.models.fields.timezone.now", return_value=after_midnight):
+            overflow = self.preview_and_confirm(payload)[2]
+        self.assertEqual(overflow.order_number, "2026102910000")
+
     def test_cancel_api_releases_holds_once_and_renders_inline_confirmation(self):
         _, _, order = self.preview_and_confirm()
         client = Client()
@@ -1442,6 +1487,12 @@ class SalesOrderPhase3Tests(Phase3Base):
         self.assertEqual(results.count("stale_preview"), 1)
         self.assertEqual(InventoryBalance.objects.get(pk=self.balance.pk).occupied, 2)
         self.assertEqual(SalesOrder.objects.count(), 1)
+        saved_order = SalesOrder.objects.get(pk=next(value for value in results if isinstance(value, int)))
+        self.assertTrue(saved_order.order_number)
+        self.assertEqual(
+            SalesOrder.objects.exclude(order_number__isnull=True).values("order_number").distinct().count(),
+            SalesOrder.objects.exclude(order_number__isnull=True).count(),
+        )
 
     def test_order_pages_and_warehouse_view_scope(self):
         _, _, order = self.preview_and_confirm()

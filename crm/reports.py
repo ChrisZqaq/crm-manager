@@ -509,6 +509,8 @@ def _payment_data(actor, query, *, today=None):
     search_text = query.get("q", "").strip()
     if search_text:
         search = Q(customer_name_snapshot__icontains=search_text)
+        if search_text.isascii() and search_text.isdigit():
+            search |= Q(order_number=search_text)
         if search_text.isascii() and search_text.isdigit() and len(search_text) <= 19:
             order_id = int(search_text)
             if order_id <= 2**63 - 1:
@@ -541,6 +543,7 @@ def _payment_data(actor, query, *, today=None):
         order = payment.order
         difference = payment.received_amount - payment.expected_amount
         items.append({
+            "order_number": order.order_number or str(order.pk),
             "order_id": str(order.pk), "submitted_at": _local_datetime(order.created_at),
             "salesperson": order.salesperson.get_username(), "customer": order.customer_name_snapshot or "门店散客",
             "channel": order.channel.name, "order_status": order.status,
@@ -558,7 +561,8 @@ def _payment_data(actor, query, *, today=None):
             "difference_reason": payment.difference_reason, "problem_reason": payment.problem_reason,
         })
     columns = [
-        ("order_id", "订单编号", "text"), ("submitted_at", "订单提交时间", "text"),
+        ("order_number", "订单编号（旧单显示内部ID）", "text"),
+        ("order_id", "内部订单ID（兼容字段）", "text"), ("submitted_at", "订单提交时间", "text"),
         ("salesperson", "销售", "text"), ("customer", "客户快照", "text"), ("channel", "渠道", "text"),
         ("order_status_label", "履约状态", "text"),
         ("status_label", "核对状态", "text"), ("paused", "出库暂停", "text"),
@@ -617,7 +621,9 @@ def _commission_data(actor, query, *, today=None):
         on_date = review.first_earned_at if review and review.first_earned_at else order.created_at
         item = {
             "entry_type": "order", "entry_type_label": "订单提成",
-            "effective_at": _local_datetime(on_date), "order_id": str(order.pk),
+            "effective_at": _local_datetime(on_date),
+            "order_number": order.order_number or str(order.pk),
+            "order_id": str(order.pk),
             "salesperson": order.salesperson.get_username(), "customer": order.customer_name_snapshot or "门店散客",
             "channel": order.channel.name, "status": state, "status_label": state_label,
             "estimate_amount": _money(order.commission_estimate),
@@ -653,7 +659,9 @@ def _commission_data(actor, query, *, today=None):
         adjustment_delta += adjustment.delta
         items.append({
             "entry_type": "adjustment", "entry_type_label": "提成调整差额（独立展示）",
-            "effective_at": _local_datetime(adjustment.confirmed_at), "order_id": str(adjustment.order_id),
+            "effective_at": _local_datetime(adjustment.confirmed_at),
+            "order_number": adjustment.order.order_number or str(adjustment.order_id),
+            "order_id": str(adjustment.order_id),
             "salesperson": adjustment.order.salesperson.get_username(), "customer": adjustment.order.customer_name_snapshot or "门店散客",
             "channel": adjustment.order.channel.name, "status": state, "status_label": state_label,
             "estimate_amount": "", "approved_amount": "", "review_delta": "",
@@ -666,7 +674,8 @@ def _commission_data(actor, query, *, today=None):
     items.sort(key=lambda row: (row["effective_at"], row["entry_type"], row["order_id"]))
     columns = [
         ("effective_at", "统计日期", "text"), ("entry_type_label", "记录类型", "text"),
-        ("order_id", "订单编号", "text"), ("salesperson", "销售", "text"),
+        ("order_number", "订单编号（旧单显示内部ID）", "text"),
+        ("order_id", "内部订单ID（兼容字段）", "text"), ("salesperson", "销售", "text"),
         ("customer", "客户", "text"), ("channel", "渠道", "text"),
         ("status_label", "提成状态", "text"), ("estimate_amount", "当前预估", "amount"),
         ("approved_amount", "最后批准金额（正式值）", "amount"),

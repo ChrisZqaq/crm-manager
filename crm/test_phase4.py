@@ -1585,6 +1585,7 @@ class WorkbenchReadModelPhase4Tests(Phase4Base):
 
         seller_task = self.tasks(self.sales)["items"][0]
         self.assertEqual(seller_task["action_id"], "register_payment")
+        self.assertEqual(seller_task["order_number"], order.order_number)
         self.assertEqual(seller_task["context"]["payment"]["problem_reason"], "Synthetic amount mismatch")
         warehouse_actions = [row["action_id"] for row in self.tasks(self.user)["items"]]
         self.assertNotIn("verify_payment", warehouse_actions)
@@ -1923,6 +1924,10 @@ class OrderListFilterTests(Phase4Base):
             response = client.get("/api/v1/orders", {"q": query})
             self.assertEqual(response.status_code, 200, response.content)
             self.assertIn(expected.pk, {item["id"] for item in response.json()["items"]})
+        number_search = client.get("/api/v1/orders", {"q": pending.order_number})
+        self.assertEqual(number_search.status_code, 200, number_search.content)
+        self.assertEqual(number_search.json()["total"], 1)
+        self.assertEqual(number_search.json()["items"][0]["order_number"], pending.order_number)
 
         invalid_status = client.get("/api/v1/orders", {"verification_status": "none"})
         self.assertEqual(invalid_status.status_code, 400)

@@ -658,3 +658,11 @@ UV_PROJECT_ENVIRONMENT=/Users/chrisz/.cache/aluola-crm-uiquery1-venv CRM_DB_NAME
 - 定向测试最终17项通过：新增 `WorkbenchReadModelPhase4Tests` 4项（含待办/动作合同、完整计数/分页、同单多动作与多差额、问题补正/账户责任、历史授权脱敏、owner+warehouse和超级管理员）；D15权限边界9项、待核付款共享发货/收货1项、撤销幂等1项、成本纠错提成深链/权限/幂等确认1项。结果日志保存在本机 `.local/TASK-FOCUSED-UI-1023-BACKEND-1027/targeted-tests.log`。Django system check无问题；`makemigrations --check --dry-run`无变化；五个Python源文件 `py_compile` 和 `git diff --check` 通过。未跑全套回归或浏览器/UI验收，后者由后续前端/QA任务完成。
 - 测试环境：只在此前确认不存在的 `.local/TASK-FOCUSED-UI-1023-BACKEND-1027/` 初始化本任务PG17集群，`--no-locale --encoding=UTF8`。首次启动提示socket路径过长，改用目录 `s/` 后成功；仅Unix socket、`listen_addresses=''`，端口57623仅用于socket文件名。新建空基库 `task_focused_ui_1023_backend` 及本地测试角色，Django创建并自动销毁 `test_task_focused_ui_1023_backend`。测试后已停止本轮专属PostgreSQL；保留PGDATA及initdb/postgres/测试日志供负责人核查。没有启动/连接其他本地数据库或服务。
 - 交付状态：当前实现与本条WORK一并固定提交；提交后停止应用写入，主动向负责人报告固定版本/证据/限制并交QA独立验收。无push/deploy授权。
+
+### ORDER-OPERATION-REFINE-1028｜订单业务编号后端收尾与暂停点（2026-10-28）
+
+- 依据：负责人派发的 `ORDER-OPERATION-REFINE-1028` 后端单写窗口及已确认规则。新增仅用于展示/查询的不可变订单业务编号：按北京日期 `YYYYMMDD` 加当日序号，日期取数据库保存后的 `created_at`；序号在既有 `BusinessControl` 行锁事务内递增，取消不回收，幂等重放复用原编号；当日序号超过 9999 后自然扩位。
+- `SalesOrder.order_number` 为可空唯一字段，旧单不回填、不删除、不改 `last_sequence`；旧单在报表/Excel显示稳定内部订单ID，原 `id`、`sequence`、`order_id` 字段仍保留兼容。订单API、工作台、付款/提成报表及付款报表精确搜索均输出新字段，并保留原订单范围/权限过滤。
+- 变更范围：模型、服务、订单/工作台API、付款/提成报表、加法迁移 `0019`、对应 phase3/4/6 与迁移回归，以及本WORK。未改前端、Windows部署配置、依赖、云/正式数据库、历史记录或线上行为。
+- 验证：Python `py_compile`、Django `check`、`makemigrations crm --check --dry-run`、`git diff --check` 均通过；专属合成 PostgreSQL 17 集群（`.local/ORDER-OPERATION-REFINE-1028-BACKEND/`，仅 Unix socket、监听地址关闭）运行定向12项，通过并自动销毁测试库。覆盖幂等/不可变/取消后不复用、北京跨日、超过9999、并发写入、订单搜索、工作台字段、付款/提成报表及Excel、旧单无回填迁移。
+- 未执行全量回归、浏览器验收、Windows运行、云/正式迁移或部署；这些不属于本后端固定版验证范围。前端显示接入和独立QA仍待后续流程。负责人另派的 Waitress/WhiteNoise Windows 可选依赖是单独后续修改，本暂停点尚未开始。

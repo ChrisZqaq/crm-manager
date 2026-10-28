@@ -205,6 +205,8 @@ class Supplier(models.Model):
 
 class BusinessControl(models.Model):
     last_sequence = models.PositiveBigIntegerField(default=0)
+    last_sales_order_date = models.DateField(null=True, blank=True)
+    last_sales_order_daily_sequence = models.PositiveBigIntegerField(default=0)
     low_stock_enabled = models.BooleanField(default=True)
     default_threshold = models.PositiveBigIntegerField(default=5)
     opening_completed = models.BooleanField(default=False)
@@ -670,6 +672,7 @@ class SalesOrder(models.Model):
         ACTUAL_OUTFLOW = "actual_outflow", "出库实际成本"
 
     salesperson = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="sales_orders")
+    order_number = models.CharField(max_length=27, null=True, blank=True, unique=True, editable=False)
     customer = models.ForeignKey(Customer, null=True, blank=True, on_delete=models.PROTECT, related_name="sales_orders")
     channel = models.ForeignKey(Channel, on_delete=models.PROTECT, related_name="sales_orders")
     status = models.CharField(max_length=24, choices=Status.choices, default=Status.AWAITING_PAYMENT)

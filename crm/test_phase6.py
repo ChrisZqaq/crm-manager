@@ -759,6 +759,10 @@ class ReportPhase6Tests(Phase4Base):
                 **custom_query,
                 "q": str(orders[2].pk),
             })
+            searched_by_number = build_report(self.sales, "payments", {
+                **custom_query,
+                "q": orders[2].order_number,
+            })
 
         self.assertEqual((rolling["metadata"]["start_date"], rolling["metadata"]["end_date"]), ("2026-09-30", "2026-10-31"))
         self.assertEqual({row["order_id"] for row in rolling["items"]}, {str(order.pk) for order in orders[1:]})
@@ -766,10 +770,13 @@ class ReportPhase6Tests(Phase4Base):
         self.assertEqual({row["order_id"] for row in searched["items"]}, {str(orders[2].pk), str(orders[3].pk)})
         self.assertNotIn(str(outside_order.pk), {row["order_id"] for row in searched["items"]})
         self.assertEqual([row["order_id"] for row in searched_by_id["items"]], [str(orders[2].pk)])
+        self.assertEqual([row["order_id"] for row in searched_by_number["items"]], [str(orders[2].pk)])
+        self.assertEqual(searched_by_number["items"][0]["order_number"], orders[2].order_number)
         self.assertEqual(searched["items"][0]["order_status"], orders[2].status)
         self.assertEqual(searched["items"][0]["order_status_label"], orders[2].get_status_display())
         self.assertEqual(searched["items"][0]["status"], PaymentRecord.Status.PENDING)
 
+        SalesOrder.objects.filter(pk=orders[3].pk).update(order_number=None, last_sequence=999999)
         self.client.force_login(self.sales)
         query = (
             "period=custom&start_date=2026-10-01&end_date=2026-10-01"
@@ -777,12 +784,23 @@ class ReportPhase6Tests(Phase4Base):
         )
         with patch("crm.reports._now_local", return_value=fixed_now):
             api = self.client.get(f"/api/v1/reports/payments?{query}&page_size=200")
+            api_by_number = self.client.get("/api/v1/reports/payments", {
+                **custom_query,
+                "q": orders[2].order_number,
+                "page_size": 200,
+            })
             page = self.client.get(f"/reports/payments/?{query}&page=2&page_size=1")
             export = self.client.get(f"/api/v1/reports/payments/export?{query}&page=2&page_size=1")
 
         self.assertEqual(api.status_code, 200)
         self.assertEqual(api.json()["total"], 2)
         self.assertEqual({row["order_id"] for row in api.json()["items"]}, {str(orders[2].pk), str(orders[3].pk)})
+        self.assertEqual(api_by_number.status_code, 200)
+        self.assertEqual(api_by_number.json()["total"], 1)
+        self.assertEqual(api_by_number.json()["items"][0]["order_number"], orders[2].order_number)
+        legacy_row = next(row for row in api.json()["items"] if row["order_id"] == str(orders[3].pk))
+        self.assertEqual(legacy_row["order_number"], str(orders[3].pk))
+        self.assertNotEqual(legacy_row["order_number"], str(orders[3].last_sequence))
         self.assertEqual(
             {column["label"] for column in api.json()["columns"] if column["key"] in ("order_status_label", "status_label")},
             {"履约状态", "核对状态"},
@@ -799,8 +817,11 @@ class ReportPhase6Tests(Phase4Base):
         sheet = load_workbook(BytesIO(export.content), data_only=False).active
         self.assertEqual(sheet.max_row, 8)
         headers = [sheet.cell(6, column).value for column in range(1, sheet.max_column + 1)]
-        order_id_column = headers.index("订单编号") + 1
-        exported_ids = {str(sheet.cell(row, order_id_column).value) for row in range(7, 9)}
+        order_number_column = headers.index("订单编号（旧单显示内部ID）") + 1
+        exported_numbers = {str(sheet.cell(row, order_number_column).value) for row in range(7, 9)}
+        self.assertEqual(exported_numbers, {orders[2].order_number, str(orders[3].pk)})
+        internal_id_column = headers.index("内部订单ID（兼容字段）") + 1
+        exported_ids = {str(sheet.cell(row, internal_id_column).value) for row in range(7, 9)}
         self.assertEqual(exported_ids, {str(orders[2].pk), str(orders[3].pk)})
         self.assertIn("履约状态", headers)
         self.assertIn("核对状态", headers)
@@ -845,6 +866,7 @@ class ReportPhase6Tests(Phase4Base):
             "period": "custom", "start_date": "2025-10-01", "end_date": "2025-10-01",
         })
         self.assertEqual([(row["entry_type"], row["approved_amount"]) for row in earned["items"]], [("order", "1.000")])
+        self.assertEqual(earned["items"][0]["order_number"], order.order_number)
         SalesOrder.objects.filter(pk=order.pk).update(amount_version=order.amount_version + 1)
         needs_review = build_report(self.sales, "commissions", {
             "period": "custom", "start_date": "2025-10-01", "end_date": "2025-10-01",
@@ -856,12 +878,14 @@ class ReportPhase6Tests(Phase4Base):
             "period": "custom", "start_date": "2025-10-02", "end_date": "2025-10-02",
         })
         self.assertEqual(len(rereview["items"]), 1)
+        self.assertEqual(rereview["items"][0]["order_number"], order.order_number)
         self.assertEqual(rereview["items"][0]["adjustment_kind"], "重审差额")
         self.assertEqual(rereview["items"][0]["delta_amount"], "0.200")
         self.assertEqual(rereview["items"][0]["completion_status"], "已完成")
         correction = build_report(self.sales, "commissions", {
             "period": "custom", "start_date": "2025-10-03", "end_date": "2025-10-03",
         })
+        self.assertEqual(correction["items"][0]["order_number"], order.order_number)
         self.assertEqual(correction["items"][0]["delta_amount"], "-0.400")
         self.assertEqual(correction["summary"]["adjustment_delta_not_added"], "-0.400")
         self.assertEqual(correction["summary"]["states"], {})

@@ -1255,6 +1255,7 @@ def _sales_order_data(order, actor, action_state=None, actor_roles=None):
     commission = action_state["commission"]
     data = {
         "id": order.pk,
+        "order_number": order.order_number,
         "sequence": order.last_sequence,
         "salesperson_id": order.salesperson_id,
         "salesperson": order.salesperson.get_username(),
@@ -1569,6 +1570,8 @@ def orders_api(request):
             | Q(channel__name__icontains=query)
             | Q(salesperson__username__icontains=query)
         )
+        if query.isascii() and query.isdigit():
+            search |= Q(order_number=query)
         if query.isascii() and query.isdigit() and len(query) <= 19:
             order_number = int(query)
             if order_number <= 2**63 - 1:
@@ -1621,6 +1624,7 @@ def _workbench_task_item(order, action_id, action_state, *, adjustment=None):
         "action_id": action_id,
         "action_label": WORKBENCH_ACTION_LABELS[action_id],
         "order_id": order.pk,
+        "order_number": order.order_number,
         "order_sequence": order.last_sequence,
         "summary": {
             "customer_name": order.customer_name_snapshot,

@@ -1,5 +1,6 @@
 from decimal import Decimal, ROUND_HALF_UP, localcontext
 from uuid import uuid4
+from zoneinfo import ZoneInfo
 
 from django.core import signing
 from django.db import transaction
@@ -41,6 +42,17 @@ from .permissions import ROLE_OWNER, ROLE_SALES, ROLE_WAREHOUSE
 from .regions import valid_region_pair
 
 SALES_ORDER_PREVIEW_SALT = "crm.sales-order-preview.v1"
+ORDER_NUMBER_TIME_ZONE = ZoneInfo("Asia/Shanghai")
+
+
+def _next_sales_order_number(control, created_at):
+    order_date = timezone.localtime(created_at, ORDER_NUMBER_TIME_ZONE).date()
+    if control.last_sales_order_date != order_date:
+        control.last_sales_order_date = order_date
+        control.last_sales_order_daily_sequence = 0
+    control.last_sales_order_daily_sequence += 1
+    control.save(update_fields=("last_sales_order_date", "last_sales_order_daily_sequence"))
+    return f"{order_date:%Y%m%d}{control.last_sales_order_daily_sequence:04d}"
 
 
 def customer_queryset_for(actor, *, changing=False):
@@ -991,6 +1003,13 @@ def confirm_sales_order(actor, operation_key_value, preview_token, request_id=""
                     _require(actor, "change_customer")
                     if not customer_queryset_for(actor, changing=True).filter(pk=customer_id).exists():
                         raise OperationError("客户不存在或不在可维护范围。", status=404, code="not_found")
+                if isinstance(replay, dict) and "order_number" not in replay and replay.get("order_id"):
+                    replay = {
+                        **replay,
+                        "order_number": SalesOrder.objects.filter(pk=replay["order_id"]).values_list(
+                            "order_number", flat=True,
+                        ).first(),
+                    }
                 return replay
             if control.last_sequence != preview["sequence"]:
                 raise OperationError("预览后业务数据已变化，请重新预览。", status=409, code="stale_preview")
@@ -1063,6 +1082,8 @@ def confirm_sales_order(actor, operation_key_value, preview_token, request_id=""
                     commission_estimate=plan["commission_estimate"],
                     last_sequence=sequence,
                 )
+                order.order_number = _next_sales_order_number(control, order.created_at)
+                order.save(update_fields=("order_number",))
             old_line_ids = {line.pk for line in plan["old_lines"]}
             retained = set()
             line_records = []
@@ -1200,7 +1221,15 @@ def confirm_sales_order(actor, operation_key_value, preview_token, request_id=""
                     cost_revision=balance.version,
                 )
             set_operation_document_id(order.pk)
-            result = {"document_id": order.pk, "order_id": order.pk, "customer_id": order.customer_id, "sequence": sequence, "version": order.version, "status": order.status}
+            result = {
+                "document_id": order.pk,
+                "order_id": order.pk,
+                "order_number": order.order_number,
+                "customer_id": order.customer_id,
+                "sequence": sequence,
+                "version": order.version,
+                "status": order.status,
+            }
             operation.result = result
             operation.save(update_fields=("result",))
             return result
