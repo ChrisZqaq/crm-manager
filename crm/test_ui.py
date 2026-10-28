@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
 from django.test import TestCase
@@ -216,6 +218,13 @@ class ApprovedWorkbenchAndPaymentUITests(TestCase):
         self.assertContains(response, "payment-report-items")
         self.assertContains(response, "panel.showModal()")
         self.assertContains(response, "event.target.closest('a,button,input,select,textarea')")
+
+    def test_hidden_payment_reason_overrides_payment_form_grid_layout(self):
+        css = Path(__file__).parent / "static" / "crm" / "app.css"
+        self.assertIn(
+            ".legacy-content #payment-form > label[hidden] { display: none; }",
+            css.read_text(encoding="utf-8"),
+        )
 
     def test_status_shortcuts_keep_existing_statuses_and_selected_filters(self):
         self.client.force_login(self.orders)

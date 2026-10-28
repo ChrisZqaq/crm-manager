@@ -391,6 +391,7 @@ body.page-expanded .order-form input:not([type="checkbox"]):not([type="radio"]):
 .receipt-line-settings { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; padding-top: 10px; }
 .legacy-content #payment-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .legacy-content #payment-form > label { display: grid; min-width: 0; gap: 5px; }
+.legacy-content #payment-form > label[hidden] { display: none; }
 .legacy-content #payment-form > label:has(input[type="file"]), .legacy-content #payment-form > button, .legacy-content #payment-form > p { grid-column: 1 / -1; }
 .legacy-content #payment-form > label input, .legacy-content #payment-form > label select, .legacy-content #payment-form > label textarea { min-width: 0; width: 100%; }
 .legacy-content > #order-detail-lines { width: 100%; min-width: 0; }
