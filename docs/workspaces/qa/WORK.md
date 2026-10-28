@@ -1169,3 +1169,43 @@ UI设计师已在1280×900真实浏览器完成补验：选择指定SKU与仓库
 - 固定版定向API核验：销售日对比/Top3 API保留精确十进制字符串（今日 `99999999999999999.999`、增长 `9999999999999999999800.00`、Top1 `99999999999999919.000`）；cost correction id1/version2可读；order2 `task_action=ship`返回200且表单/表内横滚容器存在。`sales-one` 的order1详情有 `update_payment` allowed_action与表单、workbench不生成该待办。按负责人授权，使用该订单既有待付款记录做一次受控直连HTTP POST `/api/v1/orders/1/payment`（端口19260，浏览器未操作）：只更改合成差额原因，保留expected10.000、received9.000、账户3及凭证[1,5,6]。接口200、sequence81、order version 6→7；随后详情API和更新表单页GET均200且新原因回读一致。订单数56→56、order1 payment行数1→1；付款仍pending，版本5→6；回查workbench无order1收款待办。未新建图片或订单。
 - **凭证读取就近复核：**order2既有合成图片 `ReceiptImage id=2` 的DB引用存在，克隆初始 `MEDIA_ROOT=.local/private-media` 下文件缺失，而本任务已有同名合成媒体在 `.local/receipt-images`。按负责人指示只复制此一张到本任务私有MEDIA_ROOT，未上传、未改业务行；通过19259只读代理GET `/api/v1/images/2` 为200、`image/png`、167字节。`owner-test`可读，匿名401；无权查看该订单的 `sales-one` 返回404。UI截图05缩略图当时未加载归因于测试克隆媒体路径未补齐，图片读取路由及权限边界现已得到只读证据；未扩大到媒体上传/全链复验。详见私有manifest `.local/QA-TASK-FOCUSED-UI-1023-7EB89F6-1027/final_api_evidence.json` 的 `paymentImageReadCheck`。
 - **遗留操作证据与发布边界：**后端固定版17/17及逐单授权角色边界采用前序QA证据，没有重跑。未保存退出/脏表单取消的路由保留与无业务POST来自前一前端固定版549；负责人接受该行为证据，不再要求重复操作；原生beforeunload对话框具体文案仍未读到，且不冒充7eb复测。本轮另以受控HTTP确认付款修改保存成功与回读，浏览器级保存动画/实际点击未测。结论：七类指定UI范围、定向读取/权限及负责人要求的一次合成付款修改操作均通过，没有观察到范围内真实缺陷，可交负责人按该范围决定发布；未决原生提示不作为该范围阻塞项。此结论不是全系统/正式生产部署授权。完整私有API清单见 `.local/QA-TASK-FOCUSED-UI-1023-7EB89F6-1027/final_api_evidence.json`。
+
+### ORDER-OPERATION-REFINE-1028｜旧基线浏览器独立验收（2026-10-28）
+
+依据固定归档源码 `caed633cfb0c2bf35fb5aee14c13074e117f90d9`（tar SHA-256 `9845d6b05aa24b34236b613a93a596ace09d0aeadd65119e5f039e2681051334`），仅在本任务私有副本 `.local/QA-ORDER-OPERATION-REFINE-1028-CAED633/source` 运行。自有PG17 Unix socket `/tmp/qaorderop1028`、端口57741、数据库 `qa_order_operation_refine_1028`；Django 仅绑定 `127.0.0.1:19310`。合成库存、订单、用户和收款凭证均属本库；未连接共享/正式库。无应用代码改动、未跑测试套件。
+
+**实际主链：**合成订单1通过UI建单、收款、正常核对、发货和确认收货。浏览器操作均返回200；数据库最终订单 `completed`、version 5、amount_version 2，库存从收货后500件变为498件。订单关联库存流水仅有 `order_submit +0` 与 `order_outbound -2`，确认收货未重复扣减；操作序列为 `sales_order_submit` 2、`payment_register` 3、`payment_verify` 4、`sales_order_ship` 5、`sales_order_receive` 6。
+
+**异常原因：**合成订单2登记准确金额及PNG凭证后，UI提交“待处理”且原因留空，`POST /api/v1/orders/2/verify-payment` 返回400并显示通用必填提示；填写合成原因后返回200。页面显示“待处理·暂停出库”；只读数据库确认 payment=`problem`、`paused=True`、原因为合成文本、订单仍 `ready_to_ship`，尚无出库/库存扣减流水。该失败请求没有生成核对操作，随后成功核对序号为9。
+
+**旧版发现：**工作台待办显示随 `last_sequence` 递增的“订单N”，详情仍显示稳定主键“订单1/2”；金额一致的收款仍常显差异原因输入；正常核对后和确认收货后都留在 `task_action` 详情页并错误提示待办失效；确认收货页面常显运费输入且提交未改运费的 `0.000`；完成收货后未返回工作台。异常原因框没有原生 `required` 属性，空值依赖接口拒绝及通用提示。已发负责人；不扩大旧版修复验收。
+
+**窄屏证据：**已在真实Chrome设备工具栏完成390×844仿真，异常暂停订单页 `innerWidth=390`、文档 `clientWidth=390` / `scrollWidth=390`、body宽390，无页面级横向溢出；控制台 error/warn 为0。截图仅在会话内查看，未保存文件，按用户接受的截图/几何证据方案留证。此为浏览器仿真，不是实体手机验证。
+
+未测试非零发货运费再确认收货、实体手机或Windows。下一固定前端版待负责人确认停写和交付后再验；按负责人要求覆盖非零运费在收货后保持及收货成功返回待办，并针对固定版差异复测。结论仅适用于上述 `caed633` 旧基线。
+
+### ORDER-OPERATION-REFINE-1028｜ef1b14a 固定版独立验收（2026-10-28）
+
+依据负责人固定交接 `ef1b14aecec5966db4e1afd768b63cc2a26b8008`，从该提交归档到 `.local/QA-ORDER-OPERATION-REFINE-1028-EF1B14A/source`。只使用本任务私有 PostgreSQL 17（数据库 `qa_order_operation_refine_ef1b14a`，socket `/tmp/qaopef1b14a`、端口57742）及 Django `127.0.0.1:19310`；不连接共享源库、演示库或正式库。迁移完成至 `crm.0019_businesscontrol_last_sales_order_daily_sequence_and_more`，`manage.py check` 通过。定向测试6/6通过：`test_payment_report_applies_beijing_boundaries_and_matches_api_page_and_xlsx`、`test_commission_visibility_requires_its_own_permission`、`test_payment_verification_control_is_permission_gated`、`test_order_number_is_idempotent_immutable_and_not_recycled_after_cancel`、`test_order_number_uses_persisted_beijing_date_and_allows_more_than_9999_per_day`、`test_migration_preserves_existing_order_without_assigning_a_number`；未运行全套。
+
+**真实浏览器链路：**QA合成商品 `QA-0001`、仓库、客户及账户；四张订单均从网页创建。订单1等额收款、上传合成凭证、老板核对通过、填写SF发货及非零运费2.500、销售确认收货，最后为 `completed`。订单2实收4.500/应收5.000，老板补问题原因后置为 `problem` 且暂停出库，仍 `ready_to_ship`。订单3等额收款并核对通过、SF发货运费3.750，保持 `shipped`/待收货。订单4等额收款并发货运费1.250、确认收货；第二个预先打开的旧收货页面提交后显示“订单已变化，请刷新后重试。”。收款报表四行与订单编号一致；`page_size=1`分页、状态过滤及模态详情开关均核对通过。客户最近订单和订单列表显示稳定订单编号。
+
+**只读数据库核对：**4张订单各1笔付款和订单行；付款状态为3笔 `passed`、1笔 `problem`（暂停为true）。库存余额在库497、占用1、预留0、破损0；8条库存流水包括初始收货+500、四张订单各1条占用、订单1/3/4各1条 `order_outbound -1/+occupied -1`。因此订单4旧页冲突没有产生第二次出库；订单2未出库。四笔订单行运费仍分别为2.500、0、3.750、1.250。订单1/4已完成收货，收货本身没有额外出库流水。
+
+**直接观察的UI问题：**付款金额相等时差额原因父label带 `hidden`，但 computed `display:grid`、`visibility:visible`，可访问性树仍包含该label，几何318×109.5px；差额出现时 `hidden=false`。固定 `app.css` SHA-256 为 `71f8e23d92bba84af7711f7285bc724169254fa3ed6a7f8ad66d74340354a1bf`，现有 `.legacy-content #payment-form > label { display:grid }` 覆盖原生 `[hidden]` 显示规则。问题原因输入只在选择“待处理”后出现并设为 `required`，不是上述常显差额原因框。已向负责人、前端报告实测事实及最小CSS候选；QA没有改应用。
+
+**视口与UI交接：**1280视口根宽1280、无横溢；390×844 Chrome设备仿真根宽390、`scrollWidth=390`、无横溢，移动导航位于视口左侧屏外。截图仅会话内查看，未保存文件；这是设备仿真，不等于实体手机。已按用户授权向UI交付本地只读预览 `http://127.0.0.1:19312/` 及隔离合成账号；UI获准只用GET/HEAD与登录POST。QA私有代理 `.local/QA-ORDER-OPERATION-REFINE-1028-EF1B14A/private/readonly_proxy.py` 仅绑定127.0.0.1；实测登录页GET/HEAD均200，认证登录回到工作台并显示QA账号，其他业务POST及PUT/PATCH/DELETE/OPTIONS均405。UI独立1280/390审查和对“极值单行省略号／112px分隔线”的设计答复待回；预览与本轮数据库/服务为此保持运行。
+
+未测实体手机、Windows、全套测试；用户接受的会话内截图/DOM几何/API manifest方案用于浏览器证据。固定应用未修改；代理和合成数据只位于本地 `.local/`。结论仅适用于上述固定提交，不代表UI独立审查完成或生产验收。
+
+### ORDER-OPERATION-REFINE-1028｜31df9e9最终窄版独立复验（2026-10-28）
+
+依据最终固定提交 `31df9e9ccc78ea4ec75ff2429201e74dd80d4b15`，私有归档副本 `.local/QA-ORDER-OPERATION-REFINE-1028-31DF9E9/source` 的742个跟踪文件逐字节一致（0缺失、0差异）。独立Django仅绑定 `127.0.0.1:19310` 并使用本轮私有PG `qa_order_operation_refine_ef1b14a`（socket `/tmp/qaopef1b14a`、端口57742）；只读代理 `127.0.0.1:19312` 仅转发GET/HEAD及登录POST，业务写POST返回405。`manage.py check` 通过；只用Django测试运行器定向执行 `test_hidden_payment_reason_overrides_payment_form_grid_layout` 和 `test_payment_report_verify_controls_meet_touch_target_height`，2/2通过。未重跑原6项及四单链路。实际CSS响应 `/static/crm/app.css?v=20261028-order-operation-refine-2` 的SHA-256为 `b3cb39e3089af5f9ab586bf6f6e9413877ac7d802acda866c6fff3a83560e9af`，与固定归档一致。
+
+**最终版实际浏览器窄复验（独立UI会话CUA）：**在1280×900与390×844检查付款原因字段。金额相等时父label `hidden=true`、computed `display:none`、宽高0、`required=false`；填写差额4.500/5.000时显示为grid、高109.5px且 `required=true`；改回等额后恢复隐藏、尺寸0及 `required=false`。390视口根 `clientWidth/scrollWidth=390/390`，差额原因框宽332px；1280视口根1280/1280。未提交输入草稿。
+
+核对弹窗两控件的实际DOM高度在1280及390视口均为44px。1280下弹窗760×876，select/input各354×44；390下弹窗352×820，select/input各324×44；两视口根宽均无溢出。销售角色只读订单3收货区，1280/390下表单仅含“确认收货并完成订单”按钮、没有输入框或表格（因此无重复运费输入）；390下按钮高44px，低频“修改已登记收款”详情默认折叠。几何与真实CSS指纹记录见 [UI实测清单](../ui/review-order-operation-31df9e9/GEOMETRY.json)。会话截图仅在当前浏览器中查看，未保存图像文件；viewport为桌面浏览器390仿真，不是实体手机。
+
+一条自动化定位因精确按钮role名称未匹配而失败；改按页面可见文字定位后成功，属于测试选择器问题，非产品失败。整个最终复验只登录并GET页面/静态资源，未提交业务表单、未写业务数据；qa-sales销售收货区和qa-owner-warehouse核对弹窗均为隔离合成账号。结论：负责人指定的原因隐藏/差额必填切换、弹窗两个44px目标及订单3收货区相邻布局在最终固定版通过。未测实体手机、Windows、屏幕阅读器/读屏及全套测试；不替代负责人整合验收或生产验收。
+
+**UI媒体限制追查（同日）**：最终归档克隆的 `MEDIA_ROOT` 指向 `.local/QA-ORDER-OPERATION-REFINE-1028-31DF9E9/source/.local/private-media`；只读DB显示相关 `ReceiptImage` id2（订单2）与id3（订单3）记录各为PNG/78字节，但归档目标路径文件缺失。前一固定副本的同名私有合成文件存在，字节均为78、SHA-256 `f9a5d930ba59322e7ac3d7434c0e8404ab99d5e3d247fbe47c6d50a6ca07aab3`。按负责人指示只将这两张目标样例恢复到最终副本 `.local/` MEDIA_ROOT，未改DB或上传。经只读代理验证：qa-sales GET `/api/v1/images/3` 返回200 `image/png`/78字节；qa-owner-warehouse GET `/api/v1/images/2` 同为200；匿名GET id3返回401。此复现归因于归档切换未携带本地合成媒体，不是固定应用读图回归。未扩大其它图片、上传或完整媒体权限矩阵检查。

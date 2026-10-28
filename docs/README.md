@@ -1,6 +1,6 @@
 # CRM Manager 文档入口
 
-更新：2026-10-22。CRM已上线：[正式HTTPS入口](https://crm.onenesscyber.tech/)，固定应用d47fc91/0018，正式585 SKU/104正库存与原员工账号保留；渠道及收款账户已配置，自行改密可用；[订单查找反馈修复](project/RELEASE_ORDER_SEARCH_20261022.md)已发布；[老板及客户选填规则](project/RELEASE_CUSTOMER_RULES_20261022.md)已发布，真实数据核对/准备/导入按用户要求暂停；库存系列筛选及对齐修复已发布，见[库存发布记录](project/RELEASE_INVENTORY_20261022.md)；订单客户选择及控件修复已发布，见[本轮发布记录](project/RELEASE_ORDER_CONTROLS_20261022.md)。独立数据/业务烟测/改密验收、三角色真实登录及只读核验完成，Mac自动异地备份及实际恢复已验证；图片为空与本轮未做浏览器视觉的限制见[上线记录](project/CLOUD_GO_LIVE_20261021.md)。原IP18888仍为独立测试库，本机演示未更新；企微等暂缓。当前安排见[开发计划](project/DEVELOPMENT_PLAN.md)。
+更新：2026-10-28。[正式HTTPS入口](https://crm.onenesscyber.tech/)运行固定应用7eb89f6/0018，见[正式发布记录](project/RELEASE_TASK_FOCUSED_20261028.md)。本轮订单编号/交互修复最终应用31df9e9已通过限定独立验收，尚未部署或迁移运行库，见[验收与交付](project/ORDER_OPERATION_REFINEMENT_20261028.md)。Windows原生部署依赖已锁定，实机验证与独立目录更新由部署工程师指导；现有云入口、账号和数据保持。真实数据核对/准备/导入及企微接入继续暂停，当前安排以[开发计划](project/DEVELOPMENT_PLAN.md)为准。
 
 ## 所有人最小阅读集
 
@@ -20,7 +20,7 @@
 - **business/**：[项目共识](business/PROJECT_CONSENSUS.md)、[商品](business/PRODUCT_CATALOG.md)、[采购](business/PURCHASE_RECEIVING.md)、[销售履约](business/SALES_FULFILLMENT.md)、[权限](business/ACCESS_CONTROL.md)、[客户/报表](business/CUSTOMERS_REPORTS.md)、[期初/导出](business/INITIAL_DATA.md)。
 - **specs/**：[PRD](specs/PRD.md)、[SPEC](specs/SPEC.md)、[数据库](specs/DATABASE_DESIGN.md)、[成本算法](specs/COST_ENGINE.md)、[API](specs/API_CONTRACT.md)、[验收](specs/ACCEPTANCE.md)。业务基线ad06ea3已批准，后续明确增量见对应文档。
 - **project/**：只维护当前会话、任务、问题和授权，不存角色聊天全文。
-- **2026-10-19已确认调整**：[实际出库成本、提成差额及UI目标](project/COST_COMMISSION_REVISION_20261019.md)。已在6024205实现并完成本轮限定验收，云测试eefc490已包含；[发布记录](project/RELEASE_COST_WORKFLOW_20261020.md)列明分版本证据及限制，旧单成本口径保留；云测试迁移至0017，正式库新版迁移与业务切换未执行。
+- **2026-10-19已确认调整**：[实际出库成本、提成差额及UI目标](project/COST_COMMISSION_REVISION_20261019.md)。已在6024205实现并完成本轮限定验收，云测试eefc490已包含；[发布记录](project/RELEASE_COST_WORKFLOW_20261020.md)列明分版本证据及限制，旧单成本口径保留；该条描述10月20日发布时状态；现正式库已至0018并上线，当前版本以上方发布记录为准。
 - **workspaces/**：ROLE/WORK和角色产物，不是已确认业务的副本；原型不等于批准、交付声明不等于验收。
 - **templates/**：[当前12列期初模板](templates/期初盘点模板-简化版.xlsx)，原期初模板及用户已有未提交修改保留、不覆盖或提交。
 - **archive/**：[旧阶段记录](archive/DEVELOPMENT_PLAN_HISTORY.md)、[旧问题证据](archive/ISSUE_LOG_HISTORY.md)、[旧协作记录](archive/COORDINATION_HISTORY.md)、[文档审查](archive/DOCUMENT_REVIEW.md)、[协作方法参考](archive/PROJECT_WORKING_METHOD.md)。仅查证具体历史时读取。

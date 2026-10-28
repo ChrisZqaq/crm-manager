@@ -1,0 +1,154 @@
+{
+  "commit": "ef1b14aecec5966db4e1afd768b63cc2a26b8008",
+  "observedDate": "2026-10-28",
+  "cssSHA256": "71f8e23d92bba84af7711f7285bc724169254fa3ed6a7f8ad66d74340354a1bf",
+  "method": "实际CUA只读DOM/会话内截图；图片按交接不落盘；原因已知问题按负责人不重复测。",
+  "order3Desktop": {
+    "receiveControls": null,
+    "root": [
+      1280,
+      1280
+    ],
+    "title": "订单 202610280003",
+    "versions": []
+  },
+  "order3PhoneCollapsed": {
+    "details": [
+      {
+        "open": false,
+        "text": "\n        报表\n      "
+      },
+      {
+        "open": false,
+        "text": "其他操作"
+      }
+    ],
+    "receiveControls": null,
+    "root": [
+      390,
+      390
+    ]
+  },
+  "order3PhoneOpen": {
+    "freight": [
+      {
+        "value": "3.750",
+        "width": 199
+      }
+    ],
+    "root": [
+      390,
+      390
+    ],
+    "tables": [
+      {
+        "client": 332,
+        "scroll": 660
+      }
+    ]
+  },
+  "paymentPhone": {
+    "active": "关闭",
+    "dialog": [
+      {
+        "bottom": 832,
+        "client": 350,
+        "height": 820,
+        "id": "payment-detail",
+        "left": 19,
+        "right": 371,
+        "scroll": 350,
+        "top": 12,
+        "width": 352,
+        "x": 19,
+        "y": 12
+      }
+    ],
+    "root": [
+      390,
+      390
+    ]
+  },
+  "phoneBackTab": {
+    "inside": true,
+    "tag": "DIALOG",
+    "text": "收款详情关闭订单 202610280002订单金额¥5.000登记应收金额¥5.000登记收款金额¥4.500登记差额¥-0.500收款账户QA Synthetic Public Bank（银行）核对责任对公／财务核对履约状态待出库收款核对待处理出库暂停是客户QA Synthetic Customer销售qa-sales首次凭证登记2026-10-28T16:01:27+08:00差额原因合成验收：实收金额比订单应收少0.500，等待人工核对。待处理原因合成验收：实收少0.500，待销售补正并重新核对。收款凭证打开订单详情核对结果核对通过待处理待处理原因确认核对"
+  },
+  "phoneForwardTab": {
+    "inside": false,
+    "tag": "BODY",
+    "note": "末按钮Tab后焦点到BODY，未据此宣称完整焦点循环通过；未观察到背景具体控件获焦。"
+  },
+  "phoneClosed": {
+    "active": "<button class=\"link-button\" type=\"button\" data-payment-order=\"2\">202610280002</button>",
+    "open": 0,
+    "root": [
+      390,
+      390
+    ],
+    "url": "http://127.0.0.1:19312/reports/payments/"
+  },
+  "paymentDesktop": {
+    "active": "关闭",
+    "dialog": [
+      {
+        "bottom": 888,
+        "client": 758,
+        "height": 876,
+        "id": "payment-detail",
+        "left": 260,
+        "right": 1020,
+        "scroll": 758,
+        "top": 12,
+        "width": 760,
+        "x": 260,
+        "y": 12
+      }
+    ],
+    "root": [
+      1280,
+      1280
+    ]
+  },
+  "explicitButton": {
+    "dialogCount": 1,
+    "heading": "订单 202610280002"
+  },
+  "desktopActions": {
+    "activeTag": "INPUT",
+    "controls": [
+      {
+        "h": 44,
+        "tag": "BUTTON",
+        "text": "关闭",
+        "w": 58,
+        "x": 941,
+        "y": -240
+      },
+      {
+        "h": 42,
+        "tag": "SELECT",
+        "text": "核对通过待处理",
+        "w": 354,
+        "x": 279,
+        "y": 724.75
+      },
+      {
+        "h": 42,
+        "tag": "INPUT",
+        "text": "",
+        "w": 354,
+        "x": 647,
+        "y": 724.75
+      },
+      {
+        "h": 44,
+        "tag": "BUTTON",
+        "text": "确认核对",
+        "w": 354,
+        "x": 279,
+        "y": 780.75
+      }
+    ]
+  }
+}

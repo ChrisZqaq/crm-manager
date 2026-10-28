@@ -1,0 +1,251 @@
+{
+  "commit": "31df9e9ccc78ea4ec75ff2429201e74dd80d4b15",
+  "cssSHA256": "b3cb39e3089af5f9ab586bf6f6e9413877ac7d802acda866c6fff3a83560e9af",
+  "observedDate": "2026-10-28",
+  "method": "实际CUA DOM；会话截图不落盘；modalInitialDefault1280实际根1280，另有显式设置后真实modal390，不混用标签尺寸。",
+  "receive1280": {
+    "css": [
+      "/static/crm/app.css?v=20261028-order-operation-refine-2"
+    ],
+    "disclosures": [
+      {
+        "open": false,
+        "text": "修改已登记收款"
+      }
+    ],
+    "focus": {
+      "tag": "BUTTON",
+      "text": "确认收货并完成订单"
+    },
+    "form": "\n        确认收货并完成订单\n      ",
+    "freightInputs": 0,
+    "root": [
+      1280,
+      1280
+    ]
+  },
+  "equal1280": {
+    "display": "none",
+    "labelHidden": true,
+    "rect": {
+      "bottom": 0,
+      "height": 0,
+      "left": 0,
+      "right": 0,
+      "top": 0,
+      "width": 0,
+      "x": 0,
+      "y": 0
+    },
+    "required": false
+  },
+  "diff1280": {
+    "display": "grid",
+    "labelHidden": false,
+    "rect": {
+      "bottom": 592.59375,
+      "height": 109.5,
+      "left": 736,
+      "right": 1237,
+      "top": 483.09375,
+      "width": 501,
+      "x": 736,
+      "y": 483.09375
+    },
+    "required": true
+  },
+  "backEqual1280": {
+    "display": "none",
+    "labelHidden": true,
+    "rect": {
+      "bottom": 0,
+      "height": 0,
+      "left": 0,
+      "right": 0,
+      "top": 0,
+      "width": 0,
+      "x": 0,
+      "y": 0
+    },
+    "required": false
+  },
+  "diff390": {
+    "display": "grid",
+    "labelHidden": false,
+    "rect": {
+      "bottom": 646.09375,
+      "height": 109.5,
+      "left": 29,
+      "right": 361,
+      "top": 536.59375,
+      "width": 332,
+      "x": 29,
+      "y": 536.59375
+    },
+    "required": true,
+    "root": [
+      390,
+      390
+    ]
+  },
+  "equal390": {
+    "display": "none",
+    "height": 0,
+    "labelHidden": true,
+    "required": false,
+    "root": [
+      390,
+      390
+    ]
+  },
+  "receive390": {
+    "button": {
+      "bottom": 652.09375,
+      "height": 44,
+      "left": 29,
+      "right": 189,
+      "top": 608.09375,
+      "width": 160,
+      "x": 29,
+      "y": 608.09375
+    },
+    "disclosures": [
+      {
+        "open": false,
+        "text": "修改已登记收款"
+      }
+    ],
+    "form": "\n        确认收货并完成订单\n      ",
+    "inputs": 0,
+    "root": [
+      390,
+      390
+    ]
+  },
+  "modal1280": {
+    "controls": [
+      {
+        "bottom": 767,
+        "height": 44,
+        "left": 279,
+        "required": true,
+        "right": 633,
+        "tag": "SELECT",
+        "top": 723,
+        "width": 354,
+        "x": 279,
+        "y": 723
+      },
+      {
+        "bottom": 767,
+        "height": 44,
+        "left": 647,
+        "required": true,
+        "right": 1001,
+        "tag": "INPUT",
+        "top": 723,
+        "width": 354,
+        "x": 647,
+        "y": 723
+      }
+    ],
+    "dialog": {
+      "bottom": 888,
+      "height": 876,
+      "left": 260,
+      "right": 1020,
+      "top": 12,
+      "width": 760,
+      "x": 260,
+      "y": 12
+    },
+    "root": [
+      1280,
+      1280
+    ]
+  },
+  "modalInitialDefault1280": {
+    "controls": [
+      {
+        "bottom": 792,
+        "height": 44,
+        "left": 279,
+        "required": true,
+        "right": 633,
+        "tag": "SELECT",
+        "top": 748,
+        "width": 354,
+        "x": 279,
+        "y": 748
+      },
+      {
+        "bottom": 792,
+        "height": 44,
+        "left": 647,
+        "required": true,
+        "right": 1001,
+        "tag": "INPUT",
+        "top": 748,
+        "width": 354,
+        "x": 647,
+        "y": 748
+      }
+    ],
+    "dialog": {
+      "bottom": 708,
+      "height": 696,
+      "left": 260,
+      "right": 1020,
+      "top": 12,
+      "width": 760,
+      "x": 260,
+      "y": 12
+    },
+    "root": [
+      1280,
+      1280
+    ]
+  },
+  "modal390": {
+    "controls": [
+      {
+        "bottom": 625.5,
+        "height": 44,
+        "left": 33,
+        "required": true,
+        "right": 357,
+        "tag": "SELECT",
+        "top": 581.5,
+        "width": 324,
+        "x": 33,
+        "y": 581.5
+      },
+      {
+        "bottom": 711,
+        "height": 44,
+        "left": 33,
+        "required": true,
+        "right": 357,
+        "tag": "INPUT",
+        "top": 667,
+        "width": 324,
+        "x": 33,
+        "y": 667
+      }
+    ],
+    "dialog": {
+      "bottom": 832,
+      "height": 820,
+      "left": 19,
+      "right": 371,
+      "top": 12,
+      "width": 352,
+      "x": 19,
+      "y": 12
+    },
+    "root": [
+      390,
+      390
+    ]
+  }
+}
