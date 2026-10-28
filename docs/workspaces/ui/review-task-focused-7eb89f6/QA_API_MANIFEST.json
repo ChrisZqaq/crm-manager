@@ -1,0 +1,123 @@
+{
+  "task": "TASK-FOCUSED-UI-1023",
+  "recordedAtLocal": "2026-10-27T17:40:57+08:00",
+  "scope": "Targeted independent retest of the fixed frontend; no app source edits.",
+  "fixedFrontendSha": "7eb89f6b98178e582e0c13f98ca715576ba4d233",
+  "parentSha": "df16296ea8e0a15d7f9ec90cdfb82a1fc51dc6ac",
+  "cssSha256": "6d1e5aa73be3fe85ca2dd791a38002f09ba68c8f0011421ce7fee0907376c849",
+  "backendSha": "2a5f7ab06b962b381a3d91c4c2819c27acd208eb",
+  "sourcePath": "/Users/chrisz/Documents/projects/aluolaCRM/.local/QA-TASK-FOCUSED-UI-1023-7EB89F6-1027/source",
+  "database": "qa_task_focused_ui_1023_7eb89f6",
+  "databaseSource": "clone of isolated synthetic DB; see ../549C5FB-1027/sample_normalization.json for normalization notes",
+  "browser": "http://qa-task-focused.localhost:19259/ (private alias; login POST allowed, business write methods blocked by local proxy)",
+  "api": {
+    "home": {
+      "status": 200
+    },
+    "dayOverDay": {
+      "status": 200,
+      "summary": {
+        "today_amount": "99999999999999999.999",
+        "yesterday_amount": "0.001",
+        "growth_percent": "9999999999999999999800.00"
+      },
+      "exact": true
+    },
+    "customerRanking": {
+      "status": 200,
+      "top3": [
+        {
+          "customer_id": "4",
+          "customer_name": "QA合成极值客户甲-超大金额布局",
+          "amount": "99999999999999919.000"
+        },
+        {
+          "customer_id": "5",
+          "customer_name": "QA合成极值客户乙-今日小额",
+          "amount": "0.999"
+        },
+        {
+          "customer_id": "6",
+          "customer_name": "QA合成极值客户丙-昨日小额",
+          "amount": "0.001"
+        }
+      ],
+      "exact": true
+    },
+    "ownerWorkbench": {
+      "status": 200,
+      "total": 4,
+      "counts": {
+        "register_payment": 0,
+        "verify_payment": 2,
+        "ship": 0,
+        "deliver_on_site": 0,
+        "receive": 0,
+        "review_commission": 0,
+        "complete_commission_adjustment": 0,
+        "cost_correction_commission_decision": 2
+      },
+      "sampleOrdersRemaining": []
+    }
+  },
+  "inSessionUiObservation": {
+    "viewportScreenshot": "captured in session at 1280x720; not saved as a standalone file by browser policy",
+    "visibleTodaySalesText": "¥99999999999999999.999",
+    "visibleGrowthText": "+9999999999999999999800.00%",
+    "visibleTop3Amounts": [
+      "¥99999999999999919.000",
+      "¥0.999",
+      "¥0.001"
+    ],
+    "accessibilityLabelsAndHints": "full exact values and horizontal scroll hints present in AX tree",
+    "evidenceMethod": "real in-session screenshot and accessibility tree; responsive geometry review handed to UI designer"
+  },
+  "notes": [
+    "Backend 17-test result was retained from the prior fixed backend and not rerun.",
+    "Private fixture setup added passed synthetic payments/images, reviewed zero-commission snapshots and marked only zero-delta synthetic adjustments complete; these changes are confined to the private QA DB and cloned into this DB.",
+    "Current owner task total is 4 versus the initial role snapshot total 3: one additional verify_payment task belongs to pre-existing order 2; it was not changed. No synthetic sample task remains.",
+    "No browser business write was submitted."
+  ],
+  "targetedDeltaChecks": {
+    "nonfirstCorrection": {
+      "path": "/api/v1/cost-corrections/1",
+      "status": 200,
+      "keys": [
+        "before_after",
+        "can_approve",
+        "can_reject",
+        "id",
+        "original_input",
+        "preview_sequence",
+        "proposed_input",
+        "reason",
+        "request_version",
+        "reviewed_at",
+        "reviewer_id",
+        "source_id",
+        "source_kind",
+        "status",
+        "submitted_at",
+        "submitted_sequence",
+        "submitter_id",
+        "supplemental_count_costs",
+        "version"
+      ],
+      "id": 1,
+      "version": 2
+    },
+    "shipDeepLink": {
+      "path": "/orders/2/?task_action=ship",
+      "actor": "qa-owner-warehouse",
+      "status": 200,
+      "shipFormPresent": true,
+      "freightTableInScrollableRegion": true,
+      "uiFocusAndScroll": "awaiting UI designer browser review"
+    },
+    "servedCss": {
+      "status": "200",
+      "sha256": "6d1e5aa73be3fe85ca2dd791a38002f09ba68c8f0011421ce7fee0907376c849",
+      "matchesFixedSource": true
+    }
+  }
+}

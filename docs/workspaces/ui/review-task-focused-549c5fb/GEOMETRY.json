@@ -1,0 +1,770 @@
+{
+  "controlsDesktop": {
+    "client": 1280,
+    "controls": [
+      {
+        "h": 44,
+        "name": "待我处理",
+        "tag": "BUTTON",
+        "w": 104
+      },
+      {
+        "h": 44,
+        "name": "订单资料",
+        "tag": "BUTTON",
+        "w": 104
+      },
+      {
+        "h": 44,
+        "name": "处理记录",
+        "tag": "BUTTON",
+        "w": 104
+      },
+      {
+        "h": 42,
+        "name": "verify-result",
+        "tag": "SELECT",
+        "w": 106
+      },
+      {
+        "h": 82,
+        "name": "problem-reason",
+        "tag": "TEXTAREA",
+        "w": 207
+      },
+      {
+        "h": 44,
+        "name": "提交核对结果",
+        "tag": "BUTTON",
+        "w": 118
+      },
+      {
+        "h": 40,
+        "name": "温润米色",
+        "tag": "BUTTON",
+        "w": 92
+      },
+      {
+        "h": 40,
+        "name": "柔和绿",
+        "tag": "BUTTON",
+        "w": 74
+      }
+    ],
+    "scroll": 1280
+  },
+  "draftAfterTabs": {
+    "selected": [
+      "待我处理"
+    ],
+    "value": "合成视觉检查，未提交。"
+  },
+  "reviewPhone": {
+    "client": 375,
+    "controls": [
+      {
+        "h": 44,
+        "text": "待我处理",
+        "w": 104
+      },
+      {
+        "h": 44,
+        "text": "订单资料",
+        "w": 104
+      },
+      {
+        "h": 44,
+        "text": "处理记录",
+        "w": 104
+      },
+      {
+        "h": 42,
+        "text": "verify-result",
+        "w": 106
+      },
+      {
+        "h": 82,
+        "text": "problem-reason",
+        "w": 207
+      },
+      {
+        "h": 44,
+        "text": "提交核对结果",
+        "w": 118
+      },
+      {
+        "h": 40,
+        "text": "温润米色",
+        "w": 92
+      },
+      {
+        "h": 40,
+        "text": "柔和绿",
+        "w": 74
+      }
+    ],
+    "scroll": 375,
+    "tabs": [
+      {
+        "h": 44,
+        "right": 233,
+        "text": "待我处理",
+        "x": 129
+      },
+      {
+        "h": 44,
+        "right": 349,
+        "text": "订单资料",
+        "x": 245
+      },
+      {
+        "h": 44,
+        "right": 349,
+        "text": "处理记录",
+        "x": 245
+      }
+    ],
+    "y": 0
+  },
+  "multiPhone": {
+    "client": 375,
+    "links": [
+      {
+        "height": 24,
+        "href": "/orders/1/?task_action=verify_payment",
+        "text": "核对收款"
+      },
+      {
+        "height": 24,
+        "href": "/orders/1/?task_action=deliver_on_site",
+        "text": "确认现场交付"
+      },
+      {
+        "height": 24,
+        "href": "/adjustments/?cost_correction_id=1&order_id=4",
+        "text": "确认成本纠错提成差额"
+      },
+      {
+        "height": 24,
+        "href": "/adjustments/?cost_correction_id=1&order_id=3",
+        "text": "确认成本纠错提成差额"
+      },
+      {
+        "height": 24,
+        "href": "/orders/2/?task_action=verify_payment",
+        "text": "核对收款"
+      },
+      {
+        "height": 24,
+        "href": "/orders/2/?task_action=ship",
+        "text": "确认发货"
+      },
+      {
+        "height": 0,
+        "href": "/customers/",
+        "text": "全部"
+      },
+      {
+        "height": 0,
+        "href": "/catalog/",
+        "text": "全部"
+      },
+      {
+        "height": 0,
+        "href": "/catalog/?brand_id=2",
+        "text": "Synthetic IP · 简中"
+      },
+      {
+        "height": 0,
+        "href": "/inventory/?low_stock=true",
+        "text": "全部"
+      },
+      {
+        "height": 0,
+        "href": "/inventory/?low_stock=true",
+        "text": "Sample Booster · TST-0003 · 4 盒"
+      },
+      {
+        "height": 0,
+        "href": "/orders/?status=awaiting_payment",
+        "text": "查看全部"
+      },
+      {
+        "height": 0,
+        "href": "/orders/53/",
+        "text": "订单 53 · 门店散客"
+      },
+      {
+        "height": 0,
+        "href": "/orders/52/",
+        "text": "订单 52 · 门店散客"
+      },
+      {
+        "height": 0,
+        "href": "/orders/?status=ready_to_ship",
+        "text": "查看全部"
+      },
+      {
+        "height": 0,
+        "href": "/orders/1/",
+        "text": "订单 1 · 门店散客"
+      },
+      {
+        "height": 0,
+        "href": "/orders/2/",
+        "text": "订单 2 · 门店散客"
+      },
+      {
+        "height": 0,
+        "href": "/reports/payments/?status=pending&period=all",
+        "text": "查看全部"
+      },
+      {
+        "height": 0,
+        "href": "/orders/1/",
+        "text": "订单 1 · 门店散客 · Synthetic Public Bank"
+      },
+      {
+        "height": 0,
+        "href": "/orders/2/",
+        "text": "订单 2 · 门店散客 · Synthetic Public Bank"
+      },
+      {
+        "height": 0,
+        "href": "/reports/commissions/?period=all&commission_status=pending_review",
+        "text": "查看全部"
+      }
+    ],
+    "scroll": 375,
+    "w": 390
+  },
+  "sharedShipPhone": {
+    "client": 375,
+    "focus": "BODY",
+    "forms": [
+      {
+        "id": "verify-form",
+        "top": 375.09375,
+        "width": 317
+      },
+      {
+        "id": "ship-form",
+        "top": 710.390625,
+        "width": 317
+      },
+      {
+        "id": "",
+        "top": 1334.484375,
+        "width": 351
+      }
+    ],
+    "overflowing": [
+      {
+        "class": "",
+        "id": "",
+        "right": 420.078125,
+        "tag": "TABLE"
+      },
+      {
+        "class": "",
+        "id": "",
+        "right": 420.078125,
+        "tag": "THEAD"
+      },
+      {
+        "class": "",
+        "id": "",
+        "right": 420.078125,
+        "tag": "TR"
+      },
+      {
+        "class": "",
+        "id": "",
+        "right": 420.078125,
+        "tag": "TH"
+      },
+      {
+        "class": "",
+        "id": "ship-freight",
+        "right": 420.078125,
+        "tag": "TBODY"
+      },
+      {
+        "class": "",
+        "id": "",
+        "right": 420.078125,
+        "tag": "TR"
+      },
+      {
+        "class": "",
+        "id": "",
+        "right": 420.078125,
+        "tag": "TD"
+      },
+      {
+        "class": "",
+        "id": "",
+        "right": 408.078125,
+        "tag": "INPUT"
+      },
+      {
+        "class": "",
+        "id": "",
+        "right": 420.078125,
+        "tag": "TR"
+      },
+      {
+        "class": "",
+        "id": "",
+        "right": 420.078125,
+        "tag": "TD"
+      },
+      {
+        "class": "",
+        "id": "",
+        "right": 408.078125,
+        "tag": "INPUT"
+      }
+    ],
+    "scroll": 420,
+    "url": "http://127.0.0.1:19257/orders/2/?task_action=ship",
+    "y": 320.5
+  },
+  "sharedDataPhone": {
+    "client": 375,
+    "scroll": 684
+  },
+  "businessDesktop": {
+    "cards": [
+      {
+        "h": 182,
+        "sideBeforeHeight": "auto",
+        "sideHeight": 112,
+        "title": "今日销售额"
+      },
+      {
+        "h": 182,
+        "sideBeforeHeight": "auto",
+        "sideHeight": 112,
+        "title": "客户"
+      },
+      {
+        "h": 182,
+        "sideBeforeHeight": "auto",
+        "sideHeight": 112,
+        "title": "在售商品组合"
+      },
+      {
+        "h": 182,
+        "sideBeforeHeight": "auto",
+        "sideHeight": 112,
+        "title": "低库存提醒"
+      },
+      {
+        "h": 182,
+        "sideBeforeHeight": "auto",
+        "sideHeight": 112,
+        "title": "待收款订单"
+      },
+      {
+        "h": 182,
+        "sideBeforeHeight": "auto",
+        "sideHeight": 112,
+        "title": "待出库订单"
+      },
+      {
+        "h": 182,
+        "sideBeforeHeight": "auto",
+        "sideHeight": 112,
+        "title": "待确认收款"
+      },
+      {
+        "h": 182,
+        "sideBeforeHeight": "auto",
+        "sideHeight": 112,
+        "title": "待确认复核订单"
+      }
+    ],
+    "client": 1265,
+    "orderLinks": [
+      {
+        "aria": "订单 53 · 门店散客",
+        "client": 38,
+        "height": 20.25,
+        "overflowX": "hidden",
+        "right": 380.4609375,
+        "scroll": 124,
+        "tabindex": null,
+        "text": "订单 53 · 门店散客",
+        "textOverflow": "ellipsis",
+        "title": "订单 53 · 门店散客",
+        "width": 37.5859375,
+        "x": 342.875,
+        "y": 430.25
+      },
+      {
+        "aria": "订单 52 · 门店散客",
+        "client": 38,
+        "height": 20.25,
+        "overflowX": "hidden",
+        "right": 380.4609375,
+        "scroll": 124,
+        "tabindex": null,
+        "text": "订单 52 · 门店散客",
+        "textOverflow": "ellipsis",
+        "title": "订单 52 · 门店散客",
+        "width": 37.5859375,
+        "x": 342.875,
+        "y": 457.5
+      },
+      {
+        "aria": "订单 1 · 门店散客",
+        "client": 28,
+        "height": 20.25,
+        "overflowX": "hidden",
+        "right": 632.9921875,
+        "scroll": 113,
+        "tabindex": null,
+        "text": "订单 1 · 门店散客",
+        "textOverflow": "ellipsis",
+        "title": "订单 1 · 门店散客",
+        "width": 28.3671875,
+        "x": 604.625,
+        "y": 430.25
+      },
+      {
+        "aria": "订单 2 · 门店散客",
+        "client": 28,
+        "height": 20.25,
+        "overflowX": "hidden",
+        "right": 632.9921875,
+        "scroll": 115,
+        "tabindex": null,
+        "text": "订单 2 · 门店散客",
+        "textOverflow": "ellipsis",
+        "title": "订单 2 · 门店散客",
+        "width": 28.3671875,
+        "x": 604.625,
+        "y": 457.5
+      },
+      {
+        "aria": "订单 1 · 门店散客 · Synthetic Public Bank",
+        "client": 38,
+        "height": 20.25,
+        "overflowX": "hidden",
+        "right": 903.9609375,
+        "scroll": 274,
+        "tabindex": null,
+        "text": "订单 1 · 门店散客 · Synthetic Public Bank",
+        "textOverflow": "ellipsis",
+        "title": "订单 1 · 门店散客 · Synthetic Public Bank",
+        "width": 37.5859375,
+        "x": 866.375,
+        "y": 430.25
+      },
+      {
+        "aria": "订单 2 · 门店散客 · Synthetic Public Bank",
+        "client": 28,
+        "height": 20.25,
+        "overflowX": "hidden",
+        "right": 894.7421875,
+        "scroll": 276,
+        "tabindex": null,
+        "text": "订单 2 · 门店散客 · Synthetic Public Bank",
+        "textOverflow": "ellipsis",
+        "title": "订单 2 · 门店散客 · Synthetic Public Bank",
+        "width": 28.3671875,
+        "x": 866.375,
+        "y": 457.5
+      }
+    ],
+    "ranking": [
+      {
+        "aria": null,
+        "client": 81,
+        "height": 18.75,
+        "overflowX": "visible",
+        "right": 698.5,
+        "scroll": 176,
+        "tabindex": null,
+        "text": "1.QA合成极值客户甲-超大金额布局¥10,000,000,000,000万",
+        "textOverflow": "clip",
+        "title": "",
+        "width": 80.875,
+        "x": 617.625,
+        "y": 236.125
+      },
+      {
+        "aria": null,
+        "client": 81,
+        "height": 18.75,
+        "overflowX": "visible",
+        "right": 698.5,
+        "scroll": 81,
+        "tabindex": null,
+        "text": "2.QA合成极值客户乙-今日小额¥0.999",
+        "textOverflow": "clip",
+        "title": "",
+        "width": 80.875,
+        "x": 617.625,
+        "y": 256.875
+      },
+      {
+        "aria": null,
+        "client": 81,
+        "height": 18.75,
+        "overflowX": "visible",
+        "right": 698.5,
+        "scroll": 81,
+        "tabindex": null,
+        "text": "3.QA合成极值客户丙-昨日小额¥0.001",
+        "textOverflow": "clip",
+        "title": "",
+        "width": 80.875,
+        "x": 617.625,
+        "y": 277.625
+      }
+    ],
+    "scroll": 1265,
+    "values": [
+      {
+        "aria": "完整金额：¥99999999999999999.999",
+        "client": 107,
+        "height": 27.796875,
+        "overflowX": "auto",
+        "right": 329.875,
+        "scroll": 172,
+        "tabindex": "0",
+        "text": "¥10,000,000,000,000万",
+        "textOverflow": "clip",
+        "title": "完整金额：¥99999999999999999.999；可横向滚动查看完整值",
+        "width": 106.875,
+        "x": 223,
+        "y": 240.15625
+      },
+      {
+        "aria": "增速 +9999999999999999999800.00%",
+        "client": 94,
+        "height": 27.796875,
+        "overflowX": "auto",
+        "right": 436.75,
+        "scroll": 227,
+        "tabindex": "0",
+        "text": "+9999999999999999999800%",
+        "textOverflow": "clip",
+        "title": "服务端增速：+9999999999999999999800.00%；可横向滚动查看完整值",
+        "width": 93.875,
+        "x": 342.875,
+        "y": 240.15625
+      },
+      {
+        "aria": "完整金额：¥99999999999999919.000",
+        "client": 170,
+        "height": 18.75,
+        "overflowX": "visible",
+        "right": 793.7109375,
+        "scroll": 170,
+        "tabindex": null,
+        "text": "¥10,000,000,000,000万",
+        "textOverflow": "clip",
+        "title": "",
+        "width": 170.0859375,
+        "x": 623.625,
+        "y": 236.125
+      },
+      {
+        "aria": "完整金额：¥0.999",
+        "client": 50,
+        "height": 18.75,
+        "overflowX": "visible",
+        "right": 698.5,
+        "scroll": 50,
+        "tabindex": null,
+        "text": "¥0.999",
+        "textOverflow": "clip",
+        "title": "",
+        "width": 50.2890625,
+        "x": 648.2109375,
+        "y": 256.875
+      },
+      {
+        "aria": "完整金额：¥0.001",
+        "client": 50,
+        "height": 18.75,
+        "overflowX": "visible",
+        "right": 698.5,
+        "scroll": 50,
+        "tabindex": null,
+        "text": "¥0.001",
+        "textOverflow": "clip",
+        "title": "",
+        "width": 50.2890625,
+        "x": 648.2109375,
+        "y": 277.625
+      }
+    ],
+    "width": 1280
+  },
+  "businessPhone": {
+    "cards": [
+      {
+        "height": 182,
+        "side": 112,
+        "title": "今日销售额"
+      },
+      {
+        "height": 182,
+        "side": 112,
+        "title": "客户"
+      },
+      {
+        "height": 182,
+        "side": 112,
+        "title": "在售商品组合"
+      },
+      {
+        "height": 182,
+        "side": 112,
+        "title": "低库存提醒"
+      },
+      {
+        "height": 182,
+        "side": 112,
+        "title": "待收款订单"
+      },
+      {
+        "height": 182,
+        "side": 112,
+        "title": "待出库订单"
+      },
+      {
+        "height": 182,
+        "side": 112,
+        "title": "待确认收款"
+      },
+      {
+        "height": 182,
+        "side": 112,
+        "title": "待确认复核订单"
+      }
+    ],
+    "client": 375,
+    "ranking": [
+      {
+        "aria": null,
+        "client": 133,
+        "h": 18.75,
+        "overflow": "visible",
+        "right": 346,
+        "scroll": 176,
+        "tabindex": null,
+        "text": "1.QA合成极值客户甲-超大金额布局¥10,000,000,000,000万",
+        "title": "",
+        "width": 132.5,
+        "x": 213.5
+      },
+      {
+        "aria": null,
+        "client": 133,
+        "h": 18.75,
+        "overflow": "visible",
+        "right": 346,
+        "scroll": 133,
+        "tabindex": null,
+        "text": "2.QA合成极值客户乙-今日小额¥0.999",
+        "title": "",
+        "width": 132.5,
+        "x": 213.5
+      },
+      {
+        "aria": null,
+        "client": 133,
+        "h": 18.75,
+        "overflow": "visible",
+        "right": 346,
+        "scroll": 133,
+        "tabindex": null,
+        "text": "3.QA合成极值客户丙-昨日小额¥0.001",
+        "title": "",
+        "width": 132.5,
+        "x": 213.5
+      }
+    ],
+    "scroll": 389,
+    "values": [
+      {
+        "aria": "完整金额：¥99999999999999999.999",
+        "client": 159,
+        "h": 27.796875,
+        "overflow": "auto",
+        "right": 187.5,
+        "scroll": 172,
+        "tabindex": "0",
+        "text": "¥10,000,000,000,000万",
+        "title": "完整金额：¥99999999999999999.999；可横向滚动查看完整值",
+        "width": 158.5,
+        "x": 29
+      },
+      {
+        "aria": "增速 +9999999999999999999800.00%",
+        "client": 146,
+        "h": 27.796875,
+        "overflow": "auto",
+        "right": 346,
+        "scroll": 227,
+        "tabindex": "0",
+        "text": "+9999999999999999999800%",
+        "title": "服务端增速：+9999999999999999999800.00%；可横向滚动查看完整值",
+        "width": 145.5,
+        "x": 200.5
+      },
+      {
+        "aria": "完整金额：¥99999999999999919.000",
+        "client": 170,
+        "h": 18.75,
+        "overflow": "visible",
+        "right": 389.5859375,
+        "scroll": 170,
+        "tabindex": null,
+        "text": "¥10,000,000,000,000万",
+        "title": "",
+        "width": 170.0859375,
+        "x": 219.5
+      },
+      {
+        "aria": "完整金额：¥0.999",
+        "client": 50,
+        "h": 18.75,
+        "overflow": "visible",
+        "right": 346,
+        "scroll": 50,
+        "tabindex": null,
+        "text": "¥0.999",
+        "title": "",
+        "width": 50.2890625,
+        "x": 295.7109375
+      },
+      {
+        "aria": "完整金额：¥0.001",
+        "client": 50,
+        "h": 18.75,
+        "overflow": "visible",
+        "right": 346,
+        "scroll": 50,
+        "tabindex": null,
+        "text": "¥0.001",
+        "title": "",
+        "width": 50.2890625,
+        "x": 295.7109375
+      }
+    ],
+    "w": 390
+  },
+  "phoneGrowthEnd": {
+    "client": 146,
+    "full": "增速 +9999999999999999999800.00%",
+    "left": 81,
+    "scroll": 227,
+    "text": "+9999999999999999999800%"
+  }
+}

@@ -1,0 +1,278 @@
+{
+  "provenance": {
+    "observed": "2026-10-27",
+    "archived": "2026-10-28",
+    "method": "额度中断导致运行变量丢失；以下忠实转录本UI会话中CUA实际返回的DOM数值，非2026-10-28重测、非源码推算。",
+    "commit": "7eb89f6b98178e582e0c13f98ca715576ba4d233"
+  },
+  "deep4": {
+    "url": "/adjustments/?cost_correction_id=1&order_id=4",
+    "client": 1265,
+    "scroll": 1265,
+    "scrollY": 2304.5,
+    "focusTag": "ARTICLE",
+    "focusClass": "commission-suggestion-row",
+    "focusText": "订单 4当前核定¥2.000→系统新计算¥1.800差额 -0.200确认调整保持原额",
+    "focusTop": 712.265625
+  },
+  "businessDesktop": {
+    "client": 1265,
+    "scroll": 1265,
+    "eightCardHeights": [
+      182,
+      182,
+      182,
+      182,
+      182,
+      182,
+      182,
+      182
+    ],
+    "eightSideHeights": [
+      112,
+      112,
+      112,
+      112,
+      112,
+      112,
+      112,
+      112
+    ],
+    "orderLinkWidths": [
+      116.75,
+      116.75,
+      116.75,
+      116.75
+    ],
+    "orderLinkText": [
+      "订单 53 · 门店散客",
+      "订单 52 · 门店散客",
+      "订单 1 · 门店散客",
+      "订单 2 · 门店散客"
+    ],
+    "valueBoxes": [
+      {
+        "text": "¥99999999999999999.999",
+        "client": 107,
+        "scroll": 424
+      },
+      {
+        "text": "+9999999999999999999800.00%",
+        "client": 94,
+        "scroll": 530
+      },
+      {
+        "text": "¥99999999999999919.000",
+        "client": 44,
+        "scroll": 198
+      },
+      {
+        "text": "¥0.999",
+        "client": 44,
+        "scroll": 47
+      },
+      {
+        "text": "¥0.001",
+        "client": 44,
+        "scroll": 47
+      }
+    ]
+  },
+  "keyboard1280": [
+    {
+      "text": "¥99999999999999999.999",
+      "home": 0,
+      "end": 316.5
+    },
+    {
+      "text": "+9999999999999999999800.00%",
+      "home": 0,
+      "end": 436
+    },
+    {
+      "text": "¥99999999999999919.000",
+      "home": 0,
+      "end": 153.5
+    }
+  ],
+  "business390": {
+    "viewport": 390,
+    "client": 375,
+    "scroll": 375,
+    "eightCardHeights": [
+      182,
+      182,
+      182,
+      182,
+      182,
+      182,
+      182,
+      182
+    ],
+    "eightSideHeights": [
+      112,
+      112,
+      112,
+      112,
+      112,
+      112,
+      112,
+      112
+    ],
+    "values": [
+      {
+        "text": "¥99999999999999999.999",
+        "client": 159,
+        "scroll": 424,
+        "home": 0,
+        "end": 265,
+        "tabindex": "0"
+      },
+      {
+        "text": "+9999999999999999999800.00%",
+        "client": 146,
+        "scroll": 530,
+        "home": 0,
+        "end": 384,
+        "tabindex": "0"
+      },
+      {
+        "text": "¥99999999999999919.000",
+        "client": 70,
+        "scroll": 198,
+        "home": 0,
+        "end": 127.5,
+        "tabindex": "0"
+      },
+      {
+        "text": "¥0.999",
+        "client": 70,
+        "scroll": 70,
+        "tabindex": null
+      },
+      {
+        "text": "¥0.001",
+        "client": 70,
+        "scroll": 70,
+        "tabindex": null
+      }
+    ]
+  },
+  "todo390": {
+    "taskLinkHeights": [
+      44,
+      44,
+      44,
+      44
+    ],
+    "taskLinkWidths": [
+      321,
+      321,
+      321,
+      321
+    ]
+  },
+  "verify390": {
+    "client": 375,
+    "scroll": 375,
+    "focus": "verify-result",
+    "selectHeight": 44,
+    "tabs": [
+      {
+        "text": "待我处理",
+        "top": 166.5,
+        "width": 99.6640625,
+        "height": 44,
+        "x": 26
+      },
+      {
+        "text": "订单资料",
+        "top": 166.5,
+        "width": 99.671875,
+        "height": 44,
+        "x": 137.6640625
+      },
+      {
+        "text": "处理记录",
+        "top": 166.5,
+        "width": 99.6640625,
+        "height": 44,
+        "x": 249.3359375
+      }
+    ]
+  },
+  "ship390": {
+    "url": "/orders/2/?task_action=ship",
+    "client": 375,
+    "scroll": 375,
+    "scrollY": 493.5,
+    "focusedTag": "SELECT",
+    "focusedInsideShip": true,
+    "focusTop": 400.984375,
+    "formTop": 371.390625,
+    "tableWidth": 660,
+    "tableContainer": {
+      "client": 317,
+      "scroll": 660,
+      "overflow": "auto"
+    }
+  },
+  "shipKeyboardScroll390": {
+    "client": 375,
+    "scroll": 375,
+    "tableContainerLeft": 267,
+    "tableContainerClient": 317,
+    "tableContainerScroll": 660,
+    "activeTag": "INPUT",
+    "activeLeft": 147.03125,
+    "activeRight": 346.03125
+  },
+  "limits": [
+    "主体测量来自2026-10-27实际CUA回执，2026-10-28忠实转录归档；补证单列，不冒充全矩阵重测。",
+    "2026-10-28初访19259连接拒绝，经QA恢复后登录成功；仅补Top3第2/3项Home/End，两项均完成。",
+    "未测真机软键盘、读屏语音、系统减弱动态；未执行业务提交、附件上传或全系统验收。"
+  ],
+  "desktopSmallTop3Supplement20261028": {
+    "observedDate": "2026-10-28",
+    "viewport": {
+      "width": 1280,
+      "height": 900
+    },
+    "rows": [
+      {
+        "rank": 2,
+        "start": {
+          "client": 45,
+          "left": 0,
+          "scroll": 47,
+          "tabindex": "0",
+          "text": "¥0.999"
+        },
+        "end": {
+          "client": 45,
+          "left": 2,
+          "scroll": 47,
+          "tabindex": "0",
+          "text": "¥0.999"
+        }
+      },
+      {
+        "rank": 3,
+        "start": {
+          "client": 45,
+          "left": 0,
+          "scroll": 47,
+          "tabindex": "0",
+          "text": "¥0.001"
+        },
+        "end": {
+          "client": 45,
+          "left": 2,
+          "scroll": 47,
+          "tabindex": "0",
+          "text": "¥0.001"
+        }
+      }
+    ]
+  }
+}
