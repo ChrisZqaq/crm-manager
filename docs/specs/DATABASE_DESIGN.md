@@ -4,7 +4,7 @@
 
 产品增加可空发售日期`release_date`、选填说明`supplement_notes`及当前单张主图引用；SKU增加可空包装长宽高`package_length_mm/package_width_mm/package_height_mm`、毛重`package_weight_g`及当前单张包装图引用。数值为Decimal(10,3)正数，单位固定毫米/克，未知为空；三个尺寸独立选填。图片文件位于私有MEDIA_ROOT，数据库只保引用，不混入采购/收款凭证模型。对外以受权限保护的`main_image_url/package_image_url`访问。
 
-采用加法迁移，旧字段/数据及SKU身份不变，不新增包装数量换算、多图图库或通用属性平台。具体存储字段/迁移号随固定后端交付校准，未迁移运行库；范围见[任务](../project/CATALOG_DETAILS_MIN_20261030.md)。
+采用加法迁移0020_catalog_details_min_1030，旧字段/数据及SKU身份不变；主图/包装图分别为`Product.main_image`/`SKU.package_image`的单个私有ImageField，说明为最长2000字符普通文本。SKU四数值在数据库约束为可空或大于0且不超过9999999.999。不新增包装数量换算、多图图库或通用属性平台。后端固定e54e181，开发PG17定向13项通过，独立验收/前端接入中，未迁移运行库；范围见[任务](../project/CATALOG_DETAILS_MIN_20261030.md)。
 
 > **2026-10-20成本口径：** 本文已按实际出库成本及独立提成差额确认规则校准。本轮应用 `6024205` 已完成分项QA/UI、现场/快递网页链及负责人限定验收，证据见[发布记录](../project/RELEASE_COST_WORKFLOW_20261020.md)；已部署版仍为 `71cf9f6`/0015。新单实际出库计成本，既存旧单保留快照，不将代码验收当正式业务切换。
 
