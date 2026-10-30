@@ -1,5 +1,14 @@
 # 第一版网页与API合同
 
+## 商品补充资料开发合同（2026-10-30，尚未交付/部署）
+
+- Product增加选填`release_date`、`supplement_notes`；响应另有受控`main_image_url`。SKU增加选填`package_length_mm`、`package_width_mm`、`package_height_mm`、`package_weight_g`及受控`package_image_url`。旧创建请求可全部省略新字段。
+- 产品/SKU补充资料PATCH仅允许本轮资料字段，省略保值，null或空清除；数字为有限正数、3位小数，长度毫米/毛重克。精确上限与路由随固定实现补齐，不新增单位换算。
+- PATCH分别要求`change_product/change_sku`；单图受控GET要求对应`view_product/view_sku`，POST/DELETE要求对应change权限。图只接受真实JPEG/PNG/WebP且不超过10MB，文件仍私有，URL不暴露MEDIA目录或内部路径。
+- 单图上传/替换/清空独立于商品创建并沿用operation_key幂等与失败保护。创建JSON成功而上传失败时保留已建商品/SKU，只重试图片接口，不能重新创建；不改变基本资料、库存或成本。具体请求/响应与并发保护由固定交付确认。
+
+范围见[最小开发任务](../project/CATALOG_DETAILS_MIN_20261030.md)，本节不是运行库升级或上线授权。
+
 2026-10-28订单编号增量：订单创建结果、详情/列表及工作台任务增加`order_number`，新单按北京时间创建日＋日流水生成后不变；旧行为空，界面回退稳定`id/order_id`，不得使用`sequence/order_sequence`展示订单号。原ID、操作序号及版本字段保留兼容，API路由及外键仍使用内部ID。订单查询`q`支持精确业务单号；收款/提成报表items增加`order_number`，旧行报表回退内部ID文本；Excel可见“订单编号”列使用该展示值，不额外展示技术ID列。该增量已限定验收，运行库0019及部署未执行；证据见[本轮记录](../project/ORDER_OPERATION_REFINEMENT_20261028.md)。
 
 > **2026-10-20成本口径：** 本文已按实际出库成本及独立提成差额确认规则校准。本轮应用 `6024205` 已完成分项QA/UI、现场/快递网页链及负责人限定验收，证据见[发布记录](../project/RELEASE_COST_WORKFLOW_20261020.md)；该句原发布版本为 `71cf9f6`/0015，仅作历史；当前正式7eb89f6/0018，订单增量待部署。新单实际出库计成本，既存旧单保留快照，不将代码验收当正式业务切换。
