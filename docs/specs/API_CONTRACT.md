@@ -8,7 +8,7 @@
 - 路径均无尾斜杠：`PATCH /api/v1/products/{product_id}`、`PATCH /api/v1/skus/{sku_id}`；分别返回对象ID、sequence及更新资料。单图路径为`/api/v1/products/{product_id}/image`和`/api/v1/skus/{sku_id}/image`：GET返回图片字节；POST为multipart `file`与`operation_key`，返回`image_url/image_format/size/sequence`；DELETE为JSON `operation_key`，返回`image_url:null/sequence`。
 - 单图上传/替换/清空独立于商品创建并沿用operation_key幂等与失败保护。创建JSON成功而上传失败时保留已建商品/SKU，只重试图片接口，不能重新创建；不改变基本资料、库存或成本。标准错误结构仍为`error/message/fields/details/request_id`，具体实现的事务/重放边界由固定交付验收。
 - 商品创建响应`sku_ids`严格按请求`skus[]`行序对应，前端按返回ID上传，不按名称回查。仅有add权限时仍能创建JSON资料，后续图片/补充维护要求change权限，新建页对应图片控件依实际change权限展示；不授予刚创建者特权。默认仓管/老板同时有add/change不替代后台动态撤权校验。
-- `supplement_notes`为普通TextField，无单独字符数上限，沿现请求大小/类型校验；前端不擅自截断或添加更小maxlength，不使用富文本编辑器。
+- `supplement_notes`为普通文本，服务端最多2000字符，前端同步maxlength=2000；超长返回字段错误，不静默截断，不使用富文本编辑器。此前无上限讨论不再适用，以此固定合同为准。
 
 范围见[最小开发任务](../project/CATALOG_DETAILS_MIN_20261030.md)，本节不是运行库升级或上线授权。
 
