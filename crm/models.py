@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import RegexValidator
@@ -68,6 +70,9 @@ class Product(models.Model):
     )
     official_code = models.CharField("官方编号", max_length=100, blank=True)
     aliases = models.JSONField("产品别名", default=list, blank=True, validators=[validate_aliases])
+    release_date = models.DateField("发售日期", null=True, blank=True)
+    supplement_notes = models.TextField("补充说明", max_length=2000, blank=True, default="")
+    main_image = models.ImageField("产品主图", upload_to="catalog/products", blank=True)
     is_active = models.BooleanField("启用", default=True)
 
     class Meta:
@@ -122,6 +127,11 @@ class SKU(models.Model):
     unit = models.CharField("售卖单位", max_length=80)
     barcode = models.CharField("包装条码", max_length=255, blank=True, db_index=True)
     aliases = models.JSONField("规格别名", default=list, blank=True, validators=[validate_aliases])
+    package_length_mm = models.DecimalField("包装长（毫米）", max_digits=10, decimal_places=3, null=True, blank=True)
+    package_width_mm = models.DecimalField("包装宽（毫米）", max_digits=10, decimal_places=3, null=True, blank=True)
+    package_height_mm = models.DecimalField("包装高（毫米）", max_digits=10, decimal_places=3, null=True, blank=True)
+    package_weight_g = models.DecimalField("包装毛重（克）", max_digits=10, decimal_places=3, null=True, blank=True)
+    package_image = models.ImageField("包装图", upload_to="catalog/skus", blank=True)
     low_stock_threshold = models.PositiveBigIntegerField("低库存阈值", null=True, blank=True)
     low_stock_enabled = models.BooleanField("启用低库存提醒", default=True)
     is_active = models.BooleanField("启用", default=True)
@@ -129,6 +139,28 @@ class SKU(models.Model):
     class Meta:
         ordering = ("id",)
         permissions = (("manage_sku_low_stock", "管理SKU低库存提醒"),)
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(package_length_mm__isnull=True)
+                | Q(package_length_mm__gt=Decimal("0"), package_length_mm__lte=Decimal("9999999.999")),
+                name="crm_sku_package_length_valid",
+            ),
+            models.CheckConstraint(
+                condition=Q(package_width_mm__isnull=True)
+                | Q(package_width_mm__gt=Decimal("0"), package_width_mm__lte=Decimal("9999999.999")),
+                name="crm_sku_package_width_valid",
+            ),
+            models.CheckConstraint(
+                condition=Q(package_height_mm__isnull=True)
+                | Q(package_height_mm__gt=Decimal("0"), package_height_mm__lte=Decimal("9999999.999")),
+                name="crm_sku_package_height_valid",
+            ),
+            models.CheckConstraint(
+                condition=Q(package_weight_g__isnull=True)
+                | Q(package_weight_g__gt=Decimal("0"), package_weight_g__lte=Decimal("9999999.999")),
+                name="crm_sku_package_weight_valid",
+            ),
+        ]
 
     def clean(self):
         self.code = self.code.strip()

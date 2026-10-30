@@ -1,16 +1,22 @@
 import json
+from io import BytesIO
+from tempfile import TemporaryDirectory
+from unittest.mock import patch
 from uuid import uuid4
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group, Permission
 from django.core.exceptions import ValidationError
-from django.db import IntegrityError, connection, transaction
-from django.test import Client, TestCase
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.db import DatabaseError, IntegrityError, connection, transaction
+from django.test import Client, TestCase, override_settings
 from django.test.utils import CaptureQueriesContext
+from PIL import Image
 
 from .catalog import search_products, search_skus, search_warehouses
 from .forms import ProductAdminForm, SKUAdminForm, WarehouseAdminForm
 from .models import Brand, BusinessOperation, InventoryBalance, PermissionChange, Product, ProductLanguageOption, SKU, Warehouse
+from .operations import canonical_hash
 from .permissions import (
     PRE_D14_WAREHOUSE_DEFAULTS,
     ROLE_DEFAULTS,
@@ -825,3 +831,260 @@ class EmployeeAdminTestCase(TestCase):
         entry = PermissionChange.objects.get(role_name=ROLE_SALES)
         self.assertIn(["crm", "view_sku"], entry.before["permissions"])
         self.assertNotIn(["crm", "view_sku"], entry.after["permissions"])
+
+
+class CatalogDetailsTestCase(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.brand = Brand.objects.create(name="资料测试IP", sku_prefix="CTD")
+        cls.language = ProductLanguageOption.objects.create(name="资料测试语言")
+        cls.product = Product.objects.create(
+            brand=cls.brand,
+            type=Product.Type.BOOSTER,
+            name="资料测试产品",
+            language=cls.language,
+        )
+        cls.sku = SKU.objects.create(product=cls.product, code="CTD0001", unit="盒")
+
+    def setUp(self):
+        self.media_dir = TemporaryDirectory()
+        self.addCleanup(self.media_dir.cleanup)
+        media_settings = override_settings(MEDIA_ROOT=self.media_dir.name)
+        media_settings.enable()
+        self.addCleanup(media_settings.disable)
+        self.owner = self.make_user(ROLE_OWNER)
+
+    def make_user(self, role):
+        user = User.objects.create_user(username=f"catalog-details-{uuid4()}", password="test-password-long-enough")
+        user.groups.add(Group.objects.get(name=role))
+        return user
+
+    def json_request(self, method, path, payload):
+        return getattr(self.client, method)(path, data=json.dumps(payload), content_type="application/json")
+
+    def png_upload(self, color):
+        output = BytesIO()
+        Image.new("RGB", (3, 3), color).save(output, format="PNG")
+        return SimpleUploadedFile("catalog.png", output.getvalue(), content_type="image/png")
+
+    def image_response_bytes(self, response):
+        return b"".join(response.streaming_content)
+
+    def test_create_keeps_legacy_requests_and_accepts_optional_details(self):
+        self.client.force_login(self.owner)
+        legacy_key = str(uuid4())
+        legacy = self.json_request("post", "/api/v1/products", {
+            "brand_id": self.brand.pk,
+            "type": Product.Type.BOOSTER,
+            "name": "旧请求产品",
+            "language_id": self.language.pk,
+            "skus": [{"code": "CTD0002", "unit": "盒"}],
+            "operation_key": legacy_key,
+        })
+        self.assertEqual(legacy.status_code, 200)
+        self.assertEqual(legacy.json()["sku_ids"], [SKU.objects.get(code="CTD0002").pk])
+        old_input = {
+            "brand_id": self.brand.pk,
+            "type": Product.Type.BOOSTER,
+            "series": "",
+            "name": "旧请求产品",
+            "language_id": self.language.pk,
+            "official_code": "",
+            "aliases": [],
+            "skus": [{
+                "code": "CTD0002", "pack_type": "", "unit": "盒", "barcode": "", "aliases": [],
+                "confirm_duplicate_barcode": False,
+            }],
+        }
+        old_operation = BusinessOperation.objects.get(operation_key=legacy_key)
+        self.assertEqual(old_operation.input_hash, canonical_hash({"action": "catalog_product_create", "input": old_input}))
+
+        created = self.json_request("post", "/api/v1/products", {
+            "brand_id": self.brand.pk,
+            "type": Product.Type.BOOSTER,
+            "name": "补充资料产品",
+            "language_id": self.language.pk,
+            "release_date": "2026-10-30",
+            "supplement_notes": "限定配色，包装完整",
+            "operation_key": str(uuid4()),
+            "skus": [
+                {"code": "CTD0003", "unit": "盒", "package_length_mm": "12.375", "package_width_mm": 8},
+                {"code": "CTD0004", "unit": "箱", "package_weight_g": "250.5"},
+            ],
+        })
+        self.assertEqual(created.status_code, 200)
+        created_data = created.json()
+        self.assertEqual([SKU.objects.get(pk=pk).code for pk in created_data["sku_ids"]], ["CTD0003", "CTD0004"])
+
+        products = self.client.get("/api/v1/products").json()["items"]
+        by_id = {item["id"]: item for item in products}
+        legacy_product = by_id[Product.objects.get(name="旧请求产品").pk]
+        self.assertIsNone(legacy_product["release_date"])
+        self.assertEqual(legacy_product["supplement_notes"], "")
+        self.assertIsNone(legacy_product["main_image_url"])
+        self.assertIsNone(legacy_product["skus"][0]["package_length_mm"])
+        self.assertIsNone(legacy_product["skus"][0]["package_image_url"])
+
+        new_product = by_id[created_data["product_id"]]
+        self.assertEqual(new_product["release_date"], "2026-10-30")
+        self.assertEqual(new_product["supplement_notes"], "限定配色，包装完整")
+        self.assertEqual(new_product["skus"][0]["package_length_mm"], "12.375")
+        self.assertEqual(new_product["skus"][0]["package_width_mm"], "8.000")
+        self.assertEqual(new_product["skus"][1]["package_weight_g"], "250.500")
+
+    def test_patch_clears_validates_and_rechecks_permissions_before_replay(self):
+        self.client.force_login(self.owner)
+        product_path = f"/api/v1/products/{self.product.pk}"
+        sku_path = f"/api/v1/skus/{self.sku.pk}"
+        key = str(uuid4())
+        payload = {"operation_key": key, "release_date": "2026-09-01", "supplement_notes": "产品说明"}
+        updated = self.json_request("patch", product_path, payload)
+        replay = self.json_request("patch", product_path, payload)
+        self.assertEqual(updated.status_code, 200)
+        self.assertEqual(replay.json()["sequence"], updated.json()["sequence"])
+
+        sku_updated = self.json_request("patch", sku_path, {
+            "operation_key": str(uuid4()), "package_length_mm": "12.345", "package_width_mm": "8",
+        })
+        self.assertEqual(sku_updated.status_code, 200)
+        self.assertEqual(sku_updated.json()["package_length_mm"], "12.345")
+        preserved = self.json_request("patch", sku_path, {
+            "operation_key": str(uuid4()), "package_height_mm": "4.5",
+        })
+        self.assertEqual(preserved.json()["package_width_mm"], "8.000")
+        self.assertEqual(preserved.json()["package_height_mm"], "4.500")
+
+        cleared = self.json_request("patch", product_path, {
+            "operation_key": str(uuid4()), "release_date": None, "supplement_notes": "",
+        })
+        self.assertEqual(cleared.status_code, 200)
+        self.assertIsNone(Product.objects.get(pk=self.product.pk).release_date)
+        self.assertEqual(Product.objects.get(pk=self.product.pk).supplement_notes, "")
+        self.json_request("patch", sku_path, {"operation_key": str(uuid4()), "package_width_mm": None})
+        self.assertIsNone(SKU.objects.get(pk=self.sku.pk).package_width_mm)
+
+        invalid_date = self.json_request("patch", product_path, {
+            "operation_key": str(uuid4()), "release_date": "2026-02-30",
+        })
+        self.assertEqual(invalid_date.status_code, 400)
+        for value in ("0", "-1", "NaN", "Infinity", "10000000", "1.2345", 1.25):
+            with self.subTest(package_length_mm=value):
+                invalid = self.json_request("patch", sku_path, {
+                    "operation_key": str(uuid4()), "package_length_mm": value,
+                })
+                self.assertEqual(invalid.status_code, 400)
+        too_long = self.json_request("patch", product_path, {
+            "operation_key": str(uuid4()), "supplement_notes": "x" * 2001,
+        })
+        self.assertEqual(too_long.status_code, 400)
+
+        restricted = User.objects.create_user(username=f"catalog-change-{uuid4()}", password="test-password-long-enough")
+        change_product = Permission.objects.get(content_type__app_label="crm", codename="change_product")
+        restricted.user_permissions.add(change_product)
+        limited_client = Client()
+        limited_client.force_login(restricted)
+        replay_key = str(uuid4())
+        restricted_update = limited_client.patch(
+            product_path,
+            data=json.dumps({"operation_key": replay_key, "supplement_notes": "权限撤销后不得重放"}),
+            content_type="application/json",
+        )
+        self.assertEqual(restricted_update.status_code, 200)
+        restricted.user_permissions.remove(change_product)
+        denied_replay = limited_client.patch(
+            product_path,
+            data=json.dumps({"operation_key": replay_key, "supplement_notes": "权限撤销后不得重放"}),
+            content_type="application/json",
+        )
+        self.assertEqual(denied_replay.status_code, 403)
+
+    def test_image_validation_access_replacement_failure_and_clear(self):
+        self.client.force_login(self.owner)
+        product_path = f"/api/v1/products/{self.product.pk}/image"
+        first_bytes = self.png_upload("red").read()
+        first_key = str(uuid4())
+        uploaded = self.client.post(product_path, {
+            "file": SimpleUploadedFile("first.png", first_bytes, content_type="image/png"),
+            "operation_key": first_key,
+        })
+        self.assertEqual(uploaded.status_code, 200)
+        self.assertEqual(uploaded.json()["image_url"], product_path)
+        original_name = Product.objects.get(pk=self.product.pk).main_image.name
+        replayed = self.client.post(product_path, {
+            "file": SimpleUploadedFile("first.png", first_bytes, content_type="image/png"),
+            "operation_key": first_key,
+        })
+        self.assertEqual(replayed.status_code, 200)
+        self.assertEqual(replayed.json()["sequence"], uploaded.json()["sequence"])
+        self.assertEqual(Product.objects.get(pk=self.product.pk).main_image.name, original_name)
+
+        image_response = self.client.get(product_path)
+        self.assertEqual(image_response.status_code, 200)
+        self.assertEqual(self.image_response_bytes(image_response), first_bytes)
+        self.assertEqual(image_response["Content-Type"], "image/png")
+        self.assertEqual(image_response["Cache-Control"], "private, no-store")
+
+        sales_client = Client()
+        sales_client.force_login(self.make_user(ROLE_SALES))
+        self.assertEqual(sales_client.get(product_path).status_code, 200)
+        self.assertEqual(sales_client.post(product_path, {
+            "file": self.png_upload("blue"), "operation_key": str(uuid4()),
+        }).status_code, 403)
+
+        invalid = self.client.post(product_path, {
+            "file": SimpleUploadedFile("bad.png", b"not an image", content_type="image/png"),
+            "operation_key": str(uuid4()),
+        })
+        self.assertEqual(invalid.status_code, 400)
+        self.assertEqual(Product.objects.get(pk=self.product.pk).main_image.name, original_name)
+
+        with override_settings(DATA_UPLOAD_MAX_MEMORY_SIZE=None, FILE_UPLOAD_MAX_MEMORY_SIZE=1):
+            oversized = self.client.post(product_path, {
+                "file": SimpleUploadedFile("large.png", b"x" * (10 * 1024 * 1024 + 1), content_type="image/png"),
+                "operation_key": str(uuid4()),
+            })
+        self.assertEqual(oversized.status_code, 400)
+        self.assertEqual(Product.objects.get(pk=self.product.pk).main_image.name, original_name)
+
+        with patch("crm.models.Product.save", autospec=True, side_effect=RuntimeError("forced image update failure")):
+            failed_replace = self.client.post(product_path, {
+                "file": self.png_upload("blue"), "operation_key": str(uuid4()),
+            })
+        self.assertEqual(failed_replace.status_code, 500)
+        self.assertEqual(Product.objects.get(pk=self.product.pk).main_image.name, original_name)
+        self.assertEqual(self.image_response_bytes(self.client.get(product_path)), first_bytes)
+
+        replacement_bytes = self.png_upload("blue").read()
+        with self.captureOnCommitCallbacks(execute=True):
+            replaced = self.client.post(product_path, {
+                "file": SimpleUploadedFile("second.png", replacement_bytes, content_type="image/png"),
+                "operation_key": str(uuid4()),
+            })
+        self.assertEqual(replaced.status_code, 200)
+        self.assertFalse(Product.objects.get(pk=self.product.pk).main_image.storage.exists(original_name))
+
+        sku_path = f"/api/v1/skus/{self.sku.pk}/image"
+        sku_uploaded = self.client.post(sku_path, {
+            "file": self.png_upload("green"), "operation_key": str(uuid4()),
+        })
+        self.assertEqual(sku_uploaded.status_code, 200)
+        self.assertEqual(self.client.get(sku_path).status_code, 200)
+
+        clear_key = str(uuid4())
+        with self.captureOnCommitCallbacks(execute=True):
+            cleared = self.json_request("delete", product_path, {"operation_key": clear_key})
+        self.assertEqual(cleared.status_code, 200)
+        self.assertIsNone(cleared.json()["image_url"])
+        clear_replay = self.json_request("delete", product_path, {"operation_key": clear_key})
+        self.assertEqual(clear_replay.json()["sequence"], cleared.json()["sequence"])
+        self.assertEqual(self.client.get(product_path).status_code, 404)
+
+    def test_measurement_database_constraints_reject_nonfinite_values(self):
+        table = connection.ops.quote_name(SKU._meta.db_table)
+        column = connection.ops.quote_name("package_length_mm")
+        for value in ("0", "'NaN'::numeric"):
+            with self.subTest(value=value):
+                with self.assertRaises(DatabaseError):
+                    with transaction.atomic():
+                        with connection.cursor() as cursor:
+                            cursor.execute(f"UPDATE {table} SET {column} = {value} WHERE id = %s", [self.sku.pk])

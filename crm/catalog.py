@@ -140,6 +140,11 @@ def _sku_summary(sku):
         "pack_type_label": sku.get_pack_type_display(),
         "barcode": sku.barcode or None,
         "aliases": sku.aliases,
+        "package_length_mm": format(sku.package_length_mm, ".3f") if sku.package_length_mm is not None else None,
+        "package_width_mm": format(sku.package_width_mm, ".3f") if sku.package_width_mm is not None else None,
+        "package_height_mm": format(sku.package_height_mm, ".3f") if sku.package_height_mm is not None else None,
+        "package_weight_g": format(sku.package_weight_g, ".3f") if sku.package_weight_g is not None else None,
+        "package_image_url": f"/api/v1/skus/{sku.pk}/image" if sku.package_image else None,
         "is_active": sku.is_active,
     }
 
@@ -155,6 +160,9 @@ def product_data(product):
         "language": product.language.name if product.language_id else "",
         "official_code": product.official_code,
         "aliases": product.aliases,
+        "release_date": product.release_date.isoformat() if product.release_date else None,
+        "supplement_notes": product.supplement_notes,
+        "main_image_url": f"/api/v1/products/{product.pk}/image" if product.main_image else None,
         "skus": [_sku_summary(sku) for sku in product.skus.all()],
     }
 
@@ -171,6 +179,9 @@ def sku_data(sku):
             "language": sku.product.language.name if sku.product.language_id else "",
             "official_code": sku.product.official_code,
             "aliases": sku.product.aliases,
+            "release_date": sku.product.release_date.isoformat() if sku.product.release_date else None,
+            "supplement_notes": sku.product.supplement_notes,
+            "main_image_url": f"/api/v1/products/{sku.product_id}/image" if sku.product.main_image else None,
         },
         "brand": {"id": sku.product.brand_id, "name": sku.product.brand.name},
     }

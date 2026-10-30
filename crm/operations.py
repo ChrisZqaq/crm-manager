@@ -7,11 +7,13 @@ import time
 import traceback
 from contextlib import contextmanager
 from contextvars import ContextVar
-from datetime import timedelta
+from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP, localcontext
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from django.core import signing
+from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, connection, transaction
 from django.utils import timezone
@@ -866,12 +868,56 @@ def _catalog_aliases(value, field):
     return list(dict.fromkeys(item.strip() for item in value if item.strip()))
 
 
+def _catalog_supplement_notes(value, field):
+    result = _catalog_text(value, field)
+    if len(result) > 2000:
+        raise OperationError("补充说明不能超过2000字符。", fields={field: "最多2000字符。"})
+    return result
+
+
+def _catalog_release_date(value, field):
+    if value is None or value == "":
+        return None
+    if not isinstance(value, str) or len(value) != 10:
+        raise OperationError("发售日期格式无效。", fields={field: "请使用YYYY-MM-DD格式。"})
+    try:
+        result = date.fromisoformat(value)
+    except ValueError:
+        raise OperationError("发售日期格式无效。", fields={field: "请使用有效的YYYY-MM-DD日期。"}) from None
+    if result.isoformat() != value:
+        raise OperationError("发售日期格式无效。", fields={field: "请使用YYYY-MM-DD格式。"})
+    return result
+
+
+def _catalog_measurement(value, field):
+    if value is None or (isinstance(value, str) and not value.strip()):
+        return None
+    if isinstance(value, (bool, float)):
+        raise OperationError("包装尺寸和毛重须使用精确十进制值。", fields={field: "请输入十进制字符串或整数。"})
+    try:
+        result = Decimal(str(value).strip())
+    except (InvalidOperation, ValueError):
+        raise OperationError("包装尺寸或毛重格式无效。", fields={field: "请输入有效十进制值。"}) from None
+    if not result.is_finite() or result <= 0:
+        raise OperationError("包装尺寸和毛重必须为有限正数。", fields={field: "请输入大于0的有限数值。"})
+    if result >= Decimal("10000000"):
+        raise OperationError("包装尺寸或毛重超出允许范围。", fields={field: "最大值为9999999.999。"})
+    try:
+        normalized = result.quantize(CENT)
+    except InvalidOperation:
+        raise OperationError("包装尺寸或毛重精度无效。", fields={field: "最多允许3位小数。"}) from None
+    if result != normalized:
+        raise OperationError("包装尺寸或毛重精度无效。", fields={field: "最多允许3位小数。"})
+    return normalized
+
+
 def _catalog_sku_input(data, field):
     if not isinstance(data, dict):
         raise OperationError("SKU资料格式无效。", fields={field: "每行须为对象。"})
     allowed = {
         "code", "pack_type", "unit",
         "barcode", "aliases", "confirm_duplicate_barcode",
+        "package_length_mm", "package_width_mm", "package_height_mm", "package_weight_g",
     }
     unknown = set(data) - allowed
     if unknown:
@@ -880,7 +926,7 @@ def _catalog_sku_input(data, field):
     confirmed = data.get("confirm_duplicate_barcode", False)
     if not isinstance(confirmed, bool):
         raise OperationError("重复条码确认格式无效。", fields={f"{field}.confirm_duplicate_barcode": "请输入布尔值。"})
-    return {
+    result = {
         "code": _catalog_text(data.get("code"), f"{field}.code", required=True),
         "pack_type": _catalog_text(data.get("pack_type"), f"{field}.pack_type"),
         "unit": _catalog_text(data.get("unit"), f"{field}.unit", required=True),
@@ -888,6 +934,12 @@ def _catalog_sku_input(data, field):
         "aliases": _catalog_aliases(data.get("aliases", []), f"{field}.aliases"),
         "confirm_duplicate_barcode": confirmed,
     }
+    for name in ("package_length_mm", "package_width_mm", "package_height_mm", "package_weight_g"):
+        if name in data:
+            value = _catalog_measurement(data[name], f"{field}.{name}")
+            if value is not None:
+                result[name] = value
+    return result
 
 
 def _catalog_duplicate_candidates(actor, barcodes, skus):
@@ -946,7 +998,10 @@ def create_catalog_product(actor, data, operation_key, request_id=""):
     _require(actor, "add_sku")
     if not isinstance(data, dict):
         raise OperationError("商品资料格式无效。")
-    allowed = {"brand_id", "type", "series", "name", "language_id", "official_code", "aliases", "skus"}
+    allowed = {
+        "brand_id", "type", "series", "name", "language_id", "official_code", "aliases", "skus",
+        "release_date", "supplement_notes",
+    }
     unknown = set(data) - allowed
     if unknown:
         name = next(iter(sorted(unknown)))
@@ -967,6 +1022,14 @@ def create_catalog_product(actor, data, operation_key, request_id=""):
         "aliases": _catalog_aliases(data.get("aliases", []), "aliases"),
         "skus": skus,
     }
+    if "release_date" in data:
+        release_date = _catalog_release_date(data["release_date"], "release_date")
+        if release_date is not None:
+            payload["release_date"] = release_date
+    if "supplement_notes" in data:
+        supplement_notes = _catalog_supplement_notes(data["supplement_notes"], "supplement_notes")
+        if supplement_notes:
+            payload["supplement_notes"] = supplement_notes
     key = operation_uuid(operation_key)
     input_hash = canonical_hash({"action": "catalog_product_create", "input": payload})
 
@@ -989,6 +1052,8 @@ def create_catalog_product(actor, data, operation_key, request_id=""):
                 language_id=payload["language_id"],
                 official_code=payload["official_code"],
                 aliases=payload["aliases"],
+                release_date=payload.get("release_date"),
+                supplement_notes=payload.get("supplement_notes", ""),
             )
             _catalog_model_validation(product)
             for item in skus:
@@ -1028,7 +1093,10 @@ def create_catalog_sku(actor, data, operation_key, request_id=""):
     _require(actor, "add_sku")
     if not isinstance(data, dict):
         raise OperationError("SKU资料格式无效。")
-    allowed = {"product_id", "code", "pack_type", "unit", "barcode", "aliases", "confirm_duplicate_barcode"}
+    allowed = {
+        "product_id", "code", "pack_type", "unit", "barcode", "aliases", "confirm_duplicate_barcode",
+        "package_length_mm", "package_width_mm", "package_height_mm", "package_weight_g",
+    }
     unknown = set(data) - allowed
     if unknown:
         name = next(iter(sorted(unknown)))
@@ -1074,6 +1142,149 @@ def create_catalog_sku(actor, data, operation_key, request_id=""):
             return result
 
     return _run_write("catalog_sku_create", actor, request_id, write)
+
+
+def update_catalog_details(actor, entity, record_id, data, operation_key, request_id=""):
+    if entity == "product":
+        model = Product
+        permission = "change_product"
+        action = "catalog_product_details_update"
+        parsers = {
+            "release_date": _catalog_release_date,
+            "supplement_notes": _catalog_supplement_notes,
+        }
+    elif entity == "sku":
+        model = SKU
+        permission = "change_sku"
+        action = "catalog_sku_details_update"
+        parsers = {
+            name: _catalog_measurement
+            for name in ("package_length_mm", "package_width_mm", "package_height_mm", "package_weight_g")
+        }
+    else:
+        raise ValueError("Unknown catalog entity.")
+    _require(actor, permission)
+    if not isinstance(data, dict):
+        raise OperationError("补充资料格式无效。")
+    unknown = set(data) - set(parsers)
+    if unknown:
+        name = next(iter(sorted(unknown)))
+        raise OperationError("仅可修改补充资料字段。", fields={name: "此字段不能修改。"})
+    if not data:
+        raise OperationError("请至少填写一个补充资料字段。")
+    payload = {name: parser(data[name], name) for name, parser in parsers.items() if name in data}
+    key = operation_uuid(operation_key)
+    input_hash = canonical_hash({"action": action, "record_id": record_id, "input": payload})
+
+    def write():
+        with transaction.atomic():
+            control = _lock_control()
+            _require(actor, permission)
+            instance = model.objects.select_for_update(of=("self",)).filter(pk=record_id).first()
+            if instance is None:
+                raise OperationError("商品或SKU不存在。", status=404, code="not_found")
+            replay = _operation_replay(actor, key, action, input_hash)
+            if replay is not None:
+                return replay
+            for name, value in payload.items():
+                setattr(instance, name, value)
+            _catalog_model_validation(instance)
+            instance.save(update_fields=tuple(payload))
+            sequence = _next_sequence(control)
+            details = {}
+            if entity == "product":
+                details = {
+                    "release_date": instance.release_date.isoformat() if instance.release_date else None,
+                    "supplement_notes": instance.supplement_notes,
+                }
+            else:
+                details = {
+                    name: format(getattr(instance, name), ".3f") if getattr(instance, name) is not None else None
+                    for name in parsers
+                }
+            result = {f"{entity}_id": instance.pk, "sequence": sequence, **details}
+            operation = BusinessOperation.objects.create(
+                operation_key=key,
+                sequence=sequence,
+                actor=actor,
+                action=action,
+                input_hash=input_hash,
+                payload={f"{entity}_id": instance.pk},
+                control=control,
+            )
+            operation.result = result
+            operation.save(update_fields=("result",))
+            return result
+
+    return _run_write(action, actor, request_id, write)
+
+
+def update_catalog_image(actor, entity, record_id, image_data, image_format, operation_key, request_id=""):
+    if entity == "product":
+        model, permission, field_name = Product, "change_product", "main_image"
+        collection = "products"
+    elif entity == "sku":
+        model, permission, field_name = SKU, "change_sku", "package_image"
+        collection = "skus"
+    else:
+        raise ValueError("Unknown catalog entity.")
+    _require(actor, permission)
+    if image_data is not None and image_format not in {"JPEG", "PNG", "WEBP"}:
+        raise OperationError("图片格式无效。", fields={"file": "请上传有效的JPEG、PNG或WebP图片。"})
+    action = f"catalog_{entity}_image_update"
+    image_hash = hashlib.sha256(image_data).hexdigest() if image_data is not None else None
+    input_hash = canonical_hash({"action": action, "record_id": record_id, "image_hash": image_hash, "format": image_format})
+    key = operation_uuid(operation_key)
+
+    def write():
+        new_file_name = None
+        try:
+            with transaction.atomic():
+                control = _lock_control()
+                _require(actor, permission)
+                instance = model.objects.select_for_update(of=("self",)).filter(pk=record_id).first()
+                if instance is None:
+                    raise OperationError("商品或SKU不存在。", status=404, code="not_found")
+                replay = _operation_replay(actor, key, action, input_hash)
+                if replay is not None:
+                    return replay
+                old_file_name = getattr(instance, field_name).name
+                if image_data is not None:
+                    extension = {"JPEG": "jpg", "PNG": "png", "WEBP": "webp"}[image_format]
+                    target_name = f"catalog/{collection}/{instance.pk}/{uuid4().hex}.{extension}"
+                    new_file_name = target_name
+                    new_file_name = default_storage.save(target_name, ContentFile(image_data))
+                setattr(instance, field_name, new_file_name or "")
+                instance.save(update_fields=(field_name,))
+                sequence = _next_sequence(control)
+                image_url = f"/api/v1/{collection}/{instance.pk}/image" if new_file_name else None
+                result = {
+                    f"{entity}_id": instance.pk,
+                    "image_url": image_url,
+                    "image_format": image_format.lower() if image_data is not None else None,
+                    "size": len(image_data) if image_data is not None else 0,
+                    "sequence": sequence,
+                }
+                operation = BusinessOperation.objects.create(
+                    operation_key=key,
+                    sequence=sequence,
+                    actor=actor,
+                    action=action,
+                    input_hash=input_hash,
+                    payload={f"{entity}_id": instance.pk},
+                    control=control,
+                )
+                operation.result = result
+                operation.save(update_fields=("result",))
+                if old_file_name and old_file_name != new_file_name:
+                    transaction.on_commit(lambda name=old_file_name: default_storage.delete(name), robust=True)
+                return result
+        except Exception:
+            if new_file_name:
+                default_storage.delete(new_file_name)
+            raise
+
+    return _run_write(action, actor, request_id, write)
 
 
 def sku_number_suggestion(actor, brand_id):

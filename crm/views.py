@@ -36,6 +36,7 @@ from .models import (
     CommissionAdjustment,
     PaymentAccount,
     PaymentRecord,
+    Product,
     ReceiptImage,
     OpeningBatch,
     ProductLanguageOption,
@@ -60,6 +61,8 @@ from .operations import (
     create_catalog_sku,
     release_hold,
     update_global_low_stock,
+    update_catalog_details,
+    update_catalog_image,
     update_opening_control,
     update_sku_low_stock,
     sku_number_suggestion,
@@ -360,6 +363,32 @@ def skus_api(request):
         return _api_list(request, search_skus(request.GET))
     except CatalogQueryError as exc:
         return _api_error(request, 400, "invalid_filter", str(exc), {"filters": str(exc)})
+
+
+@require_http_methods(["PATCH"])
+def product_detail_api(request, product_id):
+    error = _require_api_access(request, (("crm", "change_product"),))
+    if error:
+        return error
+    try:
+        data = _json_body(request)
+        operation_key = data.pop("operation_key", None)
+        return _api_operation(request, update_catalog_details, request.user, "product", product_id, data, operation_key)
+    except OperationError as exc:
+        return _api_error(request, exc.status, exc.code, str(exc), exc.fields, exc.details)
+
+
+@require_http_methods(["PATCH"])
+def sku_detail_api(request, sku_id):
+    error = _require_api_access(request, (("crm", "change_sku"),))
+    if error:
+        return error
+    try:
+        data = _json_body(request)
+        operation_key = data.pop("operation_key", None)
+        return _api_operation(request, update_catalog_details, request.user, "sku", sku_id, data, operation_key)
+    except OperationError as exc:
+        return _api_error(request, exc.status, exc.code, str(exc), exc.fields, exc.details)
 
 
 @require_safe
@@ -749,21 +778,15 @@ def sku_low_stock_update_api(request, sku_id):
         return _api_error(request, exc.status, exc.code, str(exc), exc.fields)
 
 
-@require_POST
-@require_POST
-def receipt_image_upload_api(request):
-    if not request.user.is_authenticated:
-        return _api_error(request, 401, "authentication_required", "请先登录。")
-    if not (request.user.has_perm("crm.confirm_receipt") or request.user.has_perm("crm.register_payment")):
-        return _api_error(request, 403, "permission_denied", "没有上传单据图片的权限。")
-    upload = request.FILES.get("file")
+def _validated_image_upload(upload):
     if not upload:
-        return _api_error(request, 400, "invalid_input", "请选择图片文件。", {"file": "此项必填。"})
-    if upload.size > 10 * 1024 * 1024:
-        return _api_error(request, 400, "invalid_input", "单张图片不能超过10MB。", {"file": "文件过大。"})
-    data = upload.read(10 * 1024 * 1024 + 1)
-    if len(data) > 10 * 1024 * 1024:
-        return _api_error(request, 400, "invalid_input", "单张图片不能超过10MB。", {"file": "文件过大。"})
+        raise OperationError("请选择图片文件。", fields={"file": "此项必填。"})
+    max_size = 10 * 1024 * 1024
+    if upload.size > max_size:
+        raise OperationError("单张图片不能超过10MB。", fields={"file": "文件过大。"})
+    data = upload.read(max_size + 1)
+    if len(data) > max_size:
+        raise OperationError("单张图片不能超过10MB。", fields={"file": "文件过大。"})
     signatures = (
         ("JPEG", data.startswith(b"\xff\xd8\xff")),
         ("PNG", data.startswith(b"\x89PNG\r\n\x1a\n")),
@@ -773,7 +796,7 @@ def receipt_image_upload_api(request):
     allowed_formats = ["JPEG", "PNG", "WEBP"]
     mime_formats = {"image/jpeg": "JPEG", "image/png": "PNG", "image/webp": "WEBP"}
     if upload.content_type and mime_formats.get(upload.content_type.lower()) != expected_format:
-        return _api_error(request, 400, "invalid_input", "图片类型与文件内容不匹配。", {"file": "请上传有效的JPEG、PNG或WebP图片。"})
+        raise OperationError("图片类型与文件内容不匹配。", fields={"file": "请上传有效的JPEG、PNG或WebP图片。"})
     try:
         with warnings.catch_warnings():
             warnings.simplefilter("error", Image.DecompressionBombWarning)
@@ -784,12 +807,85 @@ def receipt_image_upload_api(request):
                 image.load()
                 dimensions_valid = image.width > 0 and image.height > 0
     except (UnidentifiedImageError, OSError, Image.DecompressionBombError, Image.DecompressionBombWarning, ValueError):
-        return _api_error(request, 400, "invalid_input", "图片内容损坏或格式不受支持。", {"file": "请上传有效的JPEG、PNG或WebP图片。"})
+        raise OperationError("图片内容损坏或格式不受支持。", fields={"file": "请上传有效的JPEG、PNG或WebP图片。"}) from None
     if image_format != expected_format or not dimensions_valid:
-        return _api_error(request, 400, "invalid_input", "图片内容与文件格式不匹配。", {"file": "请上传有效的JPEG、PNG或WebP图片。"})
+        raise OperationError("图片内容与文件格式不匹配。", fields={"file": "请上传有效的JPEG、PNG或WebP图片。"})
+    return data, image_format
+
+
+@require_POST
+def receipt_image_upload_api(request):
+    if not request.user.is_authenticated:
+        return _api_error(request, 401, "authentication_required", "请先登录。")
+    if not (request.user.has_perm("crm.confirm_receipt") or request.user.has_perm("crm.register_payment")):
+        return _api_error(request, 403, "permission_denied", "没有上传单据图片的权限。")
+    try:
+        data, image_format = _validated_image_upload(request.FILES.get("file"))
+    except OperationError as exc:
+        return _api_error(request, exc.status, exc.code, str(exc), exc.fields, exc.details)
     record = ReceiptImage(owner=request.user, image_format=image_format, size=len(data))
     record.file.save("receipt.image", ContentFile(data), save=True)
     return JsonResponse({"image_id": str(record.pk), "format": image_format.lower(), "size": len(data)})
+
+
+def _catalog_image_api(request, entity, record_id):
+    if entity == "product":
+        model, field_name, view_permission, change_permission = Product, "main_image", "view_product", "change_product"
+        collection = "products"
+    else:
+        model, field_name, view_permission, change_permission = SKU, "package_image", "view_sku", "change_sku"
+        collection = "skus"
+
+    if request.method == "GET":
+        error = _require_api_access(request, (("crm", view_permission),))
+        if error:
+            return error
+        instance = model.objects.filter(pk=record_id).first()
+        if instance is None or not getattr(instance, field_name).name:
+            return _api_error(request, 404, "not_found", "图片不存在。")
+        image = getattr(instance, field_name)
+        content_type = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png", "webp": "image/webp"}.get(
+            image.name.rsplit(".", 1)[-1].lower(), "application/octet-stream"
+        )
+        try:
+            response = FileResponse(default_storage.open(image.name, "rb"), content_type=content_type)
+        except OSError:
+            return _api_error(request, 404, "not_found", "图片不存在。")
+        response["Cache-Control"] = "private, no-store"
+        response["X-Content-Type-Options"] = "nosniff"
+        return response
+
+    error = _require_api_access(request, (("crm", change_permission),))
+    if error:
+        return error
+    if request.method == "POST":
+        try:
+            image_data, image_format = _validated_image_upload(request.FILES.get("file"))
+        except OperationError as exc:
+            return _api_error(request, exc.status, exc.code, str(exc), exc.fields, exc.details)
+        return _api_operation(
+            request, update_catalog_image, request.user, entity, record_id, image_data, image_format,
+            request.POST.get("operation_key"),
+        )
+
+    try:
+        data = _json_body(request)
+        operation_key = data.pop("operation_key", None)
+        if data:
+            return _api_error(request, 400, "invalid_input", "清空图片请求只能包含operation_key。", {"body": "存在不支持的字段。"})
+        return _api_operation(request, update_catalog_image, request.user, entity, record_id, None, None, operation_key)
+    except OperationError as exc:
+        return _api_error(request, exc.status, exc.code, str(exc), exc.fields, exc.details)
+
+
+@require_http_methods(["GET", "POST", "DELETE"])
+def product_image_api(request, product_id):
+    return _catalog_image_api(request, "product", product_id)
+
+
+@require_http_methods(["GET", "POST", "DELETE"])
+def sku_image_api(request, sku_id):
+    return _catalog_image_api(request, "sku", sku_id)
 
 
 @require_safe
