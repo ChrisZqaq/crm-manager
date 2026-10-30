@@ -3,9 +3,10 @@
 ## 商品补充资料开发合同（2026-10-30，尚未交付/部署）
 
 - Product增加选填`release_date`、`supplement_notes`；响应另有受控`main_image_url`。SKU增加选填`package_length_mm`、`package_width_mm`、`package_height_mm`、`package_weight_g`及受控`package_image_url`。旧创建请求可全部省略新字段。
-- 产品/SKU补充资料PATCH仅允许本轮资料字段，省略保值，null或空清除；数字为有限正数、3位小数，长度毫米/毛重克。精确上限与路由随固定实现补齐，不新增单位换算。
+- 产品/SKU补充资料PATCH仅允许本轮资料字段，省略保值，null或空清除；数值为Decimal(10,3)，范围`0 < value <= 9999999.999`，长度毫米/毛重克。输入接受十进制字符串或JSON整数、拒绝JSON浮点，响应为固定3位小数字符串；不新增单位换算。
 - PATCH分别要求`change_product/change_sku`；单图受控GET要求对应`view_product/view_sku`，POST/DELETE要求对应change权限。图只接受真实JPEG/PNG/WebP且不超过10MB，文件仍私有，URL不暴露MEDIA目录或内部路径。
-- 单图上传/替换/清空独立于商品创建并沿用operation_key幂等与失败保护。创建JSON成功而上传失败时保留已建商品/SKU，只重试图片接口，不能重新创建；不改变基本资料、库存或成本。具体请求/响应与并发保护由固定交付确认。
+- 路径均无尾斜杠：`PATCH /api/v1/products/{product_id}`、`PATCH /api/v1/skus/{sku_id}`；分别返回对象ID、sequence及更新资料。单图路径为`/api/v1/products/{product_id}/image`和`/api/v1/skus/{sku_id}/image`：GET返回图片字节；POST为multipart `file`与`operation_key`，返回`image_url/image_format/size/sequence`；DELETE为JSON `operation_key`，返回`image_url:null/sequence`。
+- 单图上传/替换/清空独立于商品创建并沿用operation_key幂等与失败保护。创建JSON成功而上传失败时保留已建商品/SKU，只重试图片接口，不能重新创建；不改变基本资料、库存或成本。标准错误结构仍为`error/message/fields/details/request_id`，具体实现的事务/重放边界由固定交付验收。
 
 范围见[最小开发任务](../project/CATALOG_DETAILS_MIN_20261030.md)，本节不是运行库升级或上线授权。
 

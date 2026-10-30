@@ -2,7 +2,7 @@
 
 ## 2026-10-30商品补充资料增量（开发中）
 
-产品增加可空发售日期`release_date`、选填说明`supplement_notes`及当前单张主图引用；SKU增加可空包装长宽高`package_length_mm/package_width_mm/package_height_mm`、毛重`package_weight_g`及当前单张包装图引用。数值为3位小数有限正数，单位固定毫米/克，未知为空；三个尺寸独立选填。图片文件位于私有MEDIA_ROOT，数据库只保引用，不混入采购/收款凭证模型。对外以受权限保护的`main_image_url/package_image_url`访问。
+产品增加可空发售日期`release_date`、选填说明`supplement_notes`及当前单张主图引用；SKU增加可空包装长宽高`package_length_mm/package_width_mm/package_height_mm`、毛重`package_weight_g`及当前单张包装图引用。数值为Decimal(10,3)正数，单位固定毫米/克，未知为空；三个尺寸独立选填。图片文件位于私有MEDIA_ROOT，数据库只保引用，不混入采购/收款凭证模型。对外以受权限保护的`main_image_url/package_image_url`访问。
 
 采用加法迁移，旧字段/数据及SKU身份不变，不新增包装数量换算、多图图库或通用属性平台。具体存储字段/迁移号随固定后端交付校准，未迁移运行库；范围见[任务](../project/CATALOG_DETAILS_MIN_20261030.md)。
 
