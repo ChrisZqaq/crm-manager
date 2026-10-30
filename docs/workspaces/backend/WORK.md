@@ -674,3 +674,13 @@ UV_PROJECT_ENVIRONMENT=/Users/chrisz/.cache/aluola-crm-uiquery1-venv CRM_DB_NAME
 - `uv lock` 与 `uv lock --check` 均通过。逐项比较变更前 `uv.lock`：原10个第三方包版本完全不变，新增且仅新增 Waitress 3.0.2 和 WhiteNoise 6.12.0；项目根记录仍在，所以原锁文件共11条记录。
 - 安装/导入验证使用本任务独立环境 `.local/WINDOWS-NATIVE-DEPLOY-1028-BACKEND/.venv`，CPython 3.13.15：`uv sync --locked --extra windows --python 3.13` 成功；成功导入 `waitress.serve`、`whitenoise.WhiteNoise` 及静态存储后端，版本分别为 Django 5.2.17、Waitress 3.0.2、WhiteNoise 6.12.0。`git diff --check` 通过。
 - 未在Windows实机运行、未设置WhiteNoise中间件或服务、未执行数据库/业务测试、部署或推送；前述由部署角色按独立Windows指导阶段继续验收。兼容性依据为Waitress/WhiteNoise PyPI官方元数据、WhiteNoise changelog及Django官方5.2支持表。
+
+### CATALOG-DETAILS-MIN-1030｜商品补充资料后端固定（2026-10-30）
+
+- 依据负责人派发和 `docs/specs/API_CONTRACT.md` 本轮最终合同；基线 `4e0ffad`。前端/负责人已先收到精确接口、字段、权限、错误和图片失败重试合同。发售日期按10/30新批准决定保存，取代旧“不得保存”规则，且不用于入账。
+- Product增加可空 `release_date`、最长2000字符的 `supplement_notes` 和单张 `main_image`；SKU增加 `package_length_mm/package_width_mm/package_height_mm/package_weight_g` 与单张 `package_image`。数值为Decimal(10,3)，范围 `0 < value <= 9999999.999`；数据库约束也拒绝0及NaN。旧创建请求不要求新字段；省略/空值保持原有幂等输入哈希兼容，创建返回的 `sku_ids` 继续按 `skus[]` 顺序对应。
+- 新增 `PATCH /api/v1/products/{product_id}`、`PATCH /api/v1/skus/{sku_id}`，省略字段保留、null/空清除，只改补充资料；图片各有受控 `GET/POST/DELETE /api/v1/{products|skus}/{id}/image`。文件只接受实际JPEG/PNG/WebP、不超过10MiB，存于私有MEDIA_ROOT；GET分别要求 `view_product/view_sku`，维护要求对应 `change_*`，在事务内重验权限并使用operation_key。替换先更新数据库引用，事务提交后删除旧文件；失败清理新文件并保留旧图。响应不暴露磁盘路径，旧收付款ReceiptImage校验改为共用同一字节验证器。
+- 代码/迁移/测试提交 `e54e181`，含 `crm/migrations/0020_catalog_details_min_1030.py`；改动仅 `config/urls.py`、`crm/catalog.py`、`crm/models.py`、`crm/operations.py`、`crm/views.py`、`crm/tests.py` 与该迁移。本 WORK 为独立交付记录；没有修改前端、期初模板、Excel导入导出、公共业务/API文档或其它角色文件。
+- 定向验证13项通过：新增CatalogDetailsTestCase 4项（旧请求和补充创建、字段序列化、PATCH清空/非法日期与数值/超长说明、撤权后幂等拒绝、图片权限/格式与10MiB、替换失败保留旧图、清空/重放、NaN数据库约束）；目录兼容3项；现有ReceiptImage及付款图片回归6项。日志 `.local/CATALOG-DETAILS-MIN-1030-BACKEND/targeted-tests.log`。专属PostgreSQL 17中迁移0020应用成功，测试库自动创建/销毁；`makemigrations --check --dry-run`无变化、Django `check`、`py_compile`、`git diff --check`均通过。
+- PostgreSQL仅在本任务新建 `.local/CATALOG-DETAILS-MIN-1030-BACKEND/`，Unix socket-only、`listen_addresses=''`，测试完成后已停止；保留PGDATA和日志供核查。未连接或更改其他数据库、真实数据或共享服务。
+- 未跑全套测试、真实浏览器/窄屏UI、Windows、云/正式迁移或部署；页面实施由前端按本合同继续，独立QA定向操作验收待后续。此版本固定后停止应用写入，不push/deploy。
