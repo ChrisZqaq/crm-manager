@@ -166,11 +166,28 @@ class ApprovedWorkbenchAndPaymentUITests(TestCase):
         response = self.client.get("/catalog/")
         self.assertEqual(response.status_code, 200)
         self.assertNotContains(response, "include_inventory")
+        self.assertContains(response, "canChangeProduct=false")
+        self.assertContains(response, "canChangeSku=false")
         self.assertEqual(self.client.get("/catalog/new/").status_code, 403)
 
         self.client.force_login(self.product_writer)
-        self.assertEqual(self.client.get("/catalog/new/").status_code, 200)
+        response = self.client.get("/catalog/new/")
+        self.assertEqual(response.status_code, 200)
+        for marker in ('name="release_date"', 'name="supplement_notes" maxlength="2000"', 'data-package-length', 'data-package-weight'):
+            self.assertContains(response, marker)
+        self.assertNotContains(response, 'type="file" accept="image/jpeg,image/png,image/webp" data-catalog-image="product"')
+        self.assertNotContains(response, 'type="file" accept="image/jpeg,image/png,image/webp" data-catalog-image="sku"')
         self.assertContains(self.client.get("/catalog/"), 'href="/catalog/new/"')
+
+        self.product_writer.user_permissions.add(*Permission.objects.filter(
+            content_type__app_label="crm", codename__in=("change_product", "change_sku")
+        ))
+        response = self.client.get("/catalog/new/")
+        self.assertContains(response, 'type="file" accept="image/jpeg,image/png,image/webp" data-catalog-image="product"')
+        self.assertContains(response, 'type="file" accept="image/jpeg,image/png,image/webp" data-catalog-image="sku"')
+        response = self.client.get("/catalog/")
+        self.assertContains(response, "canChangeProduct=true")
+        self.assertContains(response, "canChangeSku=true")
 
     def test_order_editor_and_admin_management_render(self):
         self.client.force_login(self.order_writer)
