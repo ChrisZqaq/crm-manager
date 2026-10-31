@@ -1,8 +1,8 @@
 # 定时备份检查与异地拉取恢复
 
-## 当前状态：2026-10-31用户取消Mac定时拉取
+## 当前状态：2026-10-31用户取消Mac定时拉取并删除本机备份
 
-已执行`launchctl disable`及`bootout`，确认`tech.onenesscyber.crm-backup-pull`不再加载且禁用标记生效；原plist移出LaunchAgents并保留在备份根的`private/disabled-schedules/`。本机已有备份、媒体、发布包和脚本全部保留，不因旧恢复记录自动重新启用。用户本次仅取消Mac本地任务，未操作云端备份timer或Windows任务。以下为历史检查记录，不表示本机调度仍启用。
+已执行`launchctl disable`及`bootout`，确认`tech.onenesscyber.crm-backup-pull`不再加载且禁用标记生效。用户随后明确要求删除这些本地测试备份，已删除Mac的整个AluolaCRMBackups根目录，包括历史备份、媒体副本、不完整隔离点、发布包、脚本/日志及先前保留的plist；核目录和自动加载plist均不存在。该Mac目录不再是可用恢复点，不因旧记录重建调度。未操作项目运行数据、云端备份timer或Windows任务。以下为历史检查记录，不表示本机备份仍保留或调度仍启用。
 
 2026-10-27，用户询问现有定时任务。未增加调度或改动业务数据，未修改备份脚本及校验规则。
 
