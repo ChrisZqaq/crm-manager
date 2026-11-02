@@ -262,14 +262,14 @@ Windows agent 完成后只报告：固定 SHA、Python 版本、依赖版本/安
 
 **完整本机部署标准：**已完成当前获批版本所需迁移及备份验证，登录和目标页面通过、媒体仍为私有；自启动证据按当前计划单独核实。外网隧道不属于本手册完成标准。
 
-## 13. 商品导入 QA 通过后一次更新草案（0019 → 0020）
+## 13. 商品导入固定版本一次更新（0019 → 0020）
 
-**仅在**商品批量导入固定版通过独立浏览器 QA、负责人给出完整目标 SHA、用户确认本机维护窗口后执行。当前 Windows 运行版为 `35434ac` / 数据库迁移 `0019`；只更新 `crm-manager-deploy-35434ac` 和 `aluola_crm_dev`，不碰旧目录或云端正式环境。
+商品批量导入 `5bc00f0` 已通过限定独立浏览器验收及负责人复核。用户确认 Windows 本机就绪后，可执行本次一次更新。固定目标 SHA：`057de92974a8a2ec3451ff42b514d4d56c9b3e3d`。当前 Windows 运行版为 `35434ac` / 数据库迁移 `0019`；只更新 `crm-manager-deploy-35434ac` 和 `aluola_crm_dev`，不碰旧目录或云端正式环境。依赖未变，不升级或重装依赖。
 
-1. 用现有目录；核对 `git status --short` 为空且当前提交为 `35434ac`。若工作树有用户改动，原样保留并停止报告，不清理、不 stash、不 reset。目标 SHA 尚未下发前不执行更新。
-2. 确认数据库仍为 `aluola_crm_dev` / `crm_dev`、迁移为 `0019`，停止 Waitress 写入并做一份新的 PostgreSQL custom dump；以 `pg_restore --list` 验证可读。身份、迁移版本或备份验证不符即停止，不更新代码或迁移；数据库未变时可用现有启动器恢复旧版服务后报告。
-3. 停服状态下按负责人给出的完整 SHA 执行 `fetch`；确认该提交是当前 `35434ac` 的后代后用 `git merge --ff-only` 更新。禁止 `reset --hard`、`clean`、覆盖旧根快照。确认现有 `.local`、私有 `deploy_settings.py`、密钥文件、启动器及媒体目录原位保留，并确认 `docs/templates/商品批量导入模板-V1.xlsx` 存在。
-4. 在沿用第 6 节既有私有环境（`PYTHONPATH` 包含 `.local`、`DJANGO_SETTINGS_MODULE=deploy_settings`，数据库连接环境与现有启动器一致）的 PowerShell 会话中，`manage.py migrate --plan` 只可显示 `crm.0020_catalog_details_min_1030`。执行 `.\.venv\Scripts\python.exe manage.py migrate crm 0020_catalog_details_min_1030`；随后用同一环境运行 `manage.py check`、`manage.py migrate --check` 和 `manage.py collectstatic --noinput`。不得落回默认 settings。此次迁移仅增加选填产品/SKU资料字段，不改库存数量、成本或账号。
-5. 用现有启动器恢复 8001：`powershell.exe -NoProfile -ExecutionPolicy Bypass -File "D:\ALUOLA-CRM\crm-manager-deploy-35434ac\.local\run_waitress.ps1"`。确认只监听 `127.0.0.1:8001`，完成一次登录，并在商品导入页面下载模板核对成功；本窗口不上传或确认真实商品数据。账号保留在原数据库中，不运行 `createsuperuser`，不造数、不导库存/客户/历史单。
+1. 在 `D:\ALUOLA-CRM\crm-manager-deploy-35434ac` 核对当前提交为 `35434ac3404fbe5dd34b399ce4981b315b2b11b7`。仅当 `git status --short` 没有用户代码改动时继续；有改动则原样保留并报告，不清理、不 stash、不 reset。
+2. 停止现有 Waitress 写入；核对数据库身份为 `aluola_crm_dev` / `crm_dev`、迁移为 `0019`。在新的私有目录备份该库为 PostgreSQL custom dump，并用 `pg_restore --list` 验证可读。身份、迁移版本或备份验证不符即停止，不更新代码或迁移。
+3. `git fetch origin 057de92974a8a2ec3451ff42b514d4d56c9b3e3d`，确认取回的 SHA 完全一致且为当前提交的后代，再执行 `git merge --ff-only FETCH_HEAD`。不得 reset/clean。保留 `.local`、私有 settings、密钥文件、启动器、媒体和数据库账号；确认 `docs/templates/商品批量导入模板-V1.xlsx` 存在。
+4. 在沿用第 6 节既有私有环境（`PYTHONPATH` 包含 `.local`、`DJANGO_SETTINGS_MODULE=deploy_settings`，数据库连接环境与现有启动器一致）的 PowerShell 会话中，`manage.py migrate --plan` 只可显示 `crm.0020_catalog_details_min_1030`。执行 `.\.venv\Scripts\python.exe manage.py migrate crm 0020_catalog_details_min_1030`；随后在同一私有环境运行 `manage.py check`、`manage.py migrate --check` 和 `manage.py collectstatic --noinput`，不得落回默认 settings。此次迁移只增加选填产品/SKU资料字段，不改库存数量或成本。
+5. 用现有启动器恢复 8001：`powershell.exe -NoProfile -ExecutionPolicy Bypass -File "D:\ALUOLA-CRM\crm-manager-deploy-35434ac\.local\run_waitress.ps1"`。确认只监听 `127.0.0.1:8001`，由用户自行登录一次，并下载商品导入模板核对成功；不要求用户提供或发送测试密码。本窗口不上传或确认商品数据，不导库存/客户/历史单。
 
 任一步失败即停止并报告负责人，保留备份和现场；迁移后异常时保持服务停止，不自动恢复数据库、不反向迁移、不切换云端或隧道。交付只报告目标 SHA、备份可读性、迁移/check 结果、8001 监听及模板下载结果，不包含口令、凭据或商品明细。
