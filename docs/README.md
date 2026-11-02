@@ -23,6 +23,7 @@
 - **2026-10-19已确认调整**：[实际出库成本、提成差额及UI目标](project/COST_COMMISSION_REVISION_20261019.md)。已在6024205实现并完成本轮限定验收，云测试eefc490已包含；[发布记录](project/RELEASE_COST_WORKFLOW_20261020.md)列明分版本证据及限制，旧单成本口径保留；该条描述10月20日发布时状态；现正式库已至0018并上线，当前版本以上方发布记录为准。
 - **workspaces/**：ROLE/WORK和角色产物，不是已确认业务的副本；原型不等于批准、交付声明不等于验收。
 - **templates/**：[当前12列期初模板](templates/期初盘点模板-简化版.xlsx)，原期初模板及用户已有未提交修改保留、不覆盖或提交。
+- **商品独立导入模板**：[商品批量导入模板V1](templates/商品批量导入模板-V1.xlsx)，产品资料一次填写、选择规格生成SKU，选填条码/尺寸；配套入口开发中，不能用于当前期初入库，见[任务合同](project/CATALOG_IMPORT_SKU_20261102.md)。
 - **archive/**：[旧阶段记录](archive/DEVELOPMENT_PLAN_HISTORY.md)、[旧问题证据](archive/ISSUE_LOG_HISTORY.md)、[旧协作记录](archive/COORDINATION_HISTORY.md)、[文档审查](archive/DOCUMENT_REVIEW.md)、[协作方法参考](archive/PROJECT_WORKING_METHOD.md)。仅查证具体历史时读取。
 
 应用代码仍在crm/config，脚本在scripts，不因资料分层改变。数据库、图片、运行时凭据和临时测试资产放忽略目录.local/，不提交Git。
