@@ -458,6 +458,33 @@ def catalog_search(request):
 
 
 @login_required
+def catalog_import_page(request):
+    _require_page_permission(request, "add_product")
+    _require_page_permission(request, "add_sku")
+    return render(request, "crm/catalog_import.html")
+
+
+@login_required
+@require_GET
+def catalog_import_template(request):
+    _require_page_permission(request, "add_product")
+    _require_page_permission(request, "add_sku")
+    template_path = settings.BASE_DIR / "docs" / "templates" / "商品批量导入模板-V1.xlsx"
+    try:
+        file = template_path.open("rb")
+    except OSError as exc:
+        raise Http404("商品导入模板不存在。") from exc
+    response = FileResponse(
+        file,
+        as_attachment=True,
+        filename="商品批量导入模板-V1.xlsx",
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+    response["X-Content-Type-Options"] = "nosniff"
+    return response
+
+
+@login_required
 def catalog_product_new(request):
     _require_page_permission(request, "add_product")
     _require_page_permission(request, "add_sku")
@@ -1150,7 +1177,7 @@ def adjustments_page(request):
                     "warehouse_id": receipt.warehouse_id, "warehouse_label": receipt.warehouse.name,
                     "lines": [{
                         "line_number": line.line_number, "sku_id": line.sku_id,
-                        "sku_label": f"{line.sku.code} · {line.sku.product.name} · {line.sku.unit}",
+                        "sku_label": f"{line.sku.code} · {line.sku.product.name} · {line.sku.unit}" + (f" · {line.sku.get_pack_type_display()}" if line.sku.pack_type else "") + (f" · {'、'.join(line.sku.aliases)}" if line.sku.aliases else ""),
                         "quantity": line.quantity, "purchase_price": f"{line.purchase_price:.3f}",
                         "inbound_freight": f"{line.inbound_freight:.3f}",
                         "reserved_quantity": line.reserved_quantity, "damaged_quantity": line.damaged_quantity,
@@ -1164,7 +1191,7 @@ def adjustments_page(request):
                 "input": {"lines": [{
                     "line_number": line.line_number, "warehouse_id": line.warehouse_id,
                     "warehouse_label": line.warehouse.name, "sku_id": line.sku_id,
-                    "sku_label": f"{line.sku.code} · {line.sku.product.name} · {line.sku.unit}",
+                    "sku_label": f"{line.sku.code} · {line.sku.product.name} · {line.sku.unit}" + (f" · {line.sku.get_pack_type_display()}" if line.sku.pack_type else "") + (f" · {'、'.join(line.sku.aliases)}" if line.sku.aliases else ""),
                     "quantity": line.quantity, "unit_cost": f"{line.unit_cost:.3f}",
                     "reserved_quantity": line.reserved_quantity, "hoarded_quantity": line.hoarded_quantity,
                     "damaged_quantity": line.damaged_quantity,

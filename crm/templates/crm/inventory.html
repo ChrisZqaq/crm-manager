@@ -31,7 +31,7 @@
     <tbody>
       {% for item in items %}
       <tr>
-        <td>{{ item.warehouse }}</td><td>{{ item.code }}</td><td>{{ item.brand }} / {{ item.product }}</td><td>{{ item.unit }}</td>
+        <td>{{ item.warehouse }}</td><td>{{ item.code }}{% if item.pack_type_label or item.aliases %}<small class="muted">{% if item.pack_type_label %} · {{ item.pack_type_label }}{% endif %}{% if item.aliases %} · {{ item.aliases|join:'、' }}{% endif %}</small>{% endif %}</td><td>{{ item.brand }} / {{ item.product }}</td><td>{{ item.unit }}</td>
         <td>{{ item.on_hand }}</td><td>{{ item.occupied }}</td><td>{{ item.reserved }}</td><td>{{ item.hoarded }}</td><td>{{ item.damaged }}</td><td>{{ item.available }}</td>
         <td>{{ item.cost_amount }}</td><td>{{ item.average_cost|default:"—" }}</td>
         <td>{% if item.low_stock %}是（≤{{ item.effective_low_stock_threshold }}）{% else %}否{% endif %}</td>

@@ -13,7 +13,7 @@
 </template>
 <template id="sku-options">
   <option value="">请选择商品</option>
-  {% for row in skus %}<option value="{{ row.id }}">{{ row.code }} · {{ row.product.name }} · {{ row.unit }}</option>{% endfor %}
+  {% for row in skus %}<option value="{{ row.id }}">{{ row.code }} · {{ row.product.name }} · {{ row.unit }}{% if row.pack_type %} · {{ row.get_pack_type_display }}{% endif %}{% if row.aliases %} · {{ row.aliases|join:'、' }}{% endif %}</option>{% endfor %}
 </template>
 {{ correction_sources|json_script:"correction-sources" }}
 
@@ -23,10 +23,10 @@
   <form id="split-form">
     {% csrf_token %}
     <label>来源仓库 <select id="split-source-warehouse" required><option value="">请选择</option>{% for row in warehouses %}<option value="{{ row.id }}">{{ row.name }}</option>{% endfor %}</select></label>
-    <label>来源商品 <select id="split-source-sku" required><option value="">请选择</option>{% for row in skus %}<option value="{{ row.id }}">{{ row.code }} · {{ row.product.name }} · {{ row.unit }}</option>{% endfor %}</select></label>
+    <label>来源商品 <select id="split-source-sku" required><option value="">请选择</option>{% for row in skus %}<option value="{{ row.id }}">{{ row.code }} · {{ row.product.name }} · {{ row.unit }}{% if row.pack_type %} · {{ row.get_pack_type_display }}{% endif %}{% if row.aliases %} · {{ row.aliases|join:'、' }}{% endif %}</option>{% endfor %}</select></label>
     <label>来源数量 <input id="split-source-quantity" type="number" min="1" step="1" required></label>
     <label>目标仓库 <select id="split-target-warehouse" required><option value="">请选择</option>{% for row in warehouses %}<option value="{{ row.id }}">{{ row.name }}</option>{% endfor %}</select></label>
-    <label>目标商品 <select id="split-target-sku" required><option value="">请选择</option>{% for row in skus %}<option value="{{ row.id }}">{{ row.code }} · {{ row.product.name }} · {{ row.unit }}</option>{% endfor %}</select></label>
+    <label>目标商品 <select id="split-target-sku" required><option value="">请选择</option>{% for row in skus %}<option value="{{ row.id }}">{{ row.code }} · {{ row.product.name }} · {{ row.unit }}{% if row.pack_type %} · {{ row.get_pack_type_display }}{% endif %}{% if row.aliases %} · {{ row.aliases|join:'、' }}{% endif %}</option>{% endfor %}</select></label>
     <label>目标数量 <input id="split-target-quantity" type="number" min="1" step="1" required></label>
     <label>原因 <input id="split-reason" maxlength="2000" required></label>
     <button type="submit">一次提交拆箱</button>

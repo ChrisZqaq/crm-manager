@@ -1,0 +1,282 @@
+{% extends 'crm/base.html' %}
+{% block title %}导入商品 · 阿罗拉潮玩空间{% endblock %}
+{% block topbar_title %}导入商品{% endblock %}
+{% block content %}
+<section class="page-heading">
+  <div><h1>导入商品</h1><p>上传工作簿，先预览，再确认创建商品与SKU。</p></div>
+  {% if perms.crm.view_brand and perms.crm.view_product and perms.crm.view_sku %}<a class="button-link" href="{% url 'catalog-search' %}">返回商品档案</a>{% else %}<a class="button-link" href="{% url 'home' %}">返回工作台</a>{% endif %}
+</section>
+
+<section class="data-card card-body" aria-labelledby="catalog-import-upload-title">
+  <h2 id="catalog-import-upload-title">选择工作簿</h2>
+  <p>确认只创建商品和SKU，不会产生库存。Excel图片不会导入；可在商品详情中补充图片。</p>
+  <p><a class="button-link" href="{% url 'catalog-import-template' %}">下载商品导入模板</a></p>
+  <form id="catalog-import-form">
+    {% csrf_token %}
+    <label for="catalog-import-file">商品Excel文件（.xlsx）</label>
+    <input id="catalog-import-file" name="file" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required>
+    <button id="catalog-import-preview" class="button-primary" type="submit">上传并预览</button>
+  </form>
+  <p id="catalog-import-status" role="status" aria-live="polite"></p>
+</section>
+
+<section id="catalog-import-preview-panel" class="data-card card-body" aria-labelledby="catalog-import-preview-title" hidden>
+  <h2 id="catalog-import-preview-title">导入预览</h2>
+  <div id="catalog-import-preview-content"></div>
+  <div id="catalog-import-duplicates"></div>
+  <button id="catalog-import-confirm" class="button-primary" type="button" hidden disabled>确认导入</button>
+</section>
+
+<script>
+(() => {
+  const form = document.getElementById('catalog-import-form');
+  const file = document.getElementById('catalog-import-file');
+  const previewButton = document.getElementById('catalog-import-preview');
+  const confirmButton = document.getElementById('catalog-import-confirm');
+  const status = document.getElementById('catalog-import-status');
+  const panel = document.getElementById('catalog-import-preview-panel');
+  const content = document.getElementById('catalog-import-preview-content');
+  const duplicates = document.getElementById('catalog-import-duplicates');
+  const canViewCatalog = {% if perms.crm.view_brand and perms.crm.view_product and perms.crm.view_sku %}true{% else %}false{% endif %};
+  let previewToken = '';
+  let previewData = null;
+  let duplicateKeys = [];
+  let operationKey = '';
+  let busy = false;
+
+  const node = (tag, value, className='') => {
+    const element = document.createElement(tag);
+    element.textContent = value == null ? '—' : String(value);
+    if (className) element.className = className;
+    return element;
+  };
+  const csrf = () => document.cookie.split('; ').find(value => value.startsWith('csrftoken='))?.split('=')[1] || '';
+  function report(message, role='status') {
+    status.textContent = message;
+    status.setAttribute('role', role);
+  }
+  function setConfirmVisible(visible) {
+    confirmButton.hidden = !visible;
+    confirmButton.classList.toggle('button-primary', visible);
+  }
+  function clearPreview() {
+    previewToken = '';
+    previewData = null;
+    duplicateKeys = [];
+    operationKey = '';
+    content.replaceChildren();
+    duplicates.replaceChildren();
+    panel.hidden = true;
+    setConfirmVisible(false);
+    confirmButton.disabled = true;
+  }
+  async function request(url, body, json=false) {
+    const options = {method: 'POST', credentials: 'same-origin', headers: {'X-CSRFToken': csrf()}};
+    if (json) {
+      options.headers['Content-Type'] = 'application/json';
+      options.body = JSON.stringify(body);
+    } else {
+      options.body = body;
+    }
+    const response = await fetch(url, options);
+    let data = null;
+    try { data = await response.json(); } catch (_) {}
+    if (!response.ok) {
+      const error = new Error(data?.error?.message || `请求失败（HTTP ${response.status}），请重试。`);
+      error.code = data?.error?.code;
+      throw error;
+    }
+    if (!data || typeof data !== 'object' || Array.isArray(data)) {
+      throw new Error(response.redirected ? '登录状态已失效，请重新登录后重试。' : '服务器返回内容无法读取，请重试。');
+    }
+    return data;
+  }
+  function display(value) {
+    return Array.isArray(value) ? value.join('、') : (value || '—');
+  }
+  function candidateLabel(candidate) {
+    return [candidate.product, candidate.code, candidate.unit, candidate.language].filter(Boolean).join(' · ');
+  }
+  function renderErrors(errors) {
+    if (!errors?.length) return;
+    const list = document.createElement('ul');
+    for (const error of errors) {
+      list.append(node('li', `${error.sheet || '工作簿'} 第${error.row || '—'}行 · ${error.field || '数据'}：${error.message || '数据无效'}`));
+    }
+    content.append(node('h3', '请修正以下问题后重新预览'), list);
+  }
+  function renderProduct(product, skuByKey) {
+    const section = document.createElement('details');
+    section.open = true;
+    section.className = 'catalog-import-product';
+    const title = [product.brand_name, product.name, product.type_label, product.series, product.language].filter(Boolean).join(' · ');
+    section.append(node('summary', title));
+    const tableWrap = document.createElement('div');
+    tableWrap.className = 'table-scroll';
+    const table = document.createElement('table');
+    table.innerHTML = '<thead><tr><th>SKU</th><th>单位</th><th>包装类型</th><th>条码</th><th>尺寸（mm）</th><th>毛重（g）</th><th>规格别名</th></tr></thead>';
+    const body = document.createElement('tbody');
+    for (const sku of product.skus || []) {
+      skuByKey.set(sku.sku_key, sku);
+      const dimensions = [sku.package_length_mm, sku.package_width_mm, sku.package_height_mm].map(value => value ?? '—').join(' × ');
+      const values = [sku.code, sku.unit, sku.pack_type_label || '不区分', sku.barcode || '—', dimensions, sku.package_weight_g ?? '—', display(sku.aliases)];
+      const row = document.createElement('tr');
+      for (const value of values) row.append(node('td', value));
+      body.append(row);
+    }
+    table.append(body);
+    tableWrap.append(table);
+    section.append(tableWrap);
+    return section;
+  }
+  function updateConfirmState() {
+    const selected = new Set([...duplicates.querySelectorAll('input[data-sku-key]:checked')].map(input => input.dataset.skuKey));
+    const invalidWarnings = (previewData?.barcode_warnings || []).some(warning => !warning.sku_key);
+    confirmButton.disabled = busy || invalidWarnings || !previewToken || duplicateKeys.some(key => !selected.has(key));
+  }
+  function renderPreview(data) {
+    clearPreview();
+    panel.hidden = false;
+    if (data.already_imported) {
+      content.append(node('p', data.message || '该工作簿内容已导入，不会再次创建。'));
+      return;
+    }
+    renderErrors(data.errors);
+    if (!data.ready) {
+      if (!data.errors?.length) content.append(node('p', '预览未通过，请重新选择工作簿后重试。'));
+      return;
+    }
+    if (!data.preview_token || !Array.isArray(data.products)) {
+      content.append(node('p', '预览响应缺少确认凭据，请重新上传并预览。'));
+      return;
+    }
+
+    previewToken = data.preview_token;
+    previewData = data;
+    duplicateKeys = [...new Set((data.barcode_warnings || []).map(warning => warning.sku_key).filter(Boolean))];
+    content.prepend(node('p', `共 ${data.product_count} 个商品、${data.sku_count} 个SKU。预览不写入数据。`));
+    const skuByKey = new Map();
+    for (const product of data.products) content.append(renderProduct(product, skuByKey));
+
+    if (data.product_warnings?.length) {
+      const section = document.createElement('section');
+      section.append(node('h3', '商品档案候选提示'), node('p', '以下是系统返回的精确匹配候选或同文件重复提示；系统不会自动合并商品。'));
+      const list = document.createElement('ul');
+      for (const warning of data.product_warnings) {
+        const product = data.products.find(item => item.file_id === warning.product_identifier);
+        const candidates = warning.candidates || [];
+        const detail = candidates.map(candidate => [candidate.name, candidate.series, candidate.language, candidate.official_code].filter(Boolean).join(' · '));
+        if (warning.candidate_count === null) detail.push('已有匹配候选（详情因权限隐藏）');
+        if (warning.same_file_identifiers?.length) detail.push(`同文件重复：${warning.same_file_identifiers.join('、')}`);
+        list.append(node('li', `${product?.name || warning.product_identifier}：${detail.join('；') || '发现相同商品候选，请核对。'}`));
+      }
+      section.append(list);
+      content.append(section);
+    }
+
+    if (data.barcode_warnings?.length) {
+      duplicates.append(node('h3', '重复条码确认'));
+      duplicates.append(node('p', '逐项核对重复条码。只有勾选全部提示，才可继续导入。'));
+      const list = document.createElement('ul');
+      for (const warning of data.barcode_warnings) {
+        if (!warning.sku_key) {
+          duplicates.append(node('p', '重复条码提示缺少SKU标识，无法安全确认。', 'field-error'));
+          continue;
+        }
+        const sku = skuByKey.get(warning.sku_key);
+        const candidates = (warning.candidates || []).map(candidateLabel).filter(Boolean);
+        if (warning.candidate_count === null) candidates.push('候选详情因权限隐藏');
+        const label = document.createElement('label');
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.dataset.skuKey = warning.sku_key || '';
+        checkbox.addEventListener('change', () => { operationKey = ''; updateConfirmState(); });
+        label.append(checkbox, document.createTextNode(` 已核对 ${sku?.code || warning.sku_key || 'SKU'} 的重复条码 ${warning.barcode}，仍继续导入`));
+        const item = document.createElement('li');
+        item.append(label);
+        if (candidates.length) item.append(node('p', candidates.join('；'), 'muted'));
+        list.append(item);
+      }
+      duplicates.append(list);
+    }
+    setConfirmVisible(true);
+    confirmButton.textContent = duplicateKeys.length ? '确认重复条码并导入' : '确认导入';
+    updateConfirmState();
+  }
+
+  file.addEventListener('change', () => { clearPreview(); report(''); });
+  form.addEventListener('submit', async event => {
+    event.preventDefault();
+    if (busy || !file.files?.length) return;
+    clearPreview();
+    busy = true;
+    previewButton.disabled = true;
+    file.disabled = true;
+    report('正在读取并校验工作簿…');
+    try {
+      const body = new FormData();
+      body.append('file', file.files[0]);
+      const result = await request('/api/v1/products/import/preview', body);
+      renderPreview(result);
+      report(result.already_imported ? (result.message || '该工作簿内容已导入。') : result.ready ? '预览已生成，请核对商品、SKU和重复提示。' : '预览未通过，请根据行错误修正工作簿。', result.ready || result.already_imported ? 'status' : 'alert');
+    } catch (error) {
+      clearPreview();
+      report(error.message, 'alert');
+    } finally {
+      busy = false;
+      previewButton.disabled = false;
+      file.disabled = false;
+      updateConfirmState();
+    }
+  });
+
+  confirmButton.addEventListener('click', async () => {
+    if (busy || confirmButton.disabled || !previewToken || !previewData) return;
+    busy = true;
+    confirmButton.disabled = true;
+    previewButton.disabled = true;
+    file.disabled = true;
+    duplicates.querySelectorAll('input').forEach(input => { input.disabled = true; });
+    report('正在确认导入…');
+    try {
+      operationKey ||= CrmCrypto.uuidV4();
+      const confirmed = [...new Set([...duplicates.querySelectorAll('input[data-sku-key]:checked')].map(input => input.dataset.skuKey))].sort();
+      const result = await request('/api/v1/products/import/confirm', {
+        operation_key: operationKey,
+        preview_token: previewToken,
+        confirmed_duplicate_sku_keys: confirmed,
+      }, true);
+      setConfirmVisible(false);
+      previewToken = '';
+      operationKey = '';
+      const productCount = result.product_ids?.length || 0;
+      const skuCount = result.sku_ids?.length || 0;
+      content.append(node('p', `导入成功：创建 ${productCount} 个商品、${skuCount} 个SKU，业务序号 ${result.sequence}。本次未创建库存。`));
+      const firstProduct = previewData.products[0];
+      const catalogUrl = new URL('/catalog/', window.location.origin);
+      if (firstProduct?.name) catalogUrl.searchParams.set('q', firstProduct.name);
+      if (result.product_ids?.[0]) catalogUrl.searchParams.set('product_id', result.product_ids[0]);
+      if (canViewCatalog) {
+        const link = node('a', '返回目录查看新商品', 'button-link');
+        link.href = catalogUrl.pathname + catalogUrl.search;
+        content.append(link);
+      }
+      report('导入已完成。', 'status');
+    } catch (error) {
+      if (['stale_preview', 'catalog_import_already_completed', 'duplicate_barcode_confirmation_required'].includes(error.code)) {
+        clearPreview();
+        report(error.code === 'catalog_import_already_completed' ? '该工作簿内容已导入，请回目录搜索商品；不会重复创建。' : '预览或重复条码确认已失效，请重新上传并预览。', 'alert');
+      } else {
+        report(error.message, 'alert');
+      }
+    } finally {
+      busy = false;
+      previewButton.disabled = false;
+      file.disabled = false;
+      duplicates.querySelectorAll('input').forEach(input => { input.disabled = false; });
+      updateConfirmState();
+    }
+  });
+})();
+</script>
+{% endblock %}
