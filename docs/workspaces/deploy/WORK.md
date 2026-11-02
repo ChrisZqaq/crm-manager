@@ -504,7 +504,7 @@ Nginx新增独立配置`/etc/nginx/sites-available/aluola-crm-iptest.conf`及启
 
 依据开发计划中当前任务，指导Windows 11/N100本机独立dev环境运行、启动恢复与后续测试隧道；不安装Linux/WSL/Docker，不触真实数据，不改云端正式入口、18888、数据库、媒体、账号、共享应用或依赖。用户报告Python 3.13.14、PostgreSQL 17.6、CRM迁移0018、Django检查和页面访问已通过；Windows snapshot为de4d9eb，源码来自caed633，另保留旧版备份crm-manager.bak-f590784。不得直接pull/reset/覆盖。
 
-- 可交接的原生Windows部署步骤、命令、私有settings内容和验收/回退见[执行手册](WINDOWS-NATIVE-DEPLOY-GUIDE-1028.md)。负责人已确认最终`origin/main` SHA为`35434ac3404fbe5dd34b399ce4981b315b2b11b7`。在原目录旁全新clone并核对该完整SHA，只在新clone按`uv sync --locked --extra windows`建venv；完整保留原目录、旧`.venv`、`.local`和未跟踪`dev.ps1`。
+- 可交接的原生Windows部署步骤、命令、私有settings内容和验收/回退见[执行手册](WINDOWS-NATIVE-DEPLOY-GUIDE-1028.md)。负责人已确认Windows本轮固定交付SHA为`35434ac3404fbe5dd34b399ce4981b315b2b11b7`，该SHA不要求始终等于后续推进的`origin/main`。在原目录旁全新clone并核对该完整SHA，只在新clone按`uv sync --locked --extra windows`建venv；完整保留原目录、旧`.venv`、`.local`和未跟踪`dev.ps1`。
 
 - 用户已回报Git只读核验：`git status --short`仅有未跟踪文件`scripts/dev.ps1`；HEAD为`de4d9eb6ac16bc8b3f9b952c552da7d55d5496ee`且无父提交；仓库非shallow；`caed633cfb`对象不存在；`.local/deploy_settings.py`忽略规则匹配。`.local`内settings/secret/static具体是否存在仍待用户回报。
 
@@ -513,9 +513,9 @@ Nginx新增独立配置`/etc/nginx/sites-available/aluola-crm-iptest.conf`及启
 ### Windows WSGI与静态文件候选
 
 - codebase graph确认WSGI入口为config.wsgi.application。Windows源快照当时只有Django、openpyxl、Pillow、psycopg；后端固定依赖提交`bac28a6dd26cf04e53ab842f8c373658ae6ec0ed`，新增锁定`windows` extra（Waitress 3.0.2/WhiteNoise 6.12.0），命令见docs/README.md。锁定安装/导入仅在隔离macOS CPython 3.13.15验证，未做Windows验收。config/settings.py只有STATIC_URL，没有STATIC_ROOT，MEDIA_ROOT位于项目.local/private-media。现有业务文件日志BoundedRotatingFileHandler限制为10 MiB、9份、7天。Windows根快照de4d9eb无父提交且没有caed633对象；负责人已确认最终clone SHA `35434ac3404fbe5dd34b399ce4981b315b2b11b7`。只在新目录创建venv与静态预览，旧目录/.venv/.local/未跟踪scripts/dev.ps1完整保留。
-- 候选运行链：本机私有.local Windows settings overlay，DEBUG=False，使用用户自行保管的唯一SECRET_KEY；STATIC_ROOT单独指向.local/static；在SecurityMiddleware后放WhiteNoiseMiddleware；运行collectstatic；Waitress仅监听127.0.0.1，WSGI目标config.wsgi:application。STATIC_URL沿用项目现值，逐页验静态路径；若路径实测失败再报负责人，不先改共享settings。WhiteNoise仅供静态，不承载用户MEDIA。先不启用额外Manifest/Brotli压缩配置，不加新logger/日志点；沿用已批准应用日志，应用进程错误由任务管理器结果辅助定位。
+- 候选运行链：本机私有.local Windows settings overlay，DEBUG=False，使用用户自行保管的唯一SECRET_KEY；STATIC_ROOT单独指向.local/static；在SecurityMiddleware后放WhiteNoiseMiddleware；运行collectstatic；Waitress仅监听127.0.0.1，WSGI目标config.wsgi:application。STATIC_URL沿用项目现值，逐页验静态路径；若路径实测失败再报负责人，不先改共享settings。WhiteNoise仅供静态，不承载用户MEDIA。先不启用额外Manifest/Brotli压缩配置，不加新logger/日志点；沿用已批准应用日志，应用进程错误由任务管理器结果辅助定位。负责人已批准一次性本机dev迁移及旧私有媒体目录复用，限制见执行手册阶段6。
 - Waitress 3.0.2 PyPI说明其运行于CPython Windows且Requires Python >=3.9；因此3.13处于声明支持范围。WhiteNoise 6.12.0上游变更记录：Python 3.13支持始于6.8，Django 5.2支持始于6.9；Django集成要求配置STATIC_ROOT、collectstatic，middleware紧随SecurityMiddleware。依据：[Waitress PyPI](https://pypi.org/project/waitress/3.0.2/)、[Waitress命令行](https://docs.pylonsproject.org/projects/waitress/en/stable/runner.html)、[WhiteNoise Django配置](https://whitenoise.readthedocs.io/en/stable/django.html)、[WhiteNoise变更记录](https://whitenoise.readthedocs.io/en/stable/changelog.html)。这是上游兼容声明，不替代该Windows环境的真实页面/依赖验证。
-- 首次手动预览用新clone的127.0.0.1:8001，旧8000服务保持原样；共享新代码含0019、用户DB仍0018，`migrate --check`预期显示未应用项，不能据此执行migrate。只验匿名登录页/静态资源，不做登录/业务读写。完整登录、深层页面和任务计划必须等待负责人批准备份/回退/迁移窗口。WhiteNoise不承载MEDIA；检查非法Host。参考：[Microsoft任务失败重启设置](https://learn.microsoft.com/en-us/windows/win32/taskschd/taskschedulerschema-restartonfailure-settingstype-element)。
+- 阶段1–5的匿名预览使用新clone的127.0.0.1:8001，旧8000服务保持原样；用户报告新代码含0019、dev DB仍0018，`migrate --check`退出码1且0019待应用。只验匿名登录页/静态资源，不做登录/业务读写。2026-10-29用户报告阶段1–5在Windows完成；负责人已批准14:00（Asia/Shanghai）的一次性备份/迁移窗口，仍须用户在Windows确认就绪后手动开始。WhiteNoise不承载MEDIA；检查非法Host。参考：[Microsoft任务失败重启设置](https://learn.microsoft.com/en-us/windows/win32/taskschd/taskschedulerschema-restartonfailure-settingstype-element)。
 
 ### 云SSH/FRP只读状态与方案差异
 
@@ -527,9 +527,45 @@ Nginx新增独立配置`/etc/nginx/sites-available/aluola-crm-iptest.conf`及启
 
 ### 固定版本获取与当前未验证项
 
-Windows旧目录HEAD `de4d9eb6ac16bc8b3f9b952c552da7d55d5496ee` 是无父根快照，`caed633cfb` 对象不存在；因此不在旧目录合并、pull、reset或覆盖。负责人已核验 `origin/main` 固定 SHA `35434ac3404fbe5dd34b399ce4981b315b2b11b7`，手册改为在旧目录旁新建独立clone，核完整SHA及干净工作树。若原origin含嵌入凭据、不可访问或没有origin，先停止并取得无凭据HTTPS地址，通过本机Git Credential Manager认证；不索要私钥、不使用来源不明ZIP。如未来隧道任务需密钥，须先获批目标账号/入口，再在Windows本地生成，私钥不索取、不转存。
+Windows旧目录HEAD `de4d9eb6ac16bc8b3f9b952c552da7d55d5496ee` 是无父根快照，`caed633cfb` 对象不存在；因此不在旧目录合并、pull、reset或覆盖。负责人已核验本轮固定交付 SHA `35434ac3404fbe5dd34b399ce4981b315b2b11b7` 可用于新clone；后续文档提交可使`origin/main`继续前进，不改变这个Windows目标。手册改为在旧目录旁新建独立clone，核完整SHA及干净工作树。若原origin含嵌入凭据、不可访问或没有origin，先停止并取得无凭据HTTPS地址，通过本机Git Credential Manager认证；不索要私钥、不使用来源不明ZIP。如未来隧道任务需密钥，须先获批目标账号/入口，再在Windows本地生成，私钥不索取、不转存。
 
-截至2026-10-29，交付手册和固定SHA安全clone步骤已更新；Windows agent尚未回报clone、Waitress、WhiteNoise、collectstatic、Task Scheduler、业务保存、恢复或隧道实机结果。没有共享依赖/应用/配置、云服务、SSH策略、DNS、证书、防火墙或备份变更。
+截至2026-10-29，交付手册和固定SHA安全clone步骤已更新。用户报告Windows阶段1–5已完成，具体结果和未决的0019迁移见下节；Task Scheduler、恢复、业务写入和隧道仍未执行。没有云服务、SSH策略、DNS、证书、防火墙或正式环境变更。
+
+### Windows 阶段 1–5 实机结果及一次性迁移安排（2026-10-29，用户报告）
+
+以下是用户从Windows agent转述的实机结果，本机部署工程师未独立连接Windows复验。固定SHA为`35434ac3404fbe5dd34b399ce4981b315b2b11b7`，工作树干净；Python 3.13.14，`uv sync --locked --extra windows`成功，11个包版本与lock一致（含Django 5.2.17、Waitress 3.0.2、WhiteNoise 6.12.0、psycopg 3.3.6、Pillow 12.3.0及openpyxl 3.1.5）。`manage.py check`为0 issues；`migrate --check`退出码1，因0019待应用，符合阶段1–5预期。数据库身份为`aluola_crm_dev/crm_dev`、仍在0018；静态文件134个/约1.9MB写入新目录`.local/static`。
+
+新版本只监听`127.0.0.1:8001`；匿名登录页200、未登录首页302、非法Host 400，5个静态资源均200且MIME正确；`/media/`和路径穿越404。旧8000仍200且未受影响。未迁移、未创建任务计划。8001由当次会话前台启动，会话结束时随进程关闭；后续手工启动必须使用`powershell.exe -NoProfile -ExecutionPolicy Bypass -File "D:\ALUOLA-CRM\crm-manager-deploy-35434ac\.local\run_waitress.ps1"`。
+
+部署踩坑：清华镜像使`uv sync --locked`误报lock需要更新；移除镜像后`uv lock --check`通过，默认PyPI装入锁定版本，lock未修改。密钥使用Python直接写私有文件，不经过PowerShell管道，也未输出密钥。
+
+**迁移安排：**负责人已批准2026-10-29 14:00（Asia/Shanghai）一次性dev库窗口；不自动运行，Windows用户确认就绪后手动开始。仅目标`aluola_crm_dev/crm_dev`及固定SHA；预检和备份最多15分钟，超时不迁移并恢复旧8000。迁移开始后不因计时强制终止，停写持续到只读核验完成。成功后复用旧版私有媒体路径`D:\ALUOLA-CRM\crm-manager\.local\private-media`，不复制或扩大ACL；数据库已有4单/4明细、17项业务操作、8条库存流水和3张凭证图需保留并核对。备份为全库自定义格式dump加媒体归档，pg_restore --list及文件哈希必须通过。迁移后继续等待负责人下一步安排，不创建Task Scheduler。
+
+### Windows 阶段6完成及迁移前恢复点核验（2026-10-29，用户报告）
+
+用户提供的阶段记录称：固定Windows新目录在一次性窗口内停写并备份后，对`aluola_crm_dev/crm_dev`应用`crm.0019`成功；迁移检查和Django检查通过。数据库摘要仍为4张销售单、4条明细、17项业务操作、8条库存流水、3张凭证图；新增字段取值及13/13只读页面检查通过，三张图片URL均可访问。8001继续仅绑定loopback，8000当时停止；未建任务计划或隧道。本机部署工程师未独立连接Windows复验，依据为用户转交记录。
+
+同一记录报告迁移前恢复目录的7个文件ACL被创建顺序错误影响，7个条目无法读取；随后只读实测纠正了原“7个平铺文件”假设：目录实际有5个顶层文件及`private-media/receipt-images`中的3张图片。顶层还含`deploy_settings.py`、`env.deploy`等不属于数据库/媒体恢复验证所需的敏感配置。`backups`父目录继承了`Authenticated Users:Modify`和`BUILTIN\\Users:ReadAndExecute`。此前“平铺复制7文件”候选撤销；递归复制全目录会超出白名单并复制敏感配置，未执行。用户报告预检后未创建目标目录、未运行robocopy、未改变源文件、owner或ACL。
+
+**负责人批准的替代A2范围：**仅验证迁移前恢复点中的单个数据库dump和单个既有媒体ZIP；ZIP应包含被引用的3张媒体。明确排除部署settings、env文件、dump TOC及其他条目，不复制原始媒体子目录；不使用`/E`、`/S`、`/MIR`、`/PURGE`、`/MOVE`、`/SEC`，不改源owner/ACL或`backups`父ACL。必须先只读检查`LOCALAPPDATA`下既有候选父目录的owner、ACL、reparse状态、当前用户创建/删除子项权限及普通用户/宽组读取或修改权限；仅使用满足门槛的私有父目录中新建唯一验证目录，依赖其安全ACL继承。找不到合格目录即停止。普通用户会话先核定唯一绝对目标路径；管理员窗口沿用该路径，不切换用户目录。准确dump/ZIP文件名须据本机记录确认，候选不唯一即停止。
+
+执行时仅对这两个精确文件使用`robocopy /B`；先向用户提供完整可检查命令。记录退出码、文件数和大小，并与原manifest/记录中的hash核对；无原始hash则标作未验证，不以新副本hash冒充。ZIP需在本机检查无绝对路径或`..`穿越项、条目数与3张引用相符；数据库只恢复到新的临时验证库，确认迁移前0018及业务摘要，不连接或改写dev/正式库。验证材料保留。此A2只检查数据库与媒体恢复点可用性，不代表原目录ACL修复或配置文件已恢复读取。截至首轮预检时，目标创建、复制、归档核验和临时库恢复均未完成；后续结果见下文。
+
+用户随后报告普通用户会话下`C:\Users\admin\AppData\Local`为非reparse目录，owner为当前用户SID；其DACL只有继承的SYSTEM、Administrators和当前用户FullControl ACE。源目录也非reparse，`.dump`与媒体`.zip`候选各唯一，大小分别225,175和6,800,458字节。首轮预检时建议目标`C:\Users\admin\AppData\Local\aluola-verify-20261029`尚不存在。上述预检为用户提供，部署工程师未独立验证；后续复制和恢复结果见下节。
+
+#### A2 复制与数据库恢复验证结果（2026-10-29，用户提供记录）
+
+- `robocopy /B /COPY:DAT /R:0 /W:0`退出码1，目标目录有且仅有2个文件，文件大小分别225,175和6,800,458字节。目标owner为`BUILTIN\Administrators`；ACL仅3条继承ACE（SYSTEM、Administrators、当前用户FullControl）。源目录及源文件ACL/owner未改，原始空DACL文件仍不可读；未复制settings、env、TOC或原始媒体目录。
+- 媒体ZIP完整SHA-256与迁移后manifest基线匹配。数据库dump当前副本的SHA-256仅能与11:26记录中的8位前缀及7位后缀对照（合计15位hex），没有完整原始SHA-256基线；因此只能记录部分指纹相符，不能声称完整SHA-256基线匹配。哈希原值不复制到工作记录。
+- PostgreSQL 17.6 `pg_restore --list`通过，481个TOC条目、47个TABLE DATA。恢复到独立临时库`aluola_crm_verify_pre0019`退出码0，无错误/警告。销售单4、明细4、业务操作17、库存流水8、凭证图3，以及报告列出的客户、付款、发货、库存、SKU、商品和BusinessControl计数一致；恢复库最新迁移为0018，0019新增列不存在。`django_migrations`源库37行、恢复库36行，差异符合0019预期。
+- 当前附件未提供ZIP内部条目清单、绝对路径/`..`穿越检查，或ZIP内三张媒体与恢复库附件引用的逐项匹配证据；因此媒体ZIP完整性对照有证据，但解包安全性及三张引用逐项齐全仍未验证。临时验证库和文件按负责人指示保留，不删除。A2数据库恢复验证通过；媒体核验尚有上述未决项，且原文件ACL修复不在A2范围内。
+- 新发现：用户报告`D:\pgsql\data\pg_hba.conf`的本机`local`和`127.0.0.1/32`规则使用`trust`。这意味着本机进程可能免密连接该dev PostgreSQL；本次未更改该配置。对外暴露前应改用密码认证并单独验证。该发现尚未独立复核，亦未修改服务或数据库。
+
+#### 本机试用与用户登录自启动（2026-10-29，负责人最新安排）
+
+负责人接受0018隔离恢复库exit 0及摘要一致作为迁移前DB恢复有效证据；dump缺完整基线SHA保留为限制，不再阻塞本机试用。当前不追加媒体ZIP解包/权限检查轮；原备份、复制品和验证库均保留。恢复Windows固定版`35434ac3404fbe5dd34b399ce4981b315b2b11b7`现有Waitress，继续使用`127.0.0.1:8001`、已迁移至0019的`aluola_crm_dev/crm_dev`、现有私有settings及旧MEDIA_ROOT；不得再次迁移、造单或重置账号。用户在Windows本机执行前台启动器；只核监听为loopback及已有账号一次真实登录，不再跑完整页面矩阵。正常试用地址为`http://127.0.0.1:8001/`。
+
+负责人同时批准当前用户登录后自启动配置：复用新目录`.local/run_waitress.ps1`，先核同名任务不存在或该任务命令/用户确属本项目；任务仅在当前用户登录时运行，不存密码、不使用最高权限，失败每分钟重试最多3次，已有实例运行时不启动第二实例，并保留通过禁用任务的回退路径。具体任务尚未创建或验证，需用户在本机Task Scheduler完成。数据库`pg_hba.conf`的loopback `trust`仅记为未来对外访问前事项，本机试用不因此阻塞；PG端口继续只监听loopback，不映射公网。隧道仅待后续受限方案清单，不启动企微或新增外部入口。
 
 ## CRM-GO-LIVE-1021 正式私有HTTPS settings（2026-10-21）
 

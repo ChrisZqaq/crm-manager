@@ -4,20 +4,20 @@
 
 **项目目录：** `D:\ALUOLA-CRM\crm-manager`
 
-**更新日期：** 2026-10-29
+**更新日期：** 2026-11-02
 
-**范围：** 本机 CRM 稳定运行、静态文件和开机登录后自启；外网隧道仅记录前置条件，不在本手册授权执行。
+**范围：** 保留 Windows 本机部署及 `0019` 历史记录；新增第 13 节，供商品导入任务通过独立 QA 后一次性更新到负责人指定版本并迁移开发库 `0019 → 0020`。本草案不代表现在开始执行。
 
 ## 给 Windows agent 的执行指令
 
-按阶段顺序执行，先只读核验，再准备 `.local` 私有配置，获批依赖到位后才运行 Waitress/WhiteNoise。每一阶段完成后报告结果再继续；遇到停止条件即停并联系负责人。不要提交 Git、不要写数据库、不要输出任何密钥或账号凭据。
+历史阶段 1–7 已有执行记录。当前后续只按第 13 节继续：等待商品导入独立 QA 通过、负责人提供完整目标 SHA、用户确认 Windows 窗口后再手动执行。遇到停止条件即停并报告；不要提交 Git、不要改旧目录、不要输出密钥/账号凭据。
 
 ## 1. 目标与边界
 
-在不动现有本机服务的前提下，准备经负责人固定 SHA 的新代码目录，用 Waitress 运行新版本、WhiteNoise 服务 Django 静态文件；新进程先只监听 `127.0.0.1:8001`。旧目录、旧服务和独立开发数据库先保持原状；新代码含 `0019`，数据库迁移需负责人另开窗口。
+Windows 当前以固定版 `35434ac` 运行 Waitress/WhiteNoise，监听 `127.0.0.1:8001`，开发库 `aluola_crm_dev` / `crm_dev` 已在 `0019`。下一次只在第 13 节门槛满足后升级到负责人固定版本及 `0020`；云端正式库和真实库存/历史业务导入不在范围。
 
 - Windows 原生运行，不安装 Linux、WSL、Docker、IIS、FRP 或额外 Windows 服务。
-- 复用现有 Python/PostgreSQL 安装和当前 dev 数据库；不创建新库、不迁移数据、不运行无 `--check` 的迁移命令。
+- 复用现有 Python/PostgreSQL 安装和当前 dev 数据库；不创建新库、不迁移业务数据、不运行第 13 节获批的 `0020` 以外迁移。
 - 不打开 Windows 防火墙端口，不绑定 `0.0.0.0` 或局域网地址。
 - 不读取或发送密码、`DJANGO_SECRET_KEY`、数据库环境变量值、用户凭据或密钥。Windows agent 只报告是否配置、命令退出码和非敏感路径/版本。
 - 不修改 `scripts/dev.ps1`，不删除或覆盖 `.local` 中的已有内容。
@@ -28,50 +28,19 @@
 | 项目 | 已知状态 |
 |---|---|
 | Windows | Windows 11 / N100；用户报告 Python 3.13.14、PostgreSQL 17.6 |
-| CRM | 独立 dev 库 `aluola_crm_dev`、角色 `crm_dev`、迁移 0018；用户报告 Django 检查和页面访问通过 |
+| CRM | Windows 当前运行版 `35434ac`，开发库 `aluola_crm_dev` / `crm_dev` 已迁移至 `0019`；用户已确认本机登录。此状态来自用户/部署记录，非本机独立复验 |
 | Git | HEAD `de4d9eb6ac16bc8b3f9b952c552da7d55d5496ee` 是无父提交的根快照；`caed633cfb` 不在本机 Git 对象库；仓库非 shallow |
 | 用户文件 | `scripts/dev.ps1` 是未跟踪文件，必须保留；旧目录、`.venv`、`.local` 和该脚本均保持原样。不得在原目录 `git clean`、`reset`、`pull`、cherry-pick 或覆盖 |
-| 本地私有目录 | 旧目录 `.local/` 已确认被 `.gitignore` 忽略；其配置/静态目录是否已存在仍需 Windows agent 检查。新代码目录只重建所需私有配置，不整目录复制 `.local` |
-| 最终代码 | 负责人只读核实 `origin/main` 固定为 `35434ac3404fbe5dd34b399ce4981b315b2b11b7`（应用 `31df9e9` + Windows extra `bac28a6` + 交付文档）；这是新 clone 的目标 SHA |
+| 本地私有目录 | 旧目录 `.local/` 已确认被 `.gitignore` 忽略；内部内容未核实。新代码目录有独立 `.local`，不复制旧目录的设置、数据库或媒体 |
+| 固定交付代码 | 负责人核验 Windows 本轮固定目标 SHA 为 `35434ac3404fbe5dd34b399ce4981b315b2b11b7`（应用 `31df9e9` + Windows extra `bac28a6` + 交付文档）。后续 `main` 可继续包含文档提交；不要要求 `main` 当前 SHA 等于该目标，只核对新 clone checkout 的完整 SHA |
 | Waitress/WhiteNoise | `windows` extra 锁定 Waitress 3.0.2 / WhiteNoise 6.12.0；只在隔离 macOS CPython 3.13.15 验证过锁定安装与导入，Windows 实机未验 |
 | 云端 SSH | 当前有效 `AllowTcpForwarding=no`、`GatewayPorts=no`；22 端口可连不代表支持反向隧道 |
 
-**立即停止并报告负责人**，如果数据库身份不是 `aluola_crm_dev` / `crm_dev`、旧目录 `.local` 有现成同名配置、服务已占用相关端口但无法确认归属、或需要迁移用户数据库/改云配置才能继续。新发布版本的 `0019` 在当前 0018 数据库上属于待应用迁移；`migrate --check` 报出它是预期结果，绝不能自行 `migrate`。
+**立即停止并报告负责人**，如果目标 SHA 无法取得或核对、数据库身份不是 `aluola_crm_dev` / `crm_dev`、当前迁移不是 `0019`、迁移计划不止获批的 `0020`、备份无法验证，或 8001 进程归属不明。不得连接或迁移正式库 `alola_crm`。
 
-## 3. 阶段 A：本机只读预检
+## 3. 阶段 1：新目录获取固定版本
 
-在已有、能够运行 `python manage.py check` 的 PowerShell 环境中执行。已完成的 Git 检查不用重复；不得更新代码。
-
-```powershell
-Set-Location 'D:\ALUOLA-CRM\crm-manager'
-python -c "import sys; print(sys.executable)"
-Test-Path .local\deploy_settings.py
-Test-Path .local\django_secret_key.txt
-Test-Path .local\static
-```
-
-记录 Python 可执行文件路径。若任一 `.local` 路径存在，保留并先检查用途，不要覆盖。已确认的忽略规则可以复核：
-
-```powershell
-git check-ignore -v --no-index .local/deploy_settings.py
-```
-
-在当前 dev 启动环境中只读核验数据库身份和迁移状态：
-
-```powershell
-python manage.py shell -c "from django.db import connection; connection.ensure_connection(); c=connection.cursor(); c.execute('select current_database(), current_user'); print(c.fetchone())"
-python manage.py migrate --check
-```
-
-预期数据库身份为 `('aluola_crm_dev', 'crm_dev')`；迁移为 0018 且 `migrate --check` 成功。不要运行 `python manage.py migrate`、`makemigrations`、数据导入或其他写库命令。
-
-Windows agent 应在本机阅读 `scripts/dev.ps1`，确认它如何选择 Python 环境和设置 CRM 数据库连接变量；不要把脚本全文或变量值发到聊天。如果脚本含明文秘密，不要复制到命令行、任务参数或 Git。后续启动器必须以相同的安全方式加载现有 dev 环境，否则暂停，不要猜数据库地址或口令。
-
-## 4. 阶段 B：依赖门槛
-
-后端依赖提交 `bac28a6` 已纳入负责人核验过的最终代码 SHA `35434ac3404fbe5dd34b399ce4981b315b2b11b7`；其中 `windows` extra 锁定 Waitress 3.0.2 与 WhiteNoise 6.12.0。项目[文档入口](../../README.md)规定命令为 `uv sync --locked --extra windows`。锁定安装与导入只在隔离 macOS CPython 3.13.15 环境验证，不能当作 Windows 实机验收。
-
-不要在旧目录更新。使用旧目录配置的 `origin`，在旁边新建独立目录 `D:\ALUOLA-CRM\crm-manager-deploy-35434ac`，checkout 完整固定 SHA：
+在 PowerShell 中使用旧目录配置的 `origin`，在旁边创建全新目录并 checkout 固定 SHA。不要在旧目录 pull/reset/cherry-pick，也不要覆盖它。
 
 ```powershell
 $OldRoot = 'D:\ALUOLA-CRM\crm-manager'
@@ -95,29 +64,49 @@ if ($LASTEXITCODE -ne 0 -or $Status) { throw 'New checkout is not clean; stop an
 "working_tree_clean=True"
 ```
 
-仅在输出确认固定 SHA 正确且工作树干净后，才在新目录执行 `uv sync --locked --extra windows`。原目录、旧 `.venv`、旧 `.local`、数据库和未跟踪 `scripts/dev.ps1` 完整保留；不从旧目录复制 `.local`、`.venv` 或整个启动脚本。若 Git HTTPS/SSH 访问失败，不索取或粘贴私钥；让负责人提供无凭据 HTTPS clone URL并使用本机 Git Credential Manager。不要改用来源不明的 ZIP。
+确认输出 SHA 完全匹配且工作树干净后停止并报告结果。若 `origin` 不存在/含嵌入凭据，或 clone/checkout 失败，不要打印或粘贴 URL、凭据或私钥；请负责人提供无凭据 HTTPS 地址并使用本机 Git Credential Manager。若该固定 SHA 无法从远端取得，停止并回报，不使用 `main` 最新版或来源不明 ZIP。
 
-原目录持续保留，不运行 `uv sync`、`pip install`、`pull`、`reset` 或 `cherry-pick`。共享新版本含迁移 `0019`，对用户现有 0018 数据库的升级必须先提交备份/回退方案，由负责人另开窗口批准。
+旧目录、旧 `.venv`、旧 `.local`、数据库和未跟踪 `scripts/dev.ps1` 保持原样。新目录之外不安装依赖、不做版本切换。
 
-- 使用获批的锁定版本及安装命令；优先使用隔离的部署虚拟环境，不改动当前开发环境。
-- 不自行运行 `pip install waitress whitenoise`，不升级 Django/Python/PostgreSQL，不编辑锁文件。
-- 研究候选仅供比对：Waitress 3.0.2 声明支持 CPython 3.9+；WhiteNoise 6.12.0 的上游记录覆盖 Python 3.13 和 Django 5.2。最终版本必须以项目获批依赖为准：[Waitress](https://pypi.org/project/waitress/3.0.2/)、[WhiteNoise Django 配置](https://whitenoise.readthedocs.io/en/stable/django.html)、[WhiteNoise 变更记录](https://whitenoise.readthedocs.io/en/stable/changelog.html)。
+## 4. 阶段 2：安装锁定依赖
 
-## 5. 阶段 C：私有配置
-
-只在已核对固定 SHA `35434ac3404fbe5dd34b399ce4981b315b2b11b7` 的新目录准备私有配置；不要在旧目录修改或覆盖 `.local`。在新目录确认 `.local/deploy_settings.py`、`.local/django_secret_key.txt` 均不存在后再创建。不要整目录复制旧 `.local`（里面可能含数据库、媒体和旧配置）；若旧目录有媒体文件，先保留原处并报告，不要擅自映射到新代码。不要输出生成的密钥；确认新 `.local` 访问权限只覆盖需要使用该机器的账户。
+只在新目录执行项目批准的锁文件安装。`windows` extra 锁定 Waitress 3.0.2 与 WhiteNoise 6.12.0；安装过程此前只在隔离 macOS CPython 3.13.15 验证，Windows 实机结果须单独报告。
 
 ```powershell
-if (Test-Path .local\deploy_settings.py) { throw 'Private settings already exists; preserve and inspect locally.' }
-if (Test-Path .local\django_secret_key.txt) { throw 'Secret file already exists; preserve and inspect locally.' }
-if (-not (Test-Path .local)) { New-Item -ItemType Directory -Path .local | Out-Null }
+Set-Location 'D:\ALUOLA-CRM\crm-manager-deploy-35434ac'
+if (-not (Get-Command uv -ErrorAction SilentlyContinue)) { throw 'uv is not available; stop and ask before installing tooling.' }
+uv sync --locked --extra windows
+if ($LASTEXITCODE -ne 0) { throw 'Locked dependency installation failed.' }
+.\.venv\Scripts\python.exe -c "import sys, waitress, whitenoise; from importlib.metadata import version; print('python=' + sys.version.split()[0]); print('waitress=' + version('waitress')); print('whitenoise=' + version('whitenoise'))"
 ```
 
-在新目录的隔离 Python 环境里生成密钥并直接写入新 `.local`，不把密钥显示在终端或发给他人：
+确认 Python 和两个包可导入后报告版本、退出状态，再进入下一阶段。不要运行 `pip install`、不升级锁文件中的包、不修改依赖。
+
+如果提示锁文件需要更新，先不要运行 `uv lock` 或编辑 `uv.lock`。检查本次 PowerShell 会话是否指定了镜像源；移除镜像覆盖、使用锁文件原有源后再执行同一锁定安装。不得因镜像解析差异重写 lock。Windows 实机已遇到此问题：去掉清华镜像后 `uv lock --check` 通过，默认 PyPI 安装与锁版本一致。
+
+## 5. 阶段 3：私有配置
+
+只在已核对固定 SHA `35434ac3404fbe5dd34b399ce4981b315b2b11b7` 的新目录准备私有配置；不要在旧目录修改或覆盖 `.local`。在新目录确认 `.local/deploy_settings.py`、`.local/django_secret_key.txt` 均不存在后再创建。不要整目录复制旧 `.local`（里面可能含数据库、媒体和旧配置）；经负责人批准，新版只在私有 settings 中将 `MEDIA_ROOT` 指向旧版私有媒体目录，不复制、移动或公开媒体。不要输出生成的密钥；确认新 `.local` 访问权限只覆盖需要使用该机器的账户。
 
 ```powershell
-.\.venv\Scripts\python.exe -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())" |
-    Set-Content -NoNewline -Encoding ascii .local\django_secret_key.txt
+if (Test-Path .local) { throw 'Private directory already exists; preserve and inspect locally before continuing.' }
+New-Item -ItemType Directory -Path .local | Out-Null
+$CurrentIdentity = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+icacls .local /inheritance:r
+if ($LASTEXITCODE -ne 0) { throw 'Could not restrict .local permissions.' }
+icacls .local /grant:r "$($CurrentIdentity):(OI)(CI)F" '*S-1-5-18:(OI)(CI)F' '*S-1-5-32-544:(OI)(CI)F'
+if ($LASTEXITCODE -ne 0) { throw 'Could not set .local permissions.' }
+icacls .local
+```
+
+确认 ACL 只包含当前运行用户、SYSTEM 与本机 Administrators；若输出仍有其他用户/组，暂停并先纠正权限，不写入密钥。
+
+在新目录的隔离 Python 环境里生成密钥并由 Python 直接写入新 `.local`，不显示密钥，也不经过 PowerShell 管道：
+
+```powershell
+if (Test-Path .local\django_secret_key.txt) { throw 'Secret file already exists; preserve it and stop.' }
+.\.venv\Scripts\python.exe -c "from pathlib import Path; from django.core.management.utils import get_random_secret_key; Path('.local/django_secret_key.txt').write_text(get_random_secret_key(), encoding='ascii')"
+if ($LASTEXITCODE -ne 0) { throw 'Could not create the secret file.' }
 ```
 
 创建 `.local\deploy_settings.py`，仅包含本机部署覆盖：
@@ -126,6 +115,7 @@ if (-not (Test-Path .local)) { New-Item -ItemType Directory -Path .local | Out-N
 from config.settings import *
 
 STATIC_ROOT = BASE_DIR / ".local" / "static"
+MEDIA_ROOT = r"D:\ALUOLA-CRM\crm-manager\.local\private-media"
 MIDDLEWARE = list(MIDDLEWARE)
 MIDDLEWARE.insert(
     MIDDLEWARE.index("django.middleware.security.SecurityMiddleware") + 1,
@@ -133,11 +123,11 @@ MIDDLEWARE.insert(
 )
 ```
 
-这个 overlay 通过 `DJANGO_SETTINGS_MODULE=deploy_settings` 加载；启动前将 `.local` 加入 `PYTHONPATH`。启动器还必须先从私有密钥文件设置 `DJANGO_SECRET_KEY`，再启动 Python，因为基础设置在 `DEBUG=0` 时会要求该变量。保持 `DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1`。**不要覆盖** `CRM_DB_NAME/USER/PASSWORD/HOST/PORT`；复用阶段 A 已核实的 dev 连接环境。
+将上述代码保存为新目录 `.local\deploy_settings.py`。两版本连接同一数据库，其附件记录引用现有媒体相对路径，因此新版本复用旧目录私有媒体存储；不要复制媒体或使用空的新媒体根。先确认这个路径确为旧版当前 `MEDIA_ROOT`，且新进程用户可读写；不要为此放宽为 Everyone。这个 overlay 通过 `DJANGO_SETTINGS_MODULE=deploy_settings` 加载；启动前将 `.local` 加入 `PYTHONPATH`。启动器还必须先从私有密钥文件设置 `DJANGO_SECRET_KEY`，再启动 Python，因为基础设置在 `DEBUG=0` 时会要求该变量。保持 `DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1`。**不要覆盖** `CRM_DB_NAME/USER/PASSWORD/HOST/PORT`；复用旧 dev 启动脚本中安全设置这些环境的方式。
 
 基础设置的 `STATIC_URL` 是相对路径 `static/`。本轮先保持不变，通过后面的浏览器网络请求检查实际静态 URL；若深层页面 CSS/JS 404，停止并报告负责人，不改共享 settings 或模板。
 
-## 6. 阶段 D：配置检查与静态文件
+## 6. 阶段 4：配置检查与静态文件
 
 在新目录的 PowerShell 会话及后续启动脚本中设置：
 
@@ -151,7 +141,7 @@ $env:DJANGO_ALLOWED_HOSTS = 'localhost,127.0.0.1'
 
 后续 Django 命令均使用新目录的 `.\.venv\Scripts\python.exe`，避免误用旧目录解释器。
 
-同样按阶段 A 读过的 `scripts/dev.ps1` 安全复用现有 dev 数据库环境；不要复制原 `.local` 或输出/硬编码密码。新版本连到 `aluola_crm_dev` / `crm_dev` 后，运行只读检查：
+在连接数据库前，先在本机阅读旧目录 `scripts/dev.ps1`，确认它安全设置 dev 数据库环境的方式；不要 dot-source 可能会启动 runserver 的脚本，也不要复制旧 `.local` 或输出/硬编码密码。将安全设置环境的必要步骤加入新启动器。随后连接数据库并核对身份为 `aluola_crm_dev` / `crm_dev`，再运行只读检查：
 
 ```powershell
 .\.venv\Scripts\python.exe manage.py check
@@ -159,19 +149,19 @@ $env:DJANGO_ALLOWED_HOSTS = 'localhost,127.0.0.1'
 .\.venv\Scripts\python.exe manage.py shell -c "from django.db import connection; c=connection.cursor(); c.execute('select current_database(), current_user'); print(c.fetchone())"
 ```
 
-`migrate --check` 若报告 0019 尚未应用，这是当前预期状态；保存退出状态并停止在此，不运行迁移。确认数据库身份仍是 `aluola_crm_dev` / `crm_dev` 后再收集静态文件：
+`migrate --check` 若报告 0019 尚未应用，这是当前预期状态；记录退出状态，不运行迁移，也不要登录或做业务操作。确认数据库身份仍是 `aluola_crm_dev` / `crm_dev` 后继续收集静态文件：
 
 ```powershell
 .\.venv\Scripts\python.exe manage.py collectstatic --noinput
 ```
 
-目标只能是 `.local/static`。首次执行前确认该目录不存在或为空；不要加 `--clear`。WhiteNoise 只服务静态文件，`MEDIA_ROOT` 仍留在 `.local/private-media`，不得通过 WhiteNoise 或 Web 服务器公开用户上传媒体。
+目标只能是 `.local/static`。首次执行前确认该目录不存在或为空；不要加 `--clear`。WhiteNoise 只服务静态文件；共享的 `MEDIA_ROOT` 不得通过 WhiteNoise 或 Web 服务器公开用户上传媒体。复验 `/media/` 与路径穿越均不可访问。
 
-## 7. 阶段 E：手动运行与验收
+## 7. 阶段 5：手动运行与验收
 
-仅在新目录 SHA 与固定值一致、工作树干净后，按项目锁定方式执行 `uv sync --locked --extra windows` 并确认使用的是该目录虚拟环境。不得在原快照上安装。新版本仅先用独立端口 8001 手动启动，旧的 8000 服务保持原样；不要停止或替换旧服务。
+确认新目录 SHA 正确且依赖安装已通过。新版本仅先用独立端口 8001 手动启动，旧的 8000 服务保持原样；不要停止或替换旧服务。
 
-建立新目录内的本机启动脚本 `.local\run_waitress.ps1`。将 `$ProjectRoot` 和 `$Python` 替换为新目录及其隔离虚拟环境的绝对路径。先阅读旧 `scripts/dev.ps1`，只把它安全设置 dev 数据库环境的方式放进下方标注位置；不要 dot-source 一个会自动启动 runserver 的脚本，也不要打印变量值。若不能安全复用当前 DB 环境，暂停。
+建立新目录内的本机启动脚本 `.local\run_waitress.ps1`。将 `$ProjectRoot` 和 `$Python` 设置为新目录及其隔离虚拟环境的绝对路径。将前一阶段从旧 `scripts/dev.ps1` 核实的安全数据库环境设置方式放在标注位置；不要 dot-source 会自动启动 runserver 的脚本，也不要打印变量值。若不能安全复用当前 DB 环境，暂停。
 
 ```powershell
 $ErrorActionPreference = 'Stop'
@@ -189,7 +179,13 @@ $env:DJANGO_ALLOWED_HOSTS = 'localhost,127.0.0.1'
 & $Python -c "from waitress import serve; from config.wsgi import application; serve(application, host='127.0.0.1', port=8001)"
 ```
 
-该命令是前台长驻进程，验收时保持窗口运行。成功启动后，在另一个 PowerShell 检查监听地址与 HTTP：
+从另一个 PowerShell 会话使用下列命令启动脚本。`-ExecutionPolicy Bypass` 仅作用于此 PowerShell 进程，不修改机器或用户的持久执行策略：
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "D:\ALUOLA-CRM\crm-manager-deploy-35434ac\.local\run_waitress.ps1"
+```
+
+该命令启动前台长驻进程，验收时保持窗口运行。成功启动后，在另一个 PowerShell 检查监听地址与 HTTP：
 
 ```powershell
 Get-NetTCPConnection -State Listen -LocalPort 8001 |
@@ -198,26 +194,51 @@ curl.exe -sS -o NUL -w "%{http_code}`n" http://127.0.0.1:8001/accounts/login/
 curl.exe -sS -o NUL -w "%{http_code}`n" -H "Host: invalid.example" http://127.0.0.1:8001/
 ```
 
-验收要求：只监听 `127.0.0.1:8001`；匿名登录页成功；非法 Host 返回 400；静态资源返回 200。由于新共享代码含 0019、用户 DB 仍是 0018，当前只验收匿名登录页和静态资源，不登录、不打开依赖新字段的业务页面、不写业务数据。完整登录/深层页面验收及自启必须等负责人批准数据库备份/迁移窗口并完成迁移后再做。不要在报告中写账号或密码。不要测试真实客户附件；确认 WhiteNoise 配置没有将 `MEDIA_ROOT` 对外提供。
+验收要求：只监听 `127.0.0.1:8001`；匿名登录页成功；非法 Host 返回 400；静态资源返回 200。由于新共享代码含 0019、用户 DB 仍是 0018，当前只验收匿名登录页和静态资源，不登录、不打开依赖新字段的业务页面、不写业务数据。完整登录/深层页面验收及自启必须等数据库迁移窗口完成后再做。不要在报告中写账号或密码。不要测试真实客户附件；确认 WhiteNoise 配置没有将 `MEDIA_ROOT` 对外提供。
 
 如果静态资源 404、应用连到其他数据库、非法 Host 未被拒绝、或监听落在 `0.0.0.0`/局域网地址，立即停止新服务并报告，不通过改共享代码/数据库/防火墙来“修好”。
 
-## 8. 数据库迁移门槛：0018 → 0019
+## 8. 阶段 6：开发库 0018 → 0019 单次维护窗口（历史记录）
 
-当前用户开发库仍为 0018，而负责人最终固定的新代码包含 0019。新代码的 `migrate --check` 报 0019 未应用是预期结果；它只做检查，不是迁移授权。迁移前必须先向负责人提交并获批：
+**负责人已批准一次性窗口：2026-10-29 14:00（Asia/Shanghai）。**Windows agent须由用户确认就绪后手动开始；不设自动任务，时间到达不会自动迁移。范围仅 `aluola_crm_dev` / `crm_dev` 与固定 SHA `35434ac3404fbe5dd34b399ce4981b315b2b11b7`。正式库 `alola_crm`、云端、业务数据导入不在范围。
 
-1. 新旧代码的完整 SHA、目标数据库名/角色、当前迁移号和 `python manage.py migrate --plan` 结果。
-2. 数据库与媒体配对备份的实际路径、大小/校验结果，以及备份可读性验证（例如 `pg_restore --list`）；备份放在不会被新 clone 覆盖的独立本机目录。
-3. 明确回退步骤：停止新版本 8001、旧版本保持可用；如迁移失败，由负责人确认恢复数据库/媒体备份的目标与命令。不得自行尝试反向迁移或覆盖数据库。
-4. 负责人明确批准对 `aluola_crm_dev` 执行迁移的时间窗口。
+用户报告阶段 1–5 已完成：新版本只监听 `127.0.0.1:8001`，数据库仍为0018且0019待应用；`migrate --check`返回码1是预期结果。负责人同意本轮新版复用旧版私有媒体目录，因为数据库中的凭证图片记录引用这些文件。该目录仅通过私有 `MEDIA_ROOT` 使用，不由静态服务器提供。
 
-只有窗口开启后，才可在新 SHA 对应虚拟环境中先复核 `migrate --plan`，再按批准范围执行 `python manage.py migrate`，随后 `python manage.py migrate --check` 并做只读 schema/数据核验。任何失败即停并按已批准回退方案处理；不触正式云库或其他数据库。
+### 开始前
 
-## 9. 阶段 F：登录后自启
+在窗口前准备并于开始时再次确认：
 
-**当前不创建任务计划。**只有 0019 迁移获批并成功、登录及深层业务页全部验收通过后，再创建 Windows 任务计划。使用非管理员的当前 CRM 本机用户，选择“用户登录时”触发和“仅当用户登录时运行”，不勾选最高权限；这样不会把用户密码另存为任务凭据。任务执行新目录 `.local\run_waitress.ps1`，起始目录为新项目根目录。设置失败后每分钟重试、最多 3 次；若任务已运行，选择不启动第二实例。
+- 新目录 SHA、工作树、数据库身份正确；`migrate --plan` 只列出 CRM 的 `0019`，`pg_dump --version` 为 PostgreSQL 17，目标数据库为 `aluola_crm_dev`。
+- 确认监听 `8000` 与 `8001` 的进程确为本任务这两个应用。只允许在窗口中停止这两个已确认的应用进程；不要停止 PostgreSQL 或其他进程。
+- 确认旧媒体目录 `D:\ALUOLA-CRM\crm-manager\.local\private-media` 存在、确属 `aluola_crm_dev` 当前附件根目录，附件记录与文件仍对应；新运行用户已有必要访问权限时不改 ACL。若目录、权限或归属不符，停止并报告。不要复制/移动附件，也不要扩大 ACL。
+- 备份目标为 `D:\ALUOLA-CRM\backups\2026-10-29-pre-0019\`。目录须私有且不存在/为空；已存在内容时不要覆盖，改用新的时间戳目录并记录。备份口令只通过本机安全提示或既有凭据机制提供，不能放在命令参数、历史、聊天或 Git。
 
-任务启动器必须自行加载阶段 A 验证的数据库环境及新 `.local` 密钥文件，因为计划任务不会继承手动 PowerShell 会话变量。若无法在不暴露凭据的情况下复用当前本机环境，先停在这里。启动后复验监听、登录页和深层页；重启 Windows 后由用户登录再复验。不要安装 NSSM 或其他服务管理器。
+### 窗口内操作
+
+1. 记录开始时间，再次核对数据库名/角色和迁移计划。停止已确认属于本任务的 8000/8001 应用；确认两个端口释放。不要停止数据库服务。
+2. 在私有备份目录创建完整数据库自定义格式备份和旧媒体目录压缩备份。数据库备份必须非空且 `pg_dump` 退出码为 0；运行 `pg_restore --list` 并确认退出码为 0。分别记录数据库与媒体备份文件的 SHA-256。任何备份失败都不迁移。
+3. **预检和备份最长 15 分钟。**若超过 15 分钟，不开始迁移；保留现场/部分备份供检查，恢复旧 8000 并报告。不能为赶时间跳过验证。开始迁移后不要因窗口计时而杀进程；8000/8001保持停写，直到迁移和只读核验完成。用户估计迁移约1分钟，但实际时长以命令完成为准。
+4. 备份通过且 `migrate --plan` 仍只含 0019 后，仅执行目标迁移：
+
+   ```powershell
+   .\.venv\Scripts\python.exe manage.py migrate crm 0019
+   if ($LASTEXITCODE -ne 0) { throw 'Migration failed; stop and report.' }
+   .\.venv\Scripts\python.exe manage.py migrate --check
+   if ($LASTEXITCODE -ne 0) { throw 'Migrations remain unapplied; stop and report.' }
+   .\.venv\Scripts\python.exe manage.py check
+   ```
+
+   迁移只增加三个字段，不补历史编号、不删除数据。迁移开始后不要强制结束进程；如命令失败或验证异常，停止并报告，不反向迁移、不删列、不自行覆盖数据库。
+5. 做只读核验：确认 CRM `0019` 已应用；比较迁移前后数据摘要，至少确认 4 张销售单、4 条明细、17 条业务操作、8 条库存流水、账号/付款/库存数据及 3 个凭证文件数量未意外变化，并确认旧销售单 `order_number` 仍为空。只报告一致/不一致，不发送个人资料、逐行数据或凭证内容。
+6. 0019迁移已完成后恢复新目录Waitress。先打开 `http://127.0.0.1:8001/`；若页面不可用且端口没有监听，再用新目录私有启动脚本启动。只确认监听地址为 `127.0.0.1`，再用已有dev账号完成一次真实登录即可供本机用户试用；不重复跑13页/全量矩阵，不再迁移、不造单、不重置账号。旧8000保持停止。
+
+窗口结束时记录开始/结束时间、目标 SHA、迁移/check 结果、备份路径/大小/哈希、只读摘要一致性和 8001 验收；不得记录任何秘密或个人资料。若需要回退，优先停止新 8001、恢复旧 8000，保留兼容的新增字段；不要默认反迁移。若需恢复数据库/媒体备份或处理 ACL 异常，停止并报告负责人。
+
+## 9. 阶段 7：当前用户登录后自启
+
+负责人已批准本机用户登录后启动。先检查现有任务 `ALUOLA-CRM-Waitress`：若存在且运行用户及启动动作确属本项目，就复用原任务；若不存在，先确认没有其它等价的本项目任务，再创建一个名为 `ALUOLA-CRM-Waitress` 的任务。发现同名任务归属不明，或存在等价任务但配置不符时，停止并报告；不因名称较短而另建重复任务。
+
+动作使用已验证私有启动器，不把数据库口令或密钥写到任务参数、命令行或日志：程序 `powershell.exe`；参数 `-NoProfile -ExecutionPolicy Bypass -File "D:\ALUOLA-CRM\crm-manager-deploy-35434ac\.local\run_waitress.ps1"`；起始目录 `D:\ALUOLA-CRM\crm-manager-deploy-35434ac`。失败后每1分钟重试，最多3次；若任务已运行，选择不启动新实例。创建后可随时禁用作为回退。仅验证 `127.0.0.1:8001` 监听及一次已有账号登录，不要求全页矩阵或重启Windows验收。不要安装NSSM或其他服务管理器。
 
 ## 10. 回退与数据保护
 
@@ -235,8 +256,20 @@ curl.exe -sS -o NUL -w "%{http_code}`n" -H "Host: invalid.example" http://127.0.
 
 ## 12. 完成交付格式
 
-Windows agent 完成后只报告：Python 可执行路径（不含用户目录外的隐私部分可脱敏）、依赖批准来源/版本、`check` 与 `migrate --check` 退出状态、已核对的数据库名/角色、静态资源验收结果、监听地址、任务计划触发方式及回退是否验证。不得报告 Secret、数据库密码、登录凭据、密钥、完整 `.env` 或真实客户数据。
+Windows agent 完成后只报告：固定 SHA、Python 版本、依赖版本/安装状态、`check` 与 `migrate --check` 退出状态、已核对的数据库名/角色、静态资源结果、监听地址；若迁移与自启窗口未开，明确报告“未迁移、未创建任务计划”。不得报告 Secret、数据库密码、登录凭据、密钥、完整 `.env` 或真实客户数据。
 
-**当前预迁移检查标准：**新目录固定 SHA 正确、锁定依赖在 Windows 安装/导入通过、Django check 通过、0018 数据库身份确认、0019 待迁移状态如实记录、Waitress 仅 loopback:8001、匿名登录页与静态资源通过；不登录、不写业务数据、不创建自启任务。
+**阶段 1–5 预迁移交付标准：**新目录固定 SHA 正确、锁定依赖在 Windows 安装/导入通过、Django check 通过、0018 数据库身份确认、0019 待迁移状态如实记录、Waitress 仅 loopback:8001、匿名登录页与静态资源通过；不登录、不写业务数据、不创建自启任务。用户已报告该阶段完成，结果见部署工程师 WORK.md 的 Windows 执行记录。
 
-**完整本机部署标准：**负责人批准并完成 0019 数据库迁移及备份/回退验证后，登录与深层页面资源通过、媒体仍为私有、任务计划按用户登录启动且可禁用回退。外网隧道不属于本手册完成标准。
+**完整本机部署标准：**已完成当前获批版本所需迁移及备份验证，登录和目标页面通过、媒体仍为私有；自启动证据按当前计划单独核实。外网隧道不属于本手册完成标准。
+
+## 13. 商品导入 QA 通过后一次更新草案（0019 → 0020）
+
+**仅在**商品批量导入固定版通过独立浏览器 QA、负责人给出完整目标 SHA、用户确认本机维护窗口后执行。当前 Windows 运行版为 `35434ac` / 数据库迁移 `0019`；只更新 `crm-manager-deploy-35434ac` 和 `aluola_crm_dev`，不碰旧目录或云端正式环境。
+
+1. 用现有目录；核对 `git status --short` 为空且当前提交为 `35434ac`。若工作树有用户改动，原样保留并停止报告，不清理、不 stash、不 reset。目标 SHA 尚未下发前不执行更新。
+2. 确认数据库仍为 `aluola_crm_dev` / `crm_dev`、迁移为 `0019`，停止 Waitress 写入并做一份新的 PostgreSQL custom dump；以 `pg_restore --list` 验证可读。身份、迁移版本或备份验证不符即停止，不更新代码或迁移；数据库未变时可用现有启动器恢复旧版服务后报告。
+3. 停服状态下按负责人给出的完整 SHA 执行 `fetch`；确认该提交是当前 `35434ac` 的后代后用 `git merge --ff-only` 更新。禁止 `reset --hard`、`clean`、覆盖旧根快照。确认现有 `.local`、私有 `deploy_settings.py`、密钥文件、启动器及媒体目录原位保留，并确认 `docs/templates/商品批量导入模板-V1.xlsx` 存在。
+4. 在沿用第 6 节既有私有环境（`PYTHONPATH` 包含 `.local`、`DJANGO_SETTINGS_MODULE=deploy_settings`，数据库连接环境与现有启动器一致）的 PowerShell 会话中，`manage.py migrate --plan` 只可显示 `crm.0020_catalog_details_min_1030`。执行 `.\.venv\Scripts\python.exe manage.py migrate crm 0020_catalog_details_min_1030`；随后用同一环境运行 `manage.py check`、`manage.py migrate --check` 和 `manage.py collectstatic --noinput`。不得落回默认 settings。此次迁移仅增加选填产品/SKU资料字段，不改库存数量、成本或账号。
+5. 用现有启动器恢复 8001：`powershell.exe -NoProfile -ExecutionPolicy Bypass -File "D:\ALUOLA-CRM\crm-manager-deploy-35434ac\.local\run_waitress.ps1"`。确认只监听 `127.0.0.1:8001`，完成一次登录，并在商品导入页面下载模板核对成功；本窗口不上传或确认真实商品数据。账号保留在原数据库中，不运行 `createsuperuser`，不造数、不导库存/客户/历史单。
+
+任一步失败即停止并报告负责人，保留备份和现场；迁移后异常时保持服务停止，不自动恢复数据库、不反向迁移、不切换云端或隧道。交付只报告目标 SHA、备份可读性、迁移/check 结果、8001 监听及模板下载结果，不包含口令、凭据或商品明细。

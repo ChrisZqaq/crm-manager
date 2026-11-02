@@ -1211,3 +1211,145 @@ UI设计师已在1280×900真实浏览器完成补验：选择指定SKU与仓库
 **UI媒体限制追查（同日）**：最终归档克隆的 `MEDIA_ROOT` 指向 `.local/QA-ORDER-OPERATION-REFINE-1028-31DF9E9/source/.local/private-media`；只读DB显示相关 `ReceiptImage` id2（订单2）与id3（订单3）记录各为PNG/78字节，但归档目标路径文件缺失。前一固定副本的同名私有合成文件存在，字节均为78、SHA-256 `f9a5d930ba59322e7ac3d7434c0e8404ab99d5e3d247fbe47c6d50a6ca07aab3`。按负责人指示只将这两张目标样例恢复到最终副本 `.local/` MEDIA_ROOT，未改DB或上传。经只读代理验证：qa-sales GET `/api/v1/images/3` 返回200 `image/png`/78字节；qa-owner-warehouse GET `/api/v1/images/2` 同为200；匿名GET id3返回401。此复现归因于归档切换未携带本地合成媒体，不是固定应用读图回归。未扩大其它图片、上传或完整媒体权限矩阵检查。
 
 **本轮环境清理（2026-10-29）**：按负责人授权，只停止本轮自有最终Django应用PID 88447（19310）、只读代理PID 75198（19312）及私有PostgreSQL PID 85735（数据目录 `.local/QA-ORDER-OPERATION-REFINE-1028-EF1B14A/pgdata`、socket `/tmp/qaopef1b14a`）。逐项确认两个HTTP端口无监听、pg_ctl报告无运行服务、PG socket已消失。未删除源码、归档证据、私有数据库数据目录或合成媒体；未停止其它服务。
+
+### CATALOG-DETAILS-MIN-1030｜验收矩阵准备（2026-10-30）
+
+依据负责人当前派发及 [最小开发范围](../../project/CATALOG_DETAILS_MIN_20261030.md)。用户最新批准已由负责人写入业务规则，产品选填发售日期、补充说明、单张主图；SKU选填包装长/宽/高mm、毛重g、单张包装图；单卡不做。下表为预备矩阵；后端固定版 `e54e181` 的独立定向验收见下节。前端固定版的实际页面/窄屏操作仍待交测。
+
+| 范围 | 最小检查 | 通过条件 |
+| --- | --- | --- |
+| 旧数据/旧请求 | 既有无补充字段的商品/SKU可读；旧新建请求省略所有新字段；已有商品用旧PATCH省略字段 | 旧请求继续成功；旧记录不回填/不改原字段；省略与显式清空语义按合同区分 |
+| 产品字段 | 发售日期空/合法日期/非法日期；说明空/普通Unicode及换行/恰好2000字符/2001字符；新建不填、已有商品补充/清空 | 日期与说明选填；2000字符原样保存，2001字符服务端字段错误、前端maxlength=2000且不静默截断；非法日期拒绝；旧必填项、产品身份字段保持 |
+| SKU数值 | 长/宽/高各自空、有限正数（含合同允许的小数）；毛重空/有限正数；零、负数、非数、NaN/Infinity、超范围/超精度 | 四个指标独立选填且按mm/g保存；非法拒绝；不引入单位换算或商品/其他SKU串值 |
+| 产品/SKU单图 | 真实JPEG/PNG/WebP；扩展名伪装/无效内容；10MB边界与超1字节；各自空、新增、成功替换、显式清空 | 服务端按真实内容校验；大小边界按合同字节数；产品主图与SKU包装图隔离 |
+| 图片失败保护 | 已有图上尝试格式/大小失败及清空保存失败 | 失败不丢原图、不残留新引用/孤儿文件；清空只影响目标图 |
+| 权限/撤权 | 默认仓管/老板的add+change正向可用；隔离合成add-only用户（仅`add_product`/`add_sku`）可用旧基本字段及新JSON资料创建，但新建页不显示需change的图片控件；直接图片POST/PATCH拒绝；撤销change后重放仍拒绝 | 不新增“创建者可传图”例外；权限检查在服务端，拒绝时DB/文件不变，UI控件遵守同一权限 |
+| 多SKU图片关联 | 按请求行序创建多个SKU并给每行使用不同合成图；比对返回`sku_ids`顺序及每条SKU图像引用/内容 | `sku_ids[i]`对应请求第i行，包装图不串绑；失败不得留下部分错绑引用 |
+| 页面/业务不变 | 新建省略补充资料、默认折叠；已有商品/SKU补充/替换/清空及必要键盘查看；1280与390根宽/溢出 | 不挤入下单、首页或目录主表；两视口无根横溢出；补充区默认折叠；保存后正确回读 |
+| 不变量 | 记录改前/后的商品/SKU身份、条码/别名、库存余额、成本及关联订单/期初计数 | 资料变更不重编号、不改挂SKU、不写库存/成本/订单/提成/期初；既有模板无需新增列 |
+
+**合同状态**：`supplement_notes`最多2000字符，前端maxlength=2000；超长由服务端拒绝且不截断，来源为[API合同](../../specs/API_CONTRACT.md#商品补充资料开发合同2026-10-30)。图片字节边界、日期格式、数值精度/上限、PATCH省略与空/null清空语义、替换/清空后旧文件生命周期及各对象权限/撤权状态码，均按当前API合同固定条文执行；若最终实现与合同不一致再报差异，不自行补假设。后端固定版已独立定向执行，详见下节；页面验收仍待前端固定版。
+
+### CATALOG-DETAILS-MIN-1030｜后端固定版独立定向验收（2026-10-30）
+
+固定后端提交 `e54e181d283013c16368356def4b648f4ef92e76`，从该提交归档至 `.local/QA-CATALOG-DETAILS-MIN-1030-E54E181/source`；750个跟踪文件逐字节核对，缺失0、差异0。独立索引 `qa-catalog-details-e54e181` 仅用于目标源码定位。全程未改应用代码。
+
+使用本任务私有PostgreSQL 17集群（数据库 `qa_catalog_details_e54e181`、Unix socket `/tmp/qacat1030e54`、端口57762，`listen_addresses` 为空）及私有媒体目录 `.local/QA-CATALOG-DETAILS-MIN-1030-E54E181/private/media`。先将代表性旧Product/SKU、库存余额、订单和订单行写入CRM 0019库，再迁移至0020；迁移后五类旧行计数均仍为1，新字段均为空/空字符串，原SKU标识、库存数量/成本/版本及订单状态/金额/版本/明细值未改变。`manage.py check` 通过。随后补齐此新库其余Django内置迁移，以支持独立客户端登录；没有应用代码/设置变更。
+
+目标测试共13项、全部通过（Django test DB运行后自动销毁）：`CatalogDetailsTestCase` 4项及相关 `CatalogTestCase` 9项，覆盖旧请求兼容、字段验证/清空、图片校验/替换失败保护、权限、目录既有行为及SKU编号。目标测试含 `test_create_keeps_legacy_requests_and_accepts_optional_details`、`test_patch_clears_validates_and_rechecks_permissions_before_replay`、`test_image_validation_access_replacement_failure_and_clear`、`test_measurement_database_constraints_reject_nonfinite_values`。本轮没有跑全量测试套件。
+
+另用Django客户端在上述真实隔离库补了定向HTTP边界检查：
+
+- 只有 `add_product/add_sku` 权限的账号成功用JSON新建带补充字段的产品；恰好2000字符原样保存；2001字符返回400且未创建产品。创建响应 `sku_ids` 顺序与两条请求SKU行对应。该账号对产品图片GET/POST均403。
+- 生成的有效JPEG、PNG、WebP均能上传和原字节回读，响应MIME正确且带 `private, no-store` 与 `nosniff`；SKU WebP读取亦通过。恰好10 MiB的有效PNG接受，10 MiB+1拒绝且已有主图引用保持不变。图片权限撤销后重放原操作键返回403。产品及SKU图片清空后DB引用为空，媒体目录无残留文件。
+- 迁移验收的旧样本、实测路径、合成媒体和数据库均隔离；为后续前端页面保留一个合成产品及两条SKU（其中说明文本为2000字符）。两名测试账号因审计操作表以PROTECT保留操作者，不删除；均已停用并设为不可登录。9条合成 `BusinessOperation` 记录保留。
+
+**未完成/限制：**尚未取得前端固定提交，没有真实浏览器验证新增/已有产品编辑、图片上传/替换/清空、按行上传不串绑及1280/390页面行为。API客户端创建响应的SKU行序只验证了ID返回对应关系，不能替代UI图片行映射实测；也未测实体手机、Windows或全量回归。该独立PG与私有媒体环境保持运行，等待负责人给出前端固定版后继续同库定向页面验收；本结论仅代表后端 `e54e181`，不代表整项UI验收或负责人最终验收。
+
+**运行环境归属/恢复：**该PG17集群由QA本任务启动并独占，PGDATA `.local/QA-CATALOG-DETAILS-MIN-1030-E54E181/pgdata`，日志 `.local/QA-CATALOG-DETAILS-MIN-1030-E54E181/private/postgres.log`，数据库 `qa_catalog_details_e54e181`，OS用户 `crm_qa`，socket `/tmp/qacat1030e54`、端口57762；initdb为本地trust/host reject，服务 `listen_addresses` 为空，只接受Unix socket。当前 `pg_ctl status` 显示运行PID 9383；没有启动本任务Django/HTTP/只读代理进程。私有媒体目录为 `.local/QA-CATALOG-DETAILS-MIN-1030-E54E181/private/media`，当前无文件。**恢复/状态命令**（从项目根目录）：`./.local/postgresql-17/bin/pg_ctl -D .local/QA-CATALOG-DETAILS-MIN-1030-E54E181/pgdata -l .local/QA-CATALOG-DETAILS-MIN-1030-E54E181/private/postgres.log -o '-c listen_addresses= -c unix_socket_directories=/tmp/qacat1030e54 -p 57762' -w start`、`./.local/postgresql-17/bin/pg_ctl -D .local/QA-CATALOG-DETAILS-MIN-1030-E54E181/pgdata status`；停止仅使用 `./.local/postgresql-17/bin/pg_ctl -D .local/QA-CATALOG-DETAILS-MIN-1030-E54E181/pgdata -m fast -w stop`，不触碰其它PG进程。Django命令需在当前固定副本目录，环境为 `CRM_DB_NAME=qa_catalog_details_e54e181 CRM_DB_USER=crm_qa CRM_DB_HOST=/tmp/qacat1030e54 CRM_DB_PORT=57762 DJANGO_DEBUG=1`。该固定副本设置默认 `MEDIA_ROOT=BASE_DIR/.local/private-media`；后续切换前端源码时须继续指向本任务私有媒体目录，不拷到共享/正式媒体位置。负责人收到前端固定SHA后，先独立归档并逐文件核源、核CSS固定/实际响应指纹，再切同一DB与私有MEDIA_ROOT做浏览器操作；在固定SHA到达前不轮询、不扩测。数据库中保留原迁移哨兵样本、API创建的一个2000字符合成产品及两SKU、9条QA操作记录；两名操作者账号已停用并设不可登录。
+
+### CATALOG-DETAILS-MIN-1030｜前端固定版浏览器验收续测（2026-11-02）
+
+前端固定版 `95718bc28f828aa096795d5a2ec8c0bb1ae97873` 的隔离归档已复核：750个跟踪文件逐字节一致，CSS SHA-256 `5edb46b06d0a45cc99c3ea6b43193c8ee82609ebca779c5fb585acc403ca1c17`。真实 Chrome 浏览器登录隔离合成账号，访问 `/catalog/new/`。选填资料默认收起；1280×900下根 `scrollWidth=clientWidth=1265`。填写未提交的合成草稿：说明恰好2000字符且 `maxlength=2000`；两SKU四个数值输入保留了输入字符串的小数位。390×844下主表单几何为 x=12、宽351，根 `scrollWidth=clientWidth=375`、`scrollX=0`，没有横向溢出；侧栏收至屏外。页面状态只通过当前浏览器截图、DOM及几何查看，未保存截图文件。
+
+图片上传被 Chrome 扩展 `filechooser.setFiles` 拦截，提示需在扩展详情启用“Allow access to file URLs”。此权限尚未修改，三个本地合成图片均未选入；未提交JSON、未发生业务图片上传或写入，未新建商品/SKU。未用其它方式绕过扩展文件访问策略。当前保留未提交草稿及浏览器页，待用户启用权限后继续完成两SKU不同图、首次图片失败后仅重试图片、详情替换/清空与权限、取消草稿验收。
+
+**运行环境状态续记（2026-11-02）：**同一隔离PG仍为私有PostgreSQL 17集群（PGDATA `.local/QA-CATALOG-DETAILS-MIN-1030-E54E181/pgdata`，PID 39035，DB `qa_catalog_details_e54e181`，OS角色 `crm_qa`，仅Unix socket `/tmp/qacat1030e54:57762`）。为浏览器验收启动的固定版Django服务 PID 40338，仅监听 `127.0.0.1:19332`，日志 `.local/QA-CATALOG-DETAILS-MIN-1030-E54E181/private/django-95718bc.log`。服务和隔离库保留以便本轮恢复继续；不触碰其它服务。
+
+补充核验：浏览器访问日志仅有登录POST和目录/编号建议GET；没有 `/api/v1/products` 或 SKU 图片POST。SQL计数仍为 `Product=2`、`SKU=3`，与进入表单前一致。
+
+### CATALOG-DETAILS-MIN-1030｜前端固定版真实图片链路与权限续测（2026-11-02）
+
+延续上节，遵照负责人指示使用 Chrome 原生 Open 文件选择器和本任务 `.local/.../private/uploads` 合成文件；未改扩展 file URL 权限，未用DOM/HTTP替代文件选择或图片操作。此前固定版及 CSS 指纹不变；仍是 `95718bc28f828aa096795d5a2ec8c0bb1ae97873` / `5edb46b06d0a45cc99c3ea6b43193c8ee82609ebca779c5fb585acc403ca1c17`。真实浏览器视口已检查1280×900、390×844，根无横向溢出；默认新建选填区折叠。
+
+在 owner 合成账号实际新建商品 ID 5（`QA 95718BC catalog image retry 20261102`）与两条 SKU `QACM103003`/`QACM103004`。一次客户端编号校验不通过：错误 SKU 前缀导致 `POST /api/v1/products` 400，未创建记录；改正为QACM编号后唯一一次产品创建POST 200。请求与UI结果：产品主图POST 200；SKU 1 的12字节无效PNG POST 400“图片类型与文件内容不匹配”；SKU 2 的独立JPEG POST 200；用原生选择器为SKU 1选另一张有效PNG后点“重试未完成图片”，仅再次POST `/api/v1/skus/4/image` 且返回200，未再次POST `/api/v1/products` 或重传已成功图片。后续搜索回读产品、两SKU图片均200。详情截图显示产品紫色图、SKU 1 青色替换图、SKU 2 绿色图各在本行。
+
+PostgreSQL核对：商品总数2→3，SKU总数3→5；仅新建商品5及SKU4/5。Product 5主图引用 `catalog/products/5/c3c9cf0c605a4e0483ff0008ddcd2817.webp`；SKU4 `package_image=catalog/skus/4/96b1396a0aff48b28e710f14d3cd7a9e.jpg`，SKU5 `package_image=catalog/skus/5/64c25192123f489a9f71599bacd72a2a.jpg`。数据库读回四项尺寸/重量分别为SKU4 `12.375/6.250/3.125/250.500`、SKU5 `25.500/12.250/5.750/1250.250`。新建时说明长度2000，随后在详情保存一条短说明，再清空保存，当前长度为0且界面显示“补充资料已保存”。产品主图与SKU4包装图均通过详情页面替换成功，状态显示“图片已更新”。
+
+切换 add-only 合成用户后，直接打开新建页并展开产品/SKU选填区；DOM中的 `input[type=file]` 数量为0、无图片控件。填入未提交商品草稿后离开，浏览器先显示“Changes you made may not be saved”，选择Leave后回工作台。数据库总数仍为3商品/5 SKU；没有为该草稿发产品创建POST。owner与add-only账户均为QA隔离合成账号。本轮未重跑后端13项测试。
+
+**待确认动作/限制：**主图替换已证实成功；产品详情“移除图片”会清除主图DB引用及服务端媒体文件，业务界面不能撤销。因永久删除需用户行动时确认，已向用户询问是否清除商品ID 5当前刚替换的合成主图；未获答复前不点击。可继续依赖当前会话已验证的添加、失败重试、编辑/清空文字、两级图片替换与权限/草稿结果；尚缺图片删除保护和保存权限最终矩阵。实体手机、Windows及全量回归未测；截图仅在当前浏览器会话查看，没有写截图文件。
+
+**运行环境当前状态（2026-11-02）：**私有PG17 PID 39035/仅Unix socket `/tmp/qacat1030e54:57762`，Django固定版 PID 40338 仅监听 `127.0.0.1:19332`，应用访问日志在 `.local/QA-CATALOG-DETAILS-MIN-1030-E54E181/private/django-95718bc.log`。本任务隔离源归档、DB和服务保留；没有切换到后端新导入任务或混用版本。
+
+### CATALOG-DETAILS-MIN-1030｜前端固定版最终收口（2026-11-02）
+
+用户确认移除商品 ID 5 刚替换的合成主图后，已在 owner 合成账号的商品详情页点击“移除图片”。界面显示“图片已移除”及无图占位；日志记录 `DELETE /api/v1/products/5/image` 返回200。只读复核 Product 5 的 `main_image` 为空，刚替换的服务端文件 `catalog/products/5/c3c9cf0c605a4e0483ff0008ddcd2817.webp` 已删除；SKU 4/5 各自的包装图引用未变，商品/SKU 总数仍为3/5。源合成fixture保留，可重新上传。
+
+本固定前端版浏览器验收覆盖创建与失败后单图重试、两SKU图片区分、选填字段保存/清空与数值回读、已有主图及SKU图替换/清空、add-only账号不显示图片控件、未提交草稿离开，以及1280×900和390×844浏览器视口无横向溢出。固定版本仍为 `95718bc28f828aa096795d5a2ec8c0bb1ae97873`。未改应用代码；未重跑后端13项测试或全量回归。实体手机、Windows及直接撤权后重放的浏览器链路未测，因此这是限定范围的浏览器验收记录，不代表负责人最终验收。
+
+隔离PG仍运行（PID 39035，仅Unix socket `/tmp/qacat1030e54:57762`）；固定版Django PID 40338，仅绑定 `127.0.0.1:19332`。保留本任务数据库、归档和服务供负责人检查，不触碰其他服务。
+
+### CATALOG-IMPORT-SKU-1102｜后端固定版独立服务/API验收阶段（2026-11-02）
+
+依据固定后端提交 `fa733eb498acb47850c3a1fd2b7c0a69f4d355b7`，用 `git archive` 归档至 `.local/QA-CATALOG-IMPORT-SKU-1102-FA733EB/source`；归档SHA-256 `766116ba09de7fd2394c781fa9d0602315ea3d9a456ca83454823b0e289be9af`，754个文件。没有修改应用代码。使用独立数据库 `qa_catalog_import_fa733eb`（位于QA自有私有PG17集群，Unix socket `/tmp/qacat1030e54:57762`），仅迁移到已存在的 `crm.0020_catalog_details_min_1030`；`manage.py check`通过。固定版Django只监听 `127.0.0.1:19334`，没有复用或写入95718bc正在使用的数据库。
+
+通过真实本机HTTP会话以合成QA账号访问导入预览/确认API，合成xlsx在内存生成，固定归档模板用于空白模板检查。8项独立HTTP/API验收通过：
+
+- 固定归档模板预览为非ready、报告至少需一个产品；“填写示例”页未变成导入数据，未写Product/SKU。
+- 双包型×箱/盒/垃圾袋/包生成8条SKU；部分规格选择只生成所选2种基础单位及2个自定义单位，共4条。可选规格的默认行和“大箱”行的SKU编号、别名、前导零条码及尺寸/重量均准确回到各自商品/SKU。
+- 已存在SKU编号碰撞在预览阶段报错；错误产品关联返回行错误且不落库。重复文件预览拒绝再次创建；相同操作键重放返回同一结果，不增加记录。
+- 两条重复条码分别出现在确认清单；漏确认或只确认一条均返回409且不写入，按预览精确确认两条后才成功。
+- 预览后撤销 `add_product/add_sku`，确认返回403且数据库不变；恢复合成账号权限供后续UI验收。
+- 两份同时预览的文件获得相同下一SKU编号；并发确认结果为一个200、一个409 `stale_preview`，只新增一个产品和SKU，未保存重复编号。
+
+另对真实PostgreSQL隔离测试库运行唯一需要的事务回滚用例 `test_late_sku_validation_failure_rolls_back_whole_import`，1/1通过；没有重跑后端14项开发自测或旧0020套件。QA库最终为5个合成商品、17条SKU和3条导入操作。对所有其它CRM模型做前后计数比较均未变化，未写仓库、库存余额/流水、成本、收货、期初或订单数据。
+
+**未完成/下一步：**尚无新前端固定SHA，因此没有用原生OS对话框在真实浏览器上传模板并走预览/确认，也没有核 SKU 规格/包装/条码的页面可辨识度及1280/390布局。待前端固定并停写后，先核固定源，再接本任务独立DB/私有环境做一次合成浏览器链；旧95718bc页面、DB及服务保持不动，不混版本。
+
+**运行环境：**私有PG17 PID 39035；本任务DB `qa_catalog_import_fa733eb` 与旧资料DB `qa_catalog_details_e54e181` 相互独立。导入后端Django PID 49258仅监听 `127.0.0.1:19334`；旧95718bc Django PID 40338仍监听 `127.0.0.1:19332`。两服务均仅本机访问，供后续验收复用。
+
+### CATALOG-DETAILS-MIN-1030｜95718bc负责人所问UI完成度（2026-11-02）
+
+依据前两节“前端固定版真实图片链路与权限续测”及“前端固定版最终收口”，结论如下：
+
+- **原生选择器：**Chrome原生OS Open对话框成功选入本任务合成图片，扩展 file URL 权限未改；此前扩展自动注入 `setFiles` 失败已由原生对话框解决。
+- **多SKU单图/失败重试：**真实UI创建商品5及SKU4/5，产品主图、SKU4 PNG、SKU5 JPEG各异；页面详情与图片GET回读确认行绑定。SKU4第一次伪装PNG返回400，随后页面“重试未完成图片”只发SKU4图片POST 200，没有再次发产品创建POST或重传成功的SKU5图。
+- **详情修改：**商品5是本轮新建后再进入详情编辑，并非测试前既有商品。其补充说明经保存后清空；主图替换成功，用户确认后已清除主图引用和服务端文件。SKU4图片替换成功，SKU4/5初始尺寸重量均回读正确；后续续测又在详情页将SKU4长度保存为13.625、再清空为数据库`NULL`，并移除SKU4包装图。SKU5包装图引用未变。
+- **权限/草稿：**add-only账号的新建页没有文件输入/图片控件；未在浏览器直接重放图片POST/PATCH测试撤权。未提交草稿离开时真实出现浏览器确认框，选择Leave后回工作台，商品/SKU数及产品创建请求不变。
+- **视口/证据：**真实Chrome 1280×900、390×844仿真均无文档横向溢出；截图只在会话中查看未落盘。未做实体手机或Windows实机验收。
+
+以上未测浏览器动作没有用API/源码观察替代；底层e54后端测试属于另一固定SHA，不折算成95718bc的UI通过项。
+
+### CATALOG-DETAILS-MIN-1030｜SKU尺寸与包装图清除续测（2026-11-02）
+
+继续在固定前端 `95718bc28f828aa096795d5a2ec8c0bb1ae97873`、旧版详情服务 `127.0.0.1:19332` 与隔离库 `qa_catalog_details_e54e181` 完成负责人交办的两项合成数据操作。此前会话过期时一次 `PATCH /api/v1/skus/4` 返回401“请先登录”，未写入；按负责人授权只为隔离合成账号 `qa-catalog-owner` 重置了凭据，并将其保存在本任务 `.local/QA-CATALOG-DETAILS-MIN-1030-E54E181/private/qa-catalog-owner.json`（文件权限600、目录权限700）。账号状态、角色与权限未改变；凭据未放入仓库、日志或协作消息。
+
+真实浏览器登录后，对 Product 5 / SKU 4 `QACM103003` 在详情页保存包装长度 `13.625 mm`，页面显示“补充资料已保存”，数据库回读为 `13.625`；再清空该字段并保存，页面仍显示保存成功，数据库值为 `NULL`。随后在 SKU 4 本行点“移除图片”，页面显示“图片已移除”和无图占位。数据库确认 SKU4 `package_image=''`、对应私有服务端文件已删除；SKU5 `QACM103004` 的长度仍为 `25.500`、图片引用及文件存在，Product 5 主图仍为空。产品/SKU总数仍为3/5。操作全程只经页面完成；回读使用本任务私有PG socket `/tmp/qacat1030e54:57762`。真实页面截图仅在当前会话内查看，未保存文件。
+
+本续测未改应用代码，也未重跑全套测试；实体手机、Windows及全量回归未测。续测完成时旧版Django与隔离PG仍在运行；随后负责人收口及HTTP服务停止状态见下节。
+
+### CATALOG-DETAILS-MIN-1030｜负责人验收收口（2026-11-02）
+
+负责人确认本任务限定验收通过并停止测试；后续不因新导入任务重跑旧957全套。核对进程归属后，已停止本任务旧版HTTP服务 PID 40338（固定版95718bc，仅监听127.0.0.1:19332）；复核无19332监听。保留同一隔离PG集群 PID 39035（Unix socket `/tmp/qacat1030e54:57762`），因为该集群也承载独立的新导入QA数据库；新导入HTTP服务 PID 49258 仍仅监听127.0.0.1:19334。未删除数据库、媒体或证据，未触碰新导入服务/数据库。等待新导入前端固定交接后，仅按负责人安排进行对应页面验收与必要相邻回归。
+
+### CATALOG-IMPORT-SKU-1102｜5bc00f0浏览器验收恢复与连接阻断（2026-11-02）
+
+负责人固定前端提交 `5bc00f05b73f14f957cdb93d840f88fe2193cac6`。本地 HEAD 为 `62c6534a8cc0658a99bb8046dedc5281620ff1df`；5bc之后的提交/工作树改动涉及文档，不含应用文件。用 `git archive` 精确归档至 `.local/QA-CATALOG-IMPORT-SKU-1102-5BC00F0/source`，755个跟踪文件逐 Git blob SHA 校验一致，归档 tar SHA-256 为 `88b576a694717473b104a17012b41afcc3c5cc05cfe6aa26df7c9c5559fb77b0`。固定CSS `crm/static/crm/app.css` SHA-256 为 `5edb46b06d0a45cc99c3ea6b43193c8ee82609ebca779c5fb585acc403ca1c17`；19334服务响应CSS SHA一致。
+
+额度中断后私有PG曾停止；按本任务原PGDATA及Unix socket记录恢复，当前PG PID 99996，数据库仍为 `qa_catalog_import_fa733eb`。将本任务自有19334进程从后端副本恢复到5bc归档，当前Django PID 1813，环境为 `CRM_DB_NAME=qa_catalog_import_fa733eb`、用户`crm_qa`、socket `/tmp/qacat1030e54:57762`，仅监听 `127.0.0.1:19334`；日志在 `.local/QA-CATALOG-IMPORT-SKU-1102-FA733EB/private/django-5bc00f0.log`。仅做了登录页、未认证目录页重定向及CSS HTTP GET。数据库基线只读回读为5商品/17 SKU、0库存余额、0库存流水、0收货、0仓库；已有条码`00001234567890`出现3次。此项只证明运行源/连接与静态资源，不计作浏览器验收或API回归。
+
+从跟踪空模板按XML编辑流程生成三个仅本地私有的合成工作簿：`import-ui-main.xlsx`（部分单位选择，计划产生肥/瘦包装、垃圾袋及大箱区分的8 SKU；包含可选尺寸/条码和已有重复条码组，以供页面确认）、`import-ui-row-error.xlsx`（无效IP行）、`import-ui-stale.xlsx`（并发预览后用于旧序号保护）。文件路径均在 `.local/QA-CATALOG-IMPORT-SKU-1102-FA733EB/private/`。三份XML打包及公式检查通过，公式数/错误数均0；用只读openpyxl核对工作表和填充值。辅助 `xlsx_reader.py` 因环境缺少pandas未运行成功，未影响上述校验。工作簿尚未经浏览器选择/上传，未产生任何新商品/SKU写入。
+
+**浏览器阻断：**按当前工具目录从 `mcp__node_repl__js` 加载 Chrome 控制技能客户端，`setupBrowserRuntime()` 初始化阶段失败：它尝试导入磁盘不存在的 `/Users/chrisz/.codex/plugins/cache/openai-bundled/browser/26.1027.30824/scripts/browser-service.mjs`（当前磁盘只存在26.1027.61615版本）。已重置Node浏览器会话后重试，及以同一工具调用直接浏览器RPC，均返回相同路径错误。未改官方插件缓存、未建兼容软链、未改Chrome安全设置；按负责人指示停止重复初始化尝试。
+
+因此尚未实测原生OS选择器上传、预览/确认、重复条码逐项勾选/同文件幂等、行错误/过期提示、各SKU选择器辨识、1280/390真实浏览器视口。没有用API/源码观察替代这些UI项目，没有重跑已通过的后端8组及事务回滚测试。待用户重启Codex刷新浏览器连接后，使用已恢复的5bc服务、当前三份合成工作簿与原QA DB继续完成页面验收；旧19332保持关闭。
+
+### CATALOG-IMPORT-SKU-1102｜Codex重启后浏览器连接复验（2026-11-02）
+
+收到用户已重启Codex后，使用当前Chrome技能脚本 `/Users/chrisz/.codex/plugins/cache/openai-bundled/chrome/26.1027.61615/scripts/browser-client.mjs` 重新调用 `setupBrowserRuntime()`。初始化仍报错：Node REPL工具的trusted-worker请求不存在的 `/Users/chrisz/.codex/plugins/cache/openai-bundled/browser/26.1027.30824/scripts/browser-service.mjs`。依负责人安排，本次不再循环重置、直连RPC或换浏览器控制工具；未进行任何真实UI操作或导入写入。
+
+Codex重启也停止了本任务服务；按隔离任务原配置恢复私有PG，当前PID 12555；从精确5bc归档恢复Django PID 12740，仅监听 `127.0.0.1:19334`。登录页HTTP GET 200。服务与数据库已就绪，但浏览器初始化阻断仍需上游工具版本映射修复；原生上传、预览/确认、重复/错误/过期保护、SKU辨识与1280/390仍未验收。
+
+### CATALOG-IMPORT-SKU-1102｜5bc前端真实浏览器验收（2026-11-02）
+
+固定前端提交 `5bc00f05b73f14f957cdb93d840f88fe2193cac6`，CSS SHA-256 `5edb46b06d0a45cc99c3ea6b43193c8ee82609ebca779c5fb585acc403ca1c17`。使用本机配套 Node 依赖中的 Playwright 1.62.1、已安装 Chrome，在独立临时浏览器上下文访问本任务 `127.0.0.1:19334` 与隔离库 `qa_catalog_import_fa733eb`。登录凭据只从私有文件读取，没有打印或发送。文件通过 Playwright `setInputFiles` 交给页面；这验证了页面文件上传链路，但没有验证原生 OS 文件选择器。未修改应用代码、权限或插件缓存。
+
+- 行错误工作簿显示“产品导入 第2行 · IP：请选择现有且启用的IP。”，确认按钮禁用。
+- 主工作簿预览显示1个商品、8个SKU；包括箱/盒/垃圾袋单位、肥包/瘦包、两条重复条码确认，以及尺寸、毛重和“大箱”规格别名。缺少任一重复条码勾选时仍不可提交；全部勾选后按钮启用并导入成功，页面回显创建1个商品、8个SKU、业务序号4，未创建库存。
+- 另一隔离会话先生成的单SKU预览在主导入后提交，被拒绝并提示“预览或重复条码确认已失效，请重新上传并预览。”；相同主工作簿重传提示“该工作簿内容已导入，未再次创建。”
+- 数据库从5商品/17 SKU变为6商品/25 SKU。新增商品详情和目录行显示QIMP9018—QIMP9025共8个SKU、单位、肥包/瘦包和“大箱”别名；数据库回读确认尺寸、毛重和条码。库存余额、库存流水、收货单、仓库仍为0。
+- 390×844仿真视口根宽度390，无页面横向溢出；导航初始关闭，点击菜单可展开，点击遮罩可关闭。动画结束后菜单完全移出视口。SKU表在独立660px滚动容器内，视口宽338px，可横向滚动。该结果是桌面浏览器仿真，不代表实体手机验收。
+- 合成账号对 `/orders/new/`、`/receiving/`、`/adjustments/` 的只读 GET 均为403，因此没有权限检查这些下游SKU选择器；没有为此改权限或创建库存、收货、订单、调整数据。
+
+导入成功页面仍显示已勾选的重复条码确认清单，但确认按钮已消失，不能再次提交；记录为低优先级状态残留，不阻塞本轮导入。桌面与移动截图保存在 `.local/QA-CATALOG-IMPORT-SKU-1102-FA733EB/private/`：`row-error-1280.png`、`main-preview-1280.png`、`main-import-result-1280.png`、`stale-result-1280.png`、`repeat-import-preview-1280.png`、`catalog-detail-390.png`、`catalog-detail-table-end-390.png`、`catalog-detail-nav-open-390.png`、`sku-preview-390.png`。未重跑后端测试套件；没有进行原生文件选择器或实体手机测试。
