@@ -684,3 +684,13 @@ UV_PROJECT_ENVIRONMENT=/Users/chrisz/.cache/aluola-crm-uiquery1-venv CRM_DB_NAME
 - 定向验证13项通过：新增CatalogDetailsTestCase 4项（旧请求和补充创建、字段序列化、PATCH清空/非法日期与数值/超长说明、撤权后幂等拒绝、图片权限/格式与10MiB、替换失败保留旧图、清空/重放、NaN数据库约束）；目录兼容3项；现有ReceiptImage及付款图片回归6项。日志 `.local/CATALOG-DETAILS-MIN-1030-BACKEND/targeted-tests.log`。专属PostgreSQL 17中迁移0020应用成功，测试库自动创建/销毁；`makemigrations --check --dry-run`无变化、Django `check`、`py_compile`、`git diff --check`均通过。
 - PostgreSQL仅在本任务新建 `.local/CATALOG-DETAILS-MIN-1030-BACKEND/`，Unix socket-only、`listen_addresses=''`，测试完成后已停止；保留PGDATA和日志供核查。未连接或更改其他数据库、真实数据或共享服务。
 - 未跑全套测试、真实浏览器/窄屏UI、Windows、云/正式迁移或部署；页面实施由前端按本合同继续，独立QA定向操作验收待后续。此版本固定后停止应用写入，不push/deploy。
+
+### CATALOG-IMPORT-SKU-1102｜商品Excel导入后端固定交接（2026-11-02）
+
+- 依据负责人派发文档 `docs/project/CATALOG_IMPORT_SKU_20261102.md`；模板与任务文档基线 `91e22bb`。只实施商品资料和生成SKU导入，不导库存、仓库、成本或历史流水；不读取真实商品表生成测试数据。
+- 新增 `POST /api/v1/products/import/preview`（multipart字段 `file`）与 `POST /api/v1/products/import/confirm`（JSON：`operation_key`、`preview_token`、`confirmed_duplicate_sku_keys`），两端均要求 `add_product` 与 `add_sku`。只解析模板“产品导入”“规格补充”两页；预览只读，确认以既有 `BusinessControl` 锁和单事务创建Product/SKU。支持8种肥瘦×箱/盒/垃圾袋/包组合及部分选择、可选规格别名/条码/尺寸/毛重、自动或手填编号、精确重复条码确认、操作键幂等及相同文件内容防重。拒绝公式、错误表头/关联、非法枚举/数值、已占编号和不支持工作表；不新增模型/迁移。
+- 预览令牌会被客户端持有，故已存在商品候选、条码候选及最高SKU编号快照均只保存哈希供确认时重算比对，不将候选行内容编码进令牌。库存列表 `inventory_rows` 只增加 `pack_type_label` 和 `aliases` 供SKU辨识，报表列和汇总保持原样。
+- 应用与回归固定提交 `fa733eb`（基线 `91e22bb`）；范围仅 `config/urls.py`、`crm/catalog_import.py`、`crm/operations.py`、`crm/views.py`、`crm/test_catalog_import.py`。无迁移，未改公共任务文档、模板、前端、Windows配置、真实数据或旧 `CATALOG-DETAILS-MIN-1030` 工作树。
+- 合成 PostgreSQL 17 定向回归14项通过：`crm.test_catalog_import` 13项及现有 `crm.test_phase6.ReportPhase6Tests.test_inventory_report_keeps_live_balance_and_hoard_reason` 1项。覆盖模板8SKU/部分选择、补充规格绑定、重复条码确认、文件/公式/数值拒绝、权限、幂等/内容防重、全事务回滚、编号冲突/并发、令牌候选信息不泄露，以及库存报表字段兼容。Django `check`、`makemigrations --check --dry-run`（无变化）、`py_compile`、`git diff --check`均通过。
+- 验证只使用本任务专属 `.local/CATALOG-IMPORT-SKU-1102-BACKEND/` PostgreSQL 17 Unix-socket集群（`listen_addresses=''`，端口57625仅为本地配置）；Django测试库已自动销毁。没有连接或改动其他数据库、共享服务或业务数据。固定后不push/deploy。
+- 后端已停写，交前端按以上端点合同接入入口/预览/确认及SKU辨识，再交QA在合成库独立操作验收。未验证真实Windows网页上传、浏览器窄屏/UI、正式库或部署；不能据本轮后端测试宣称整条用户流程验收完成。
