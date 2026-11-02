@@ -1089,6 +1089,202 @@ def create_catalog_product(actor, data, operation_key, request_id=""):
     return _run_write("catalog_product_create", actor, request_id, write)
 
 
+def confirm_catalog_import(actor, operation_key, preview_token, confirmed_duplicate_sku_keys=None, request_id=""):
+    _require(actor, "add_product")
+    _require(actor, "add_sku")
+    key = operation_uuid(operation_key)
+    token_data = _read_preview(preview_token, actor, "catalog_import")
+    data = token_data.get("data")
+    if not isinstance(data, dict) or not isinstance(data.get("products"), list) or not data["products"]:
+        raise OperationError("商品导入预览无效，请重新预览。", status=409, code="stale_preview")
+    expected_duplicates = set(data.get("duplicate_sku_keys", []))
+    if confirmed_duplicate_sku_keys is None:
+        confirmed_duplicate_sku_keys = []
+    if (
+        not isinstance(confirmed_duplicate_sku_keys, list)
+        or any(not isinstance(value, str) for value in confirmed_duplicate_sku_keys)
+        or len(set(confirmed_duplicate_sku_keys)) != len(confirmed_duplicate_sku_keys)
+        or set(confirmed_duplicate_sku_keys) != expected_duplicates
+    ):
+        raise OperationError(
+            "请逐项核对并确认预览中列出的重复条码。",
+            status=409,
+            code="duplicate_barcode_confirmation_required",
+            fields={"confirmed_duplicate_sku_keys": "确认列表必须与预览中的重复SKU行一致。"},
+            details={"duplicate_sku_keys": sorted(expected_duplicates)},
+        )
+    input_hash = canonical_hash({
+        "action": "catalog_import",
+        "input_hash": token_data.get("input_hash"),
+        "confirmed_duplicate_sku_keys": sorted(confirmed_duplicate_sku_keys),
+    })
+
+    def write():
+        with transaction.atomic():
+            control = _lock_control()
+            _require(actor, "add_product")
+            _require(actor, "add_sku")
+            replay = _operation_replay(actor, key, "catalog_import", input_hash)
+            if replay is not None:
+                return replay
+            previous = BusinessOperation.objects.filter(
+                action="catalog_import",
+                payload__source_hash=data.get("source_hash"),
+            ).order_by("id").first()
+            if previous:
+                if previous.actor_id == actor.pk:
+                    return previous.result
+                raise OperationError("该商品文件内容已导入，不能重复创建。", status=409, code="catalog_import_already_completed")
+            if control.last_sequence != token_data.get("sequence"):
+                raise OperationError("预览后业务或SKU编号已变化，请重新预览。", status=409, code="stale_preview")
+
+            products = data["products"]
+            brand_ids = {item["brand_id"] for item in products}
+            brands = {item.pk: item for item in Brand.objects.select_for_update().filter(pk__in=brand_ids).order_by("id")}
+            if len(brands) != len(brand_ids):
+                raise OperationError("预览所用IP已变化，请重新预览。", status=409, code="stale_preview")
+            for item in products:
+                brand = brands[item["brand_id"]]
+                if not brand.is_active or brand.name != item["brand_name"] or brand.sku_prefix != item["brand_prefix"]:
+                    raise OperationError("预览所用IP已变化，请重新预览。", status=409, code="stale_preview")
+            language_ids = {item["language_id"] for item in products if item["language_id"]}
+            languages = {
+                item.pk: item
+                for item in ProductLanguageOption.objects.select_for_update().filter(pk__in=language_ids).order_by("id")
+            }
+            if len(languages) != len(language_ids) or any(
+                languages[item["language_id"]].name != item["language"]
+                for item in products if item["language_id"]
+            ):
+                raise OperationError("预览所用语言选项已变化，请重新预览。", status=409, code="stale_preview")
+
+            brand_codes = {brand_id: [] for brand_id in brand_ids}
+            for brand_id, code in SKU.objects.filter(product__brand_id__in=brand_ids).values_list("product__brand_id", "code"):
+                brand_codes[brand_id].append(code)
+            code_snapshot = {}
+            for brand_id, codes in brand_codes.items():
+                prefix = brands[brand_id].sku_prefix
+                numeric = []
+                for code in codes:
+                    suffix = code[len(prefix):] if code.startswith(prefix) else ""
+                    if suffix.isascii() and suffix.isdigit():
+                        numeric.append((int(suffix), suffix, code))
+                maximum = max(numeric) if numeric else None
+                code_snapshot[str(brand_id)] = maximum[2] if maximum else ""
+            if canonical_hash(code_snapshot) != data.get("code_snapshot_hash"):
+                raise OperationError("预览后SKU编号序列已变化，请重新预览。", status=409, code="stale_preview")
+
+            identities = {}
+            for item in products:
+                identity = (item["brand_id"], item["type"], item["series"], item["name"], item["language_id"], item["official_code"])
+                identities.setdefault(identity, []).append(item["file_id"])
+            existing_candidates = {item["file_id"]: [] for item in products}
+            existing_products = Product.objects.filter(brand_id__in=brand_ids).order_by("id").values(
+                "id", "brand_id", "type", "series", "name", "language_id", "official_code"
+            )
+            candidate_ids = {}
+            for row in existing_products:
+                identity = (row["brand_id"], row["type"], row["series"], row["name"], row["language_id"], row["official_code"])
+                if identity in identities:
+                    candidate_ids.setdefault(identity, []).append(row["id"])
+            for item in products:
+                identity = (item["brand_id"], item["type"], item["series"], item["name"], item["language_id"], item["official_code"])
+                existing_candidates[item["file_id"]] = candidate_ids.get(identity, [])
+            if canonical_hash(existing_candidates) != data.get("product_candidate_hash"):
+                raise OperationError("预览后同名商品候选已变化，请重新核对。", status=409, code="stale_preview")
+
+            sku_rows = []
+            for item in products:
+                for sku in item["skus"]:
+                    sku_rows.append({
+                        **sku,
+                        "confirm_duplicate_barcode": sku["sku_key"] in expected_duplicates,
+                        "product_name": item["name"],
+                        "product_language": item["language"],
+                    })
+            barcodes = {item["barcode"] for item in sku_rows if item["barcode"]}
+            current_barcode_candidates = _catalog_duplicate_candidates(actor, barcodes, sku_rows)
+            if canonical_hash(current_barcode_candidates) != data.get("barcode_candidate_hash"):
+                raise OperationError("预览后条码候选已变化，请重新核对。", status=409, code="stale_preview")
+
+            codes = [sku["code"] for item in products for sku in item["skus"]]
+            if len(codes) != len(set(codes)):
+                raise OperationError("导入内容中有重复SKU编号。", status=409, code="catalog_conflict")
+            collisions = set(SKU.objects.filter(code__in=codes).values_list("code", flat=True))
+            if collisions:
+                raise OperationError(
+                    "SKU编号已被使用，请重新预览编号后重试。",
+                    status=409,
+                    code="catalog_conflict",
+                    fields={"sku_codes": sorted(collisions)},
+                )
+
+            product_ids = []
+            sku_ids = []
+            for product_index, item in enumerate(products):
+                product = Product(
+                    brand=brands[item["brand_id"]],
+                    type=item["type"],
+                    series=item["series"],
+                    name=item["name"],
+                    language=languages.get(item["language_id"]),
+                    official_code=item["official_code"],
+                    aliases=item["aliases"],
+                    release_date=date.fromisoformat(item["release_date"]) if item["release_date"] else None,
+                    supplement_notes=item["supplement_notes"],
+                )
+                _catalog_model_validation(product, field_prefix=f"products[{product_index}]")
+                product.save()
+                product_ids.append(product.pk)
+                for sku_index, sku_data in enumerate(item["skus"]):
+                    sku = SKU(
+                        product=product,
+                        code=sku_data["code"],
+                        pack_type=sku_data["pack_type"],
+                        unit=sku_data["unit"],
+                        barcode=sku_data["barcode"],
+                        aliases=sku_data["aliases"],
+                        **{
+                            field: Decimal(value) if value is not None else None
+                            for field, value in sku_data.items()
+                            if field in ("package_length_mm", "package_width_mm", "package_height_mm", "package_weight_g")
+                        },
+                    )
+                    _catalog_model_validation(sku, field_prefix=f"products[{product_index}].skus[{sku_index}]")
+                    try:
+                        with transaction.atomic():
+                            sku.save()
+                    except IntegrityError:
+                        raise OperationError(
+                            "SKU编号已被使用，请重新预览编号后重试。",
+                            status=409,
+                            code="catalog_conflict",
+                            fields={f"products[{product_index}].skus[{sku_index}].code": "SKU编号冲突。"},
+                        ) from None
+                    sku_ids.append(sku.pk)
+
+            sequence = _next_sequence(control)
+            result = {"product_ids": product_ids, "sku_ids": sku_ids, "sequence": sequence}
+            operation = BusinessOperation.objects.create(
+                operation_key=key,
+                sequence=sequence,
+                actor=actor,
+                action="catalog_import",
+                input_hash=input_hash,
+                payload={
+                    "product_ids": product_ids,
+                    "sku_ids": sku_ids,
+                    "source_hash": data.get("source_hash"),
+                    "file_sha256": data.get("file_sha256"),
+                },
+                result=result,
+                control=control,
+            )
+            return result
+
+    return _run_write("catalog_import", actor, request_id, write)
+
+
 def create_catalog_sku(actor, data, operation_key, request_id=""):
     _require(actor, "add_sku")
     if not isinstance(data, dict):
@@ -1421,6 +1617,8 @@ def inventory_rows(actor, query):
                 "product": product.name,
                 "brand": brand.name,
                 "unit": sku.unit,
+                "pack_type_label": sku.get_pack_type_display(),
+                "aliases": sku.aliases,
                 "on_hand": balance.on_hand,
                 "occupied": balance.occupied,
                 "reserved": balance.reserved,

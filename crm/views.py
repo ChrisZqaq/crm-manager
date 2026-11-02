@@ -51,6 +51,7 @@ from .permissions import CATALOG_VIEW_PERMISSIONS
 from .operations import (
     OperationError,
     confirm_receipt,
+    confirm_catalog_import,
     create_hold,
     damaged_rows,
     hold_rows,
@@ -69,6 +70,7 @@ from .operations import (
     preview_receipt,
 )
 from .opening import confirm_opening, preview_opening
+from .catalog_import import MAX_FILE_BYTES, preview_catalog_import
 from .inventory_adjustments import (
     approve_stock_count,
     create_inventory_gift,
@@ -676,6 +678,46 @@ def cost_correction_reject_api(request, correction_id):
 
 
 @require_POST
+def catalog_import_preview_api(request):
+    error = _require_api_access(request, (("crm", "add_product"), ("crm", "add_sku")))
+    if error:
+        return error
+    uploaded = request.FILES.get("file")
+    if not uploaded:
+        return _api_error(request, 400, "invalid_input", "请选择商品Excel文件。", {"file": "此项必填。"})
+    try:
+        content = uploaded.read(MAX_FILE_BYTES + 1)
+        result = preview_catalog_import(request.user, content, uploaded.name)
+        return JsonResponse(result)
+    except OperationError as exc:
+        return _api_error(request, exc.status, exc.code, str(exc), exc.fields, exc.details)
+    except Exception:
+        return _api_error(request, 500, "server_error", "操作失败，请联系管理员并提供请求编号。")
+
+
+def catalog_import_confirm_api(request):
+    error = _require_api_access(request, (("crm", "add_product"), ("crm", "add_sku")))
+    if error:
+        return error
+    try:
+        data = _json_body(request)
+        allowed = {"operation_key", "preview_token", "confirmed_duplicate_sku_keys"}
+        unknown = set(data) - allowed
+        if unknown:
+            field = next(iter(sorted(unknown)))
+            raise OperationError("商品导入包含不支持的字段。", fields={field: "此字段不能提交。"})
+        return _api_operation(
+            request,
+            confirm_catalog_import,
+            request.user,
+            data.get("operation_key"),
+            data.get("preview_token"),
+            data.get("confirmed_duplicate_sku_keys"),
+        )
+    except OperationError as exc:
+        return _api_error(request, exc.status, exc.code, str(exc), exc.fields, exc.details)
+
+
 def opening_preview_api(request):
     error = _require_api_access(request, (("crm", "confirm_opening"),))
     if error:
