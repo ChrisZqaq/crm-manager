@@ -9,7 +9,7 @@
 - 文件不超过10MiB，ZIP展开不超过32MiB/200项；产品最多5000行、规格补充最多15000行、生成SKU最多20000个，预览令牌不超过2000000字节。拒绝公式/非法结构/枚举/不合法数字等，不从图片/URL导入资产。
 - 库存行仅增加显示用`pack_type_label/aliases`，成本/汇总/报表列不变。文件合同及业务范围见[导入任务](../project/CATALOG_IMPORT_SKU_20261102.md)，运行库/Windows尚未更新。
 
-## 商品补充资料开发合同（2026-10-30，尚未交付/部署）
+## 商品补充资料合同（2026-10-30，e54后端/957前端限定验收通过，未部署）
 
 - Product增加选填`release_date`、`supplement_notes`；响应另有受控`main_image_url`。SKU增加选填`package_length_mm`、`package_width_mm`、`package_height_mm`、`package_weight_g`及受控`package_image_url`。旧创建请求可全部省略新字段。
 - 产品/SKU补充资料PATCH仅允许本轮资料字段，省略保值，null或空清除；数值为Decimal(10,3)，范围`0 < value <= 9999999.999`，长度毫米/毛重克。输入接受十进制字符串或JSON整数、拒绝JSON浮点，响应为固定3位小数字符串；不新增单位换算。
