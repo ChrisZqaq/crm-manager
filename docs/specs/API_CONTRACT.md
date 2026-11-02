@@ -1,5 +1,14 @@
 # 第一版网页与API合同
 
+## 商品独立Excel导入合同（2026-11-02，后端fa733eb，网页/独立验收待完成）
+
+- `POST /api/v1/products/import/preview`（无尾斜杠）multipart `file`，要求`add_product`和`add_sku`。使用[模板V1](../templates/商品批量导入模板-V1.xlsx)，只解析产品导入/规格补充，不导说明/示例。预览不写入商品或库存；可返回HTTP200且`ready:false/errors`，不能只按状态码判断。
+- 可提交预览返回`ready:true/preview_token/sequence/product_count/sku_count/products/product_warnings/barcode_warnings/errors`；数据错误定位工作表/行/字段。同内容已导入返回`already_imported:true`且不再次创建，不能将此结果继续当新导入确认。
+- `POST /api/v1/products/import/confirm` JSON：`operation_key`、`preview_token`、`confirmed_duplicate_sku_keys`。条码确认列表须与预览完整一致；返回`product_ids/sku_ids/sequence`。令牌绑定当前用户/输入/序号/候选，沿既有签名预览有效期校验；权限/候选/编号序列变化拒绝并要求重预览。同键重放或同内容重复导入不重复创建。
+- 确认锁现BusinessControl，单事务只写Product/SKU及一条catalog_import操作，错误整批回滚；不创建仓库/余额/库存流水/成本/业务单，无新迁移。SKU编号按现IP前缀最大流水分配，指定编号碰撞拒绝；产品候选仅提示，不模糊合并或改挂已有SKU。
+- 文件不超过10MiB，ZIP展开不超过32MiB/200项；产品最多5000行、规格补充最多15000行、生成SKU最多20000个，预览令牌不超过2000000字节。拒绝公式/非法结构/枚举/不合法数字等，不从图片/URL导入资产。
+- 库存行仅增加显示用`pack_type_label/aliases`，成本/汇总/报表列不变。文件合同及业务范围见[导入任务](../project/CATALOG_IMPORT_SKU_20261102.md)，运行库/Windows尚未更新。
+
 ## 商品补充资料开发合同（2026-10-30，尚未交付/部署）
 
 - Product增加选填`release_date`、`supplement_notes`；响应另有受控`main_image_url`。SKU增加选填`package_length_mm`、`package_width_mm`、`package_height_mm`、`package_weight_g`及受控`package_image_url`。旧创建请求可全部省略新字段。
