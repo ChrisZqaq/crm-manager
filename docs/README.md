@@ -1,6 +1,6 @@
 # CRM Manager 文档入口
 
-更新：2026-10-28。[正式HTTPS入口](https://crm.onenesscyber.tech/)运行固定应用7eb89f6/0018，见[正式发布记录](project/RELEASE_TASK_FOCUSED_20261028.md)。本轮订单编号/交互修复最终应用31df9e9已通过限定独立验收，尚未部署或迁移运行库，见[验收与交付](project/ORDER_OPERATION_REFINEMENT_20261028.md)。Windows原生部署依赖已锁定，实机验证与独立目录更新由部署工程师指导；现有云入口、账号和数据保持。真实数据核对/准备/导入及企微接入继续暂停，当前安排以[开发计划](project/DEVELOPMENT_PLAN.md)为准。
+更新：2026-11-02。正式HTTPS仍运行7eb89f6/0018；Windows35434ac/0019本机入口已由用户确认可登录。商品补充资料95718bc已完成限定验收，新商品批量导入5bc00f0正在独立页面验收，计划通过后一并交付Windows；0020及导入入口尚未部署。用户可填写商品模板，当前不执行真实商品导入，也不恢复库存、客户或历史流水导入。Mac备份任务及原文件已按用户要求取消删除，不自动恢复。唯一当前安排见[开发计划](project/DEVELOPMENT_PLAN.md)。
 
 ## 所有人最小阅读集
 
