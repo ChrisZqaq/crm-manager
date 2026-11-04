@@ -561,6 +561,43 @@ class CatalogTestCase(TestCase):
         for field in ("box_spec", "inner_box_spec", "pack_spec"):
             self.assertNotContains(page, field)
 
+    def test_sku_search_matches_pack_type_label_and_keeps_existing_terms(self):
+        product = Product.objects.create(
+            brand=self.brand,
+            type=Product.Type.BOOSTER,
+            series="包型系列",
+            name="包型搜索商品",
+            language=self.product.language,
+            aliases=["商品专属别名"],
+        )
+        fat = SKU.objects.create(
+            product=product,
+            code="SEA-PACK-FAT",
+            unit="箱",
+            pack_type=SKU.PackType.FAT,
+            aliases=["肥款SKU别名"],
+        )
+        slim = SKU.objects.create(
+            product=product,
+            code="SEA-PACK-SLIM",
+            unit="包",
+            pack_type=SKU.PackType.SLIM,
+        )
+
+        self.assertEqual([row["id"] for row in search_skus({"q": "肥包"})], [fat.pk])
+        self.assertEqual([row["id"] for row in search_skus({"q": "瘦包"})], [slim.pk])
+        self.assertEqual(
+            [row["id"] for row in search_skus({"q": "包型搜索商品"})],
+            [fat.pk, slim.pk],
+        )
+        self.assertEqual(
+            [row["id"] for row in search_skus({"q": "商品专属别名"})],
+            [fat.pk, slim.pk],
+        )
+        self.assertEqual([row["id"] for row in search_skus({"q": "肥款SKU别名"})], [fat.pk])
+        self.assertEqual([row["id"] for row in search_skus({"q": "箱"})], [fat.pk])
+        self.assertEqual(search_skus({"q": "不存在的SKU"}), [])
+
     def test_catalog_creation_rejects_removed_packaging_fields(self):
         self.client.force_login(self.make_user(ROLE_WAREHOUSE))
         base = {"product_id": self.product.pk, "code": "SEA0006", "unit": "箱", "aliases": ["大箱"]}

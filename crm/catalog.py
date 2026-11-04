@@ -122,6 +122,7 @@ def _ranked_skus(params):
             sku.code,
             sku.barcode,
             sku.unit,
+            sku.get_pack_type_display(),
             *sku.aliases,
             *_product_values(sku.product),
         ]
