@@ -1,0 +1,10 @@
+{% extends 'crm/base.html' %}
+{% block title %}无权访问 · 阿罗拉潮玩空间{% endblock %}
+{% block topbar_title %}无权访问{% endblock %}
+{% block content %}
+<section class="data-card card-body" aria-labelledby="permission-denied-title">
+  <h1 id="permission-denied-title">无权访问此页面</h1>
+  <p>当前账号没有访问此页面的权限。</p>
+  <a class="button-link" href="{% url 'home' %}">返回工作台</a>
+</section>
+{% endblock %}

@@ -246,13 +246,16 @@
         preview_token: previewToken,
         confirmed_duplicate_sku_keys: confirmed,
       }, true);
+      const firstProduct = previewData.products[0];
       setConfirmVisible(false);
       previewToken = '';
       operationKey = '';
+      previewData = null;
+      duplicateKeys = [];
+      duplicates.replaceChildren();
       const productCount = result.product_ids?.length || 0;
       const skuCount = result.sku_ids?.length || 0;
       content.append(node('p', `导入成功：创建 ${productCount} 个商品、${skuCount} 个SKU，业务序号 ${result.sequence}。本次未创建库存。`));
-      const firstProduct = previewData.products[0];
       const catalogUrl = new URL('/catalog/', window.location.origin);
       if (firstProduct?.name) catalogUrl.searchParams.set('q', firstProduct.name);
       if (result.product_ids?.[0]) catalogUrl.searchParams.set('product_id', result.product_ids[0]);

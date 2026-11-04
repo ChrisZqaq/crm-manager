@@ -114,11 +114,14 @@
       </table></div><nav class="pagination" aria-label="收款核对分页">{% if prev_url %}<a class="button-link" href="{{ prev_url }}">上一页</a>{% endif %} {% if next_url %}<a class="button-link" href="{{ next_url }}">下一页</a>{% endif %}</nav></section>
       <dialog class="customer-detail-dialog" id="payment-detail" aria-labelledby="payment-detail-title"><div class="card-head detail-toolbar"><h2 id="payment-detail-title">收款详情</h2><button type="button" data-close-payment>关闭</button></div><div class="card-body" id="payment-detail-body"><p class="empty-state">选择订单查看收款资料和核对操作。</p></div></dialog>
   </div>
-  {% else %}<div class="data-card"><div class="table-wrap"><table>
+  {% else %}<div class="data-card"><div class="table-wrap report-table-scroll" role="region" aria-label="报表数据，可横向滚动查看更多列"><table>
     <thead><tr>{% for column in columns %}<th>{{ column.1 }}</th>{% endfor %}</tr></thead>
     <tbody>{% for row in table_rows %}<tr>{% for value in row %}<td>{% if value == "" or value == None %}—{% else %}{{ value }}{% endif %}</td>{% endfor %}</tr>{% empty %}<tr><td colspan="{{ columns|length|default:1 }}" class="empty-state">没有匹配的记录。</td></tr>{% endfor %}</tbody>
   </table></div><nav class="pagination" aria-label="报表分页">{% if prev_url %}<a class="button-link" href="{{ prev_url }}">上一页</a>{% endif %} {% if next_url %}<a class="button-link" href="{{ next_url }}">下一页</a>{% endif %}</nav></div>{% endif %}
 </div>
+{% if report_name != "payments" %}<script>
+  (() => { const region = document.querySelector('.report-table-scroll'), table = region?.querySelector('table'); if (!region || !table) return; const sync = () => { if (region.scrollWidth > region.clientWidth + 1) region.tabIndex = 0; else region.removeAttribute('tabindex'); }; sync(); new ResizeObserver(sync).observe(table); })();
+</script>{% endif %}
 {% if report_name == "payments" %}
   {{ items|json_script:"payment-report-items" }}
 <script>

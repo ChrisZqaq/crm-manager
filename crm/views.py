@@ -484,6 +484,10 @@ def catalog_import_template(request):
     return response
 
 
+def permission_denied(request, exception=None):
+    return render(request, "crm/403.html", status=403)
+
+
 @login_required
 def catalog_product_new(request):
     _require_page_permission(request, "add_product")

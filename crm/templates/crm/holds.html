@@ -10,7 +10,7 @@
   <form id="hold-create">
     {% csrf_token %}
     <label>仓库与SKU
-      <select id="balance" required><option value="">请选择</option>{% for balance in balances %}<option value="{{ balance.id }}" data-warehouse="{{ balance.warehouse_id }}" data-sku="{{ balance.sku_id }}">{{ balance.warehouse.name }} · {{ balance.sku.code }} · {{ balance.sku.unit }}</option>{% endfor %}</select>
+      <select id="balance" data-sku-search required><option value="">请选择</option>{% for balance in balances %}<option value="{{ balance.id }}" data-warehouse="{{ balance.warehouse_id }}" data-sku="{{ balance.sku_id }}" data-search="{{ balance.warehouse.name }} {{ balance.sku.code }} {{ balance.sku.barcode }} {{ balance.sku.product.brand.name }} {{ balance.sku.product.name }} {{ balance.sku.product.aliases|join:' ' }} {{ balance.sku.unit }} {{ balance.sku.get_pack_type_display }} {{ balance.sku.aliases|join:' ' }}">{{ balance.warehouse.name }} · {{ balance.sku.code }} · {{ balance.sku.unit }}</option>{% endfor %}</select>
     </label>
     <label>类型 <select id="type"><option value="customer_reservation">客户预留</option><option value="hoard">囤货</option></select></label>
     <label>数量 <input id="quantity" type="number" min="1" step="1" required></label>
@@ -35,6 +35,7 @@
     </tbody>
   </table>
   <script>
+  window.attachLocalSearch(document.getElementById('balance'), '商品规格或仓库');
     function csrfToken() { return document.cookie.split('; ').find(x => x.startsWith('csrftoken='))?.split('=')[1] || ''; }
     async function send(url, body) {
       const response = await fetch(url, {method: 'POST', credentials: 'same-origin', headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrfToken()}, body: JSON.stringify(body)});

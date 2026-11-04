@@ -795,3 +795,69 @@ body.page-expanded #verify-result { min-height: 44px; }
   .detail-tabs button { min-width: 0; flex: 1 1 0; padding-inline: 4px; white-space: nowrap; }
   .order-history-list li { flex-direction: column; gap: 4px; }
 }
+
+.customer-form { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start !important; gap: 12px; }
+.customer-form > label, .customer-form .address > label, .customer-form fieldset > label { display: grid; min-width: 0; gap: 5px; }
+.customer-form > label input, .customer-form > label textarea, .customer-form > label select,
+.customer-form .address input, .customer-form .address textarea, .customer-form .address select { width: 100%; min-width: 0; }
+.customer-form-wide, .customer-form > fieldset { grid-column: 1 / -1; }
+.customer-form fieldset { display: grid; min-width: 0; gap: 10px; align-content: start; }
+.customer-form #addresses { display: grid; min-width: 0; gap: 10px; }
+.customer-form .address { grid-template-columns: repeat(4, minmax(0, 1fr)); align-items: start; }
+.customer-form .address label:nth-of-type(5) { grid-column: span 2; }
+.customer-form .address button { justify-self: start; }
+.local-select-search { display: block; width: 100%; min-width: 0; margin-bottom: 4px; }
+.local-select-search-status { display: block; min-height: 0; margin-bottom: 4px; }
+.adjustment-split-form, .adjustment-gift-form, .adjustment-count-form, .adjustment-correction-form { display: grid !important; min-width: 0; align-items: start !important; gap: 12px; }
+.adjustment-split-form { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.adjustment-gift-form, .adjustment-count-form, .adjustment-correction-form { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.adjustment-split-form > label, .adjustment-gift-form > label, .adjustment-count-form > label, .adjustment-correction-form > label,
+.adjustment-correction-form #correction-warehouse-field > label,
+.adjustment-split-form input, .adjustment-split-form select, .adjustment-gift-form input, .adjustment-gift-form select,
+.adjustment-count-form input, .adjustment-count-form select, .adjustment-correction-form input, .adjustment-correction-form select { min-width: 0; }
+.adjustment-split-form > label, .adjustment-gift-form > label, .adjustment-count-form > label, .adjustment-correction-form > label,
+.adjustment-correction-form #correction-warehouse-field > label { display: grid; gap: 5px; }
+.adjustment-split-form > label select, .adjustment-split-form > label input, .adjustment-gift-form > label select, .adjustment-gift-form > label input,
+.adjustment-count-form > label select, .adjustment-count-form > label input, .adjustment-correction-form > label select, .adjustment-correction-form > label input { width: 100%; }
+.adjustment-split-form > label:has(#split-source-sku), .adjustment-split-form > label:has(#split-target-sku) { grid-column: span 2; }
+.adjustment-split-form > label:has(#split-reason) { grid-column: span 3; }
+.adjustment-gift-form > label:has(#gift-reason), .adjustment-count-form > label:has(#count-reason), .adjustment-correction-form > label:has(#correction-reason),
+.adjustment-gift-form #gift-lines, .adjustment-count-form #count-lines, .adjustment-correction-form #correction-lines,
+.adjustment-correction-form #supplemental-costs { grid-column: 1 / -1; }
+.adjustment-gift-form .gift-line { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, .8fr) auto; align-items: end; gap: 12px; margin-bottom: 12px; }
+.adjustment-count-form .count-line { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); align-items: end; gap: 12px; margin-bottom: 12px; }
+.adjustment-gift-form .gift-line label, .adjustment-count-form .count-line label, .adjustment-correction-form .correction-line label { display: grid; min-width: 0; gap: 5px; }
+.adjustment-gift-form .gift-line input, .adjustment-gift-form .gift-line select, .adjustment-count-form .count-line input, .adjustment-count-form .count-line select,
+.adjustment-correction-form .correction-line input, .adjustment-correction-form .correction-line select { width: 100%; min-width: 0; }
+.adjustment-count-form .count-line > label:has(.count-sku) { grid-column: span 2; }
+.adjustment-count-form .count-line > p { grid-column: 1 / -2; margin: 0; }
+.adjustment-correction-form #correction-warehouse-field { min-width: 0; }
+.adjustment-correction-form #correction-warehouse-field[hidden] { display: none; }
+.adjustment-correction-form .correction-line { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.adjustment-correction-form .correction-line > h4 { grid-column: 1 / -1; margin: 0; }
+.adjustment-correction-form .correction-line > label:has(.source-sku) { grid-column: span 2; }
+.report-table-scroll { width: 100%; min-width: 0; max-width: 100%; overflow-x: auto; overscroll-behavior-x: contain; }
+.report-table-scroll > table { width: max-content; min-width: 100%; }
+.report-table-scroll:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.split-layout.list-only { grid-template-columns: minmax(0, 1fr); }
+.catalog-product-table td:nth-child(2), .catalog-product-table td:nth-child(8) { max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+@media (max-width: 760px) {
+  .customer-form { grid-template-columns: minmax(0, 1fr); }
+  .customer-form-wide, .customer-form > fieldset { grid-column: 1; }
+  .customer-form .address { grid-template-columns: minmax(0, 1fr); }
+  .customer-form .address label:nth-of-type(5) { grid-column: auto; }
+  .adjustment-split-form, .adjustment-gift-form, .adjustment-count-form, .adjustment-correction-form,
+  .adjustment-gift-form .gift-line, .adjustment-count-form .count-line, .adjustment-correction-form .correction-line { grid-template-columns: minmax(0, 1fr); }
+  .adjustment-split-form > label,
+  .adjustment-gift-form > label:has(#gift-reason), .adjustment-count-form > label:has(#count-reason),
+  .adjustment-gift-form #gift-lines, .adjustment-count-form #count-lines,
+  .adjustment-correction-form #correction-lines, .adjustment-correction-form #supplemental-costs,
+  .adjustment-correction-form .correction-line > h4, .adjustment-correction-form .correction-line > label:has(.source-sku),
+  .adjustment-count-form .count-line > p { grid-column: 1; }
+  .adjustment-gift-form .gift-line > button, .adjustment-count-form .count-line > button { justify-self: start; }
+}
+@media (min-width: 761px) and (max-width: 1024px) {
+  .adjustment-count-form .count-line { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .adjustment-count-form .count-line > label:has(.count-sku) { grid-column: span 2; }
+}

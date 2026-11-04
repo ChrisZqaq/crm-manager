@@ -29,7 +29,7 @@
         <div id="lines" class="receipt-lines">
           <section class="line receipt-line">
             <div class="receipt-line-main">
-              <label>SKU<select class="sku" required><option value="">请选择</option>{% for sku in skus %}<option value="{{ sku.id }}">{{ sku.code }} · {{ sku.product.brand.name }} / {{ sku.product.name }} · {{ sku.unit }}{% if sku.pack_type %} · {{ sku.get_pack_type_display }}{% endif %}{% if sku.aliases %} · {{ sku.aliases|join:'、' }}{% endif %}</option>{% endfor %}</select></label>
+              <label>SKU<select class="sku" required><option value="">请选择</option>{% for sku in skus %}<option value="{{ sku.id }}" data-search="{{ sku.code }} {{ sku.barcode }} {{ sku.product.brand.name }} {{ sku.product.name }} {{ sku.product.aliases|join:' ' }} {{ sku.unit }} {{ sku.get_pack_type_display }} {{ sku.aliases|join:' ' }}">{{ sku.code }} · {{ sku.product.brand.name }} / {{ sku.product.name }} · {{ sku.unit }}{% if sku.pack_type %} · {{ sku.get_pack_type_display }}{% endif %}{% if sku.aliases %} · {{ sku.aliases|join:'、' }}{% endif %}</option>{% endfor %}</select></label>
               <label>实收数量<input class="quantity" type="number" min="1" step="1" required><small class="field-error" data-quantity-error hidden></small></label>
               <label>采购单价<input class="price" type="number" min="0" step="0.001" required></label>
               <button class="remove" type="button">删除行</button>
@@ -71,6 +71,12 @@
     }
     const lineTemplate = document.querySelector('.line').cloneNode(true);
     const lines = document.getElementById('lines');
+    const receiptForm = document.getElementById('receipt-form');
+    let dirtyReceipt = false, allowLeaveReceipt = false;
+    window.attachLocalSearch(document.querySelector('.sku'), '商品规格');
+    receiptForm.addEventListener('input', event => { if (!event.target.matches('[data-local-select-search]')) dirtyReceipt = true; });
+    receiptForm.addEventListener('change', event => { if (!event.target.matches('[data-local-select-search]')) dirtyReceipt = true; });
+    window.addEventListener('beforeunload', event => { if (dirtyReceipt && !allowLeaveReceipt) { event.preventDefault(); event.returnValue = ''; } });
     let previewToken = null;
     let operationKey = null;
     let confirming = false;
@@ -93,18 +99,20 @@
     lines.addEventListener('change',event=>{const row=event.target.closest('.receipt-line');if(row)updateReceiptExtraSummary(row);});
     document.getElementById('add-line').addEventListener('click', () => {
       const row = lineTemplate.cloneNode(true);
+      window.attachLocalSearch(row.querySelector('.sku'), '商品规格');
       row.querySelector('.sku').value = '';
       row.querySelector('.quantity').value = '';
       row.querySelector('.price').value = '';
       row.querySelector('.freight').value='0';row.querySelector('.reserved').value='0';row.querySelector('.damaged').value='0';row.querySelector('.threshold').value='';row.querySelector('.receipt-line-extra').open=false;updateReceiptExtraSummary(row);
       lines.appendChild(row);
+      dirtyReceipt = true;
       updateReceiptSummary();
     });
     lines.addEventListener('click', event => {
-      if (event.target.matches('.remove') && lines.querySelectorAll('.line').length > 1) { event.target.closest('.line').remove(); updateReceiptSummary(); }
+      if (event.target.matches('.remove') && lines.querySelectorAll('.line').length > 1) { event.target.closest('.line').remove(); dirtyReceipt = true; updateReceiptSummary(); }
     });
-    document.getElementById('receipt-form').addEventListener('input',invalidateReceiptPreview);
-    document.getElementById('receipt-form').addEventListener('change',invalidateReceiptPreview);
+    document.getElementById('receipt-form').addEventListener('input',event=>{if(!event.target.matches('[data-local-select-search]'))invalidateReceiptPreview();});
+    document.getElementById('receipt-form').addEventListener('change',event=>{if(!event.target.matches('[data-local-select-search]'))invalidateReceiptPreview();});
     document.getElementById('images').addEventListener('change', async event => {
       const files = [...event.target.files];
       if (files.length + imageIds.length > 20) { status.textContent = '每张入库单最多20张图片。'; event.target.value = ''; return; }
@@ -158,6 +166,7 @@
         previewToken = null; operationKey = null; imageIds = [];
         renderReceiptResult(lastPreview||result,true);confirmButton.hidden = true;
         document.getElementById('receipt-form').hidden=true;
+        dirtyReceipt = false; allowLeaveReceipt = true;
         status.textContent = '入库已确认。';
       } catch (error) {
         if (error.code === 'stale_preview') {

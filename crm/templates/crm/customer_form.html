@@ -4,16 +4,17 @@
 {% block topbar_title %}{% if customer %}编辑客户{% else %}新建客户{% endif %}{% endblock %}
 {% block content %}
 <section class="page-heading"><h1>{% if customer %}编辑客户{% else %}新建客户{% endif %}</h1></section>
+<p id="transfer-success" class="inline-status" role="status" tabindex="-1" hidden></p>
 <div class="legacy-content">
 <form hidden>{% csrf_token %}</form>
-  <form id="customer-form">
+  <form id="customer-form" class="customer-form">
     {% csrf_token %}
     <label>客户姓名 <input id="name" maxlength="200" required></label>
-    <label>联系方式（选填） <textarea id="contact"></textarea></label>
+    <label class="customer-form-wide">联系方式（选填） <textarea id="contact"></textarea></label>
     <label>公司 <input id="company" maxlength="200"></label>
-    <label>别名（每行一个） <textarea id="aliases"></textarea></label>
-    <label>备注1 <textarea id="note1"></textarea></label>
-    <label>备注2 <textarea id="note2"></textarea></label>
+    <label class="customer-form-wide">别名（每行一个） <textarea id="aliases"></textarea></label>
+    <label class="customer-form-wide">备注1 <textarea id="note1"></textarea></label>
+    <label class="customer-form-wide">备注2 <textarea id="note2"></textarea></label>
     <label>发票抬头 <input id="invoice_title" maxlength="255"></label>
     <label>统一社会信用代码 <input id="invoice_credit_code" maxlength="100"></label>
     <label>发票邮箱 <input id="invoice_email" maxlength="254"></label>
@@ -25,7 +26,7 @@
     {% elif not customer and can_select_owner %}
       <label>负责人 <select id="owner_id" required><option value="">请选择负责人</option>{% for person in salespeople %}<option value="{{ person.pk }}">{{ person.get_username }}</option>{% endfor %}</select></label>
     {% endif %}
-    <fieldset><legend>收货地址（选填）</legend><div id="addresses"></div><button id="add-address" type="button">添加地址</button></fieldset>
+    <fieldset class="customer-form-wide"><legend>收货地址（选填）</legend><div id="addresses"></div><button id="add-address" type="button">添加地址</button></fieldset>
     <button class="button-primary" type="submit">保存客户</button>
   </form>
   <p id="status" role="status"></p>
@@ -41,6 +42,7 @@
     let customerBusy=false,customerOperation=null,transferOperation=null;
     for(const field of ['name','contact','company','note1','note2','invoice_title','invoice_credit_code','invoice_email'])document.getElementById(field).value=initial?.[field]||'';
     document.getElementById('aliases').value=(initial?.aliases||[]).join('\n');
+    if(new URLSearchParams(location.search).get('notice')==='transferred'){const notice=document.getElementById('transfer-success');notice.hidden=false;notice.textContent='负责人已转交。';notice.focus();const url=new URL(location.href);url.searchParams.delete('notice');history.replaceState(null,'',url);}
     function addAddress(value={}) {
       const card=document.createElement('fieldset');card.className='address';
       card.innerHTML='<legend>地址</legend><label>收件人 <input data-field="recipient" required></label><label>联系方式 <textarea data-field="phone" required></textarea></label><label>省份 <select data-field="province" required></select></label><label>城市 <select data-field="city" required></select></label><label>详细地址 <textarea data-field="detail" required></textarea></label><button type="button" data-remove>移除此地址</button>';
@@ -74,7 +76,7 @@
       catch(error){status.textContent=error.message;}
       finally{customerBusy=false;controls.forEach((control,index)=>{control.disabled=wasDisabled[index];});}
     });
-    const transfer=document.getElementById('transfer');if(transfer)transfer.addEventListener('click',async()=>{if(customerBusy)return;const current=document.getElementById('owner_id').value,url=`/api/v1/customers/${initial.id}/transfer`,body={owner_id:current,expected_version:initial.version},signature=`${url}:${JSON.stringify(body)}`;if(transferOperation?.signature!==signature)transferOperation={signature,key:CrmCrypto.uuidV4()};body.operation_key=transferOperation.key;const disabled=transfer.disabled;transfer.disabled=true;customerBusy=true;try{await api(url,'POST',body);location.reload();}catch(error){status.textContent=error.message;}finally{customerBusy=false;transfer.disabled=disabled;}});
+    const transfer=document.getElementById('transfer');if(transfer)transfer.addEventListener('click',async()=>{if(customerBusy)return;const current=document.getElementById('owner_id').value,url=`/api/v1/customers/${initial.id}/transfer`,body={owner_id:current,expected_version:initial.version},signature=`${url}:${JSON.stringify(body)}`;if(transferOperation?.signature!==signature)transferOperation={signature,key:CrmCrypto.uuidV4()};body.operation_key=transferOperation.key;const disabled=transfer.disabled;transfer.disabled=true;customerBusy=true;try{await api(url,'POST',body);const next=new URL(location.href);next.searchParams.set('notice','transferred');location.replace(next);}catch(error){status.textContent=error.message;}finally{customerBusy=false;transfer.disabled=disabled;}});
     start();
   </script>
 </div>

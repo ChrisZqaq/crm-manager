@@ -20,6 +20,8 @@ from django.urls import path
 
 from crm import views
 
+handler403 = "crm.views.permission_denied"
+
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("accounts/login/", auth_views.LoginView.as_view(template_name="registration/login.html"), name="login"),

@@ -13,20 +13,20 @@
 </template>
 <template id="sku-options">
   <option value="">请选择商品</option>
-  {% for row in skus %}<option value="{{ row.id }}">{{ row.code }} · {{ row.product.name }} · {{ row.unit }}{% if row.pack_type %} · {{ row.get_pack_type_display }}{% endif %}{% if row.aliases %} · {{ row.aliases|join:'、' }}{% endif %}</option>{% endfor %}
+  {% for row in skus %}<option value="{{ row.id }}" data-search="{{ row.code }} {{ row.barcode }} {{ row.product.brand.name }} {{ row.product.name }} {{ row.product.aliases|join:' ' }} {{ row.unit }} {{ row.get_pack_type_display }} {{ row.aliases|join:' ' }}">{{ row.code }} · {{ row.product.name }} · {{ row.unit }}{% if row.pack_type %} · {{ row.get_pack_type_display }}{% endif %}{% if row.aliases %} · {{ row.aliases|join:'、' }}{% endif %}</option>{% endfor %}
 </template>
 {{ correction_sources|json_script:"correction-sources" }}
 
 {% if can_split %}
 <section>
   <h2>拆箱转换</h2>
-  <form id="split-form">
+  <form id="split-form" class="adjustment-split-form">
     {% csrf_token %}
     <label>来源仓库 <select id="split-source-warehouse" required><option value="">请选择</option>{% for row in warehouses %}<option value="{{ row.id }}">{{ row.name }}</option>{% endfor %}</select></label>
-    <label>来源商品 <select id="split-source-sku" required><option value="">请选择</option>{% for row in skus %}<option value="{{ row.id }}">{{ row.code }} · {{ row.product.name }} · {{ row.unit }}{% if row.pack_type %} · {{ row.get_pack_type_display }}{% endif %}{% if row.aliases %} · {{ row.aliases|join:'、' }}{% endif %}</option>{% endfor %}</select></label>
+    <label>来源商品 <select id="split-source-sku" data-sku-search required><option value="">请选择</option>{% for row in skus %}<option value="{{ row.id }}" data-search="{{ row.code }} {{ row.barcode }} {{ row.product.brand.name }} {{ row.product.name }} {{ row.product.aliases|join:' ' }} {{ row.unit }} {{ row.get_pack_type_display }} {{ row.aliases|join:' ' }}">{{ row.code }} · {{ row.product.name }} · {{ row.unit }}{% if row.pack_type %} · {{ row.get_pack_type_display }}{% endif %}{% if row.aliases %} · {{ row.aliases|join:'、' }}{% endif %}</option>{% endfor %}</select></label>
     <label>来源数量 <input id="split-source-quantity" type="number" min="1" step="1" required></label>
     <label>目标仓库 <select id="split-target-warehouse" required><option value="">请选择</option>{% for row in warehouses %}<option value="{{ row.id }}">{{ row.name }}</option>{% endfor %}</select></label>
-    <label>目标商品 <select id="split-target-sku" required><option value="">请选择</option>{% for row in skus %}<option value="{{ row.id }}">{{ row.code }} · {{ row.product.name }} · {{ row.unit }}{% if row.pack_type %} · {{ row.get_pack_type_display }}{% endif %}{% if row.aliases %} · {{ row.aliases|join:'、' }}{% endif %}</option>{% endfor %}</select></label>
+    <label>目标商品 <select id="split-target-sku" data-sku-search required><option value="">请选择</option>{% for row in skus %}<option value="{{ row.id }}" data-search="{{ row.code }} {{ row.barcode }} {{ row.product.brand.name }} {{ row.product.name }} {{ row.product.aliases|join:' ' }} {{ row.unit }} {{ row.get_pack_type_display }} {{ row.aliases|join:' ' }}">{{ row.code }} · {{ row.product.name }} · {{ row.unit }}{% if row.pack_type %} · {{ row.get_pack_type_display }}{% endif %}{% if row.aliases %} · {{ row.aliases|join:'、' }}{% endif %}</option>{% endfor %}</select></label>
     <label>目标数量 <input id="split-target-quantity" type="number" min="1" step="1" required></label>
     <label>原因 <input id="split-reason" maxlength="2000" required></label>
     <button type="submit">一次提交拆箱</button>
@@ -37,7 +37,7 @@
 {% if can_gift %}
 <section>
   <h2>赠送出库</h2>
-  <form id="gift-form">
+  <form id="gift-form" class="adjustment-gift-form">
     {% csrf_token %}
     <label>原因 <input id="gift-reason" maxlength="2000" required></label>
     <div id="gift-lines"></div>
@@ -59,7 +59,7 @@
 <section>
   <h2>登记或重核盘点</h2>
   <p>已有库存按移动平均成本。只有零库存盘盈且没有成本依据时，才可填写人工单位成本；该单仍需审批。</p>
-  <form id="count-form">
+  <form id="count-form" class="adjustment-count-form">
     {% csrf_token %}
     <label>原因 <input id="count-reason" maxlength="2000" required></label>
     <div id="count-lines"></div>
@@ -80,7 +80,7 @@
 {% if can_submit_correction %}
 <section>
   <h2>采购／期初纠错</h2>
-  <form id="correction-form">
+  <form id="correction-form" class="adjustment-correction-form">
     {% csrf_token %}
     <label>来源类型 <select id="correction-kind"><option value="receipt">采购单</option><option value="opening">期初批次</option></select></label>
     <label>来源单据 <select id="correction-source" required><option value="">请选择来源单据</option></select></label>
@@ -187,6 +187,7 @@
   function createField(labelText, control) {
     const label = document.createElement('label');
     label.append(document.createTextNode(labelText + ' '), control);
+    if (control.dataset.skuSearch) window.attachLocalSearch(control, '商品规格');
     return label;
   }
   function createInput(type, value='', min=null, step=null) {
@@ -215,8 +216,10 @@
   function createSelect(templateId, selected='', fallbackLabel='') {
     const select = document.createElement('select');
     select.required = true;
+    if (templateId === 'sku-options') select.dataset.skuSearch = 'true';
     return fillSelect(select, templateId, selected, fallbackLabel);
   }
+  document.querySelectorAll('[data-sku-search]').forEach(select => window.attachLocalSearch(select, '商品规格'));
   function rowRemoveButton(row, host) {
     const button = document.createElement('button');
     button.type = 'button';
@@ -853,10 +856,12 @@
   if (correctionForm) {
     correctionKind.addEventListener('change', fillSourceSelect);
     correctionSource.addEventListener('change', drawCorrectionSource);
-    correctionForm.addEventListener('input', () => {
+    correctionForm.addEventListener('input', event => {
+      if (event.target.matches('[data-local-select-search]')) return;
       correctionToken = null; correctionInputHash = null; submitCorrection.disabled = true;
     });
     correctionForm.addEventListener('change', event => {
+      if (event.target.matches('[data-local-select-search]')) return;
       if (event.target === correctionKind) fillSourceSelect();
       else if (event.target === correctionSource) drawCorrectionSource();
       correctionToken = null; correctionInputHash = null; submitCorrection.disabled = true;

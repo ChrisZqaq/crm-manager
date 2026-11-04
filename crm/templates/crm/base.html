@@ -1,16 +1,36 @@
 {% load static %}
 <!doctype html>
-<html lang="zh-Hans" class="{% if request.resolver_match.url_name == 'home' %}page-workbench{% elif request.resolver_match.url_name == 'customers' %}page-customers{% elif request.resolver_match.url_name == 'inventory' %}page-inventory{% elif request.resolver_match.url_name == 'orders' or request.resolver_match.url_name == 'order-new' or request.resolver_match.url_name == 'order-detail' or request.resolver_match.url_name == 'order-edit' or request.resolver_match.url_name == 'catalog-search' or request.resolver_match.url_name == 'catalog-product-new' or request.resolver_match.url_name == 'receiving' or request.resolver_match.url_name == 'holds' or request.resolver_match.url_name == 'adjustments' or request.resolver_match.url_name == 'report-page' and report_name == 'payments' %}page-expanded{% endif %}">
+<html lang="zh-Hans" class="{% if request.resolver_match.url_name == 'home' %}page-workbench{% elif request.resolver_match.url_name == 'customers' %}page-customers{% elif request.resolver_match.url_name == 'inventory' %}page-inventory{% elif request.resolver_match.url_name == 'orders' or request.resolver_match.url_name == 'order-new' or request.resolver_match.url_name == 'order-detail' or request.resolver_match.url_name == 'order-edit' or request.resolver_match.url_name == 'catalog-search' or request.resolver_match.url_name == 'catalog-import' or request.resolver_match.url_name == 'catalog-product-new' or request.resolver_match.url_name == 'customer-new' or request.resolver_match.url_name == 'customer-edit' or request.resolver_match.url_name == 'receiving' or request.resolver_match.url_name == 'opening' or request.resolver_match.url_name == 'holds' or request.resolver_match.url_name == 'adjustments' or request.resolver_match.url_name == 'password_change' or request.resolver_match.url_name == 'password_change_done' or request.resolver_match.url_name == 'report-page' %}page-expanded{% endif %}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#302C6C">
   <title>{% block title %}阿罗拉潮玩空间 · CRM{% endblock %}</title>
-  <link rel="stylesheet" href="{% static 'crm/app.css' %}?v=20261030-catalog-details-1">
+  <link rel="stylesheet" href="{% static 'crm/app.css' %}?v=20261104-uat-fix-1">
   <script src="{% static 'crm/crypto-compat.js' %}"></script>
+  <script>
+    window.attachLocalSearch = (select, label) => {
+      if (!select || select.dataset.localSearchReady) return;
+      const options = [...select.options].map(option => option.cloneNode(true));
+      const search = document.createElement('input');
+      search.type = 'search'; search.dataset.localSelectSearch = 'true'; search.placeholder = `搜索${label}`; search.setAttribute('aria-label', `搜索${label}`);
+      const feedback = document.createElement('small'); feedback.className = 'local-select-search-status'; feedback.setAttribute('role', 'status'); feedback.setAttribute('aria-live', 'polite');
+      select.before(search); search.after(feedback); select.dataset.localSearchReady = 'true';
+      const filter = () => {
+        const value = select.value, query = search.value.trim().toLocaleLowerCase();
+        const matches = options.filter(option => !option.value || !query || `${option.textContent} ${option.dataset.search || ''}`.toLocaleLowerCase().includes(query));
+        const count = matches.filter(option => option.value).length;
+        feedback.textContent = query ? (count ? `匹配 ${count} 项` : '无匹配项，当前选择仍保留') : '';
+        if (value && !matches.some(option => option.value === value)) matches.unshift(options.find(option => option.value === value));
+        select.replaceChildren(...matches.map(option => option.cloneNode(true))); select.value = value;
+      };
+      search.addEventListener('input', filter);
+      select.addEventListener('change', () => { search.value = ''; filter(); });
+    };
+  </script>
   {% block extra_head %}{% endblock %}
 </head>
-<body class="app-body {% if request.resolver_match.url_name == 'orders' or request.resolver_match.url_name == 'order-new' or request.resolver_match.url_name == 'order-detail' or request.resolver_match.url_name == 'order-edit' or request.resolver_match.url_name == 'catalog-search' or request.resolver_match.url_name == 'catalog-product-new' or request.resolver_match.url_name == 'receiving' or request.resolver_match.url_name == 'holds' or request.resolver_match.url_name == 'adjustments' or request.resolver_match.url_name == 'report-page' and report_name == 'payments' %}page-expanded{% endif %} {% block page_scope %}{% endblock %}">
+<body class="app-body {% if request.resolver_match.url_name == 'orders' or request.resolver_match.url_name == 'order-new' or request.resolver_match.url_name == 'order-detail' or request.resolver_match.url_name == 'order-edit' or request.resolver_match.url_name == 'catalog-search' or request.resolver_match.url_name == 'catalog-import' or request.resolver_match.url_name == 'catalog-product-new' or request.resolver_match.url_name == 'customer-new' or request.resolver_match.url_name == 'customer-edit' or request.resolver_match.url_name == 'receiving' or request.resolver_match.url_name == 'opening' or request.resolver_match.url_name == 'holds' or request.resolver_match.url_name == 'adjustments' or request.resolver_match.url_name == 'password_change' or request.resolver_match.url_name == 'password_change_done' or request.resolver_match.url_name == 'report-page' %}page-expanded{% endif %} {% block page_scope %}{% endblock %}">
   <a class="skip-link" href="#main-content">跳到主要内容</a>
   <div class="app-frame">
     <aside class="sidebar" id="primary-navigation" aria-label="主导航">{% include "crm/sidebar_contents.html" %}</aside>
@@ -21,7 +41,7 @@
       </button>
       <main class="main-content" id="main-content" tabindex="-1">
         {% block content %}{% endblock %}
-        {% if request.resolver_match.url_name == 'orders' or request.resolver_match.url_name == 'order-new' or request.resolver_match.url_name == 'order-detail' or request.resolver_match.url_name == 'order-edit' or request.resolver_match.url_name == 'catalog-search' or request.resolver_match.url_name == 'catalog-product-new' or request.resolver_match.url_name == 'receiving' or request.resolver_match.url_name == 'holds' or request.resolver_match.url_name == 'adjustments' or request.resolver_match.url_name == 'report-page' and report_name == 'payments' %}{% include "crm/theme_picker.html" %}{% endif %}
+        {% if request.resolver_match.url_name == 'orders' or request.resolver_match.url_name == 'order-new' or request.resolver_match.url_name == 'order-detail' or request.resolver_match.url_name == 'order-edit' or request.resolver_match.url_name == 'catalog-search' or request.resolver_match.url_name == 'catalog-import' or request.resolver_match.url_name == 'catalog-product-new' or request.resolver_match.url_name == 'customer-new' or request.resolver_match.url_name == 'customer-edit' or request.resolver_match.url_name == 'receiving' or request.resolver_match.url_name == 'opening' or request.resolver_match.url_name == 'holds' or request.resolver_match.url_name == 'adjustments' or request.resolver_match.url_name == 'password_change' or request.resolver_match.url_name == 'password_change_done' or request.resolver_match.url_name == 'report-page' %}{% include "crm/theme_picker.html" %}{% endif %}
       </main>
     </div>
   </div>
