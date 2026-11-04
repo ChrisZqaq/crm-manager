@@ -704,3 +704,12 @@ UV_PROJECT_ENVIRONMENT=/Users/chrisz/.cache/aluola-crm-uiquery1-venv CRM_DB_NAME
 - 结论：静态实现未发现单凭 `is_staff` 可绕过模型权限或取得超管能力的路径；P2-3若指普通员工可登录 `/admin/`，现代码确实如此，属于后台入口范围配置；若指可查看/修改具体业务模块，需看该账号实际组/单项权限。按派发未读取真实/运行账号配置，所以不能确认报告中的具体账号是否被授予额外模块权限，也不建议批量清理或改老板账号。最小建议是先核对被报告账号的 `is_active/is_staff/is_superuser`、groups及直接permissions；若业务要求普通员工不能进后台，再单独明确入口策略及老板现有管理流程后派窄改动。
 - 前端SKU查询答复：已有 `GET /api/v1/skus?q=...&page=1&page_size=50`，响应 `items,total,page,page_size,has_previous,has_next`；page_size默认50、上限200。每个SKU含 `id/code/unit/pack_type/pack_type_label/barcode/aliases[]`、包装尺寸重量、图片URL和状态，并嵌套商品/IP摘要；按启用SKU、启用产品/IP过滤，`q` 搜SKU编号/条码/单位/别名及商品字段，精确项优先。接口要求 `view_brand/view_product/view_sku`，现合同已足以供千条SKU局部查询，不需新增API。
 - 只读核查结束；向负责人报告P2-3结论并向前端答复SKU接口事实。后端继续按UAT-FIX-1104安排停写，不修改老板/员工真实账号或权限。
+
+### UAT-FIX-1104｜SKU搜索包型显示名窄修（2026-11-04）
+
+- 依据负责人派发的 QA 复现：固定前端版 `4875173` 的 SKU 查询可搜名称/别名/单位，但搜索“肥包”“瘦包”无结果；后端取得本轮唯一应用写入权，只修已有 SKU 搜索。
+- `crm/catalog.py` 的 `_ranked_skus` 将 `sku.get_pack_type_display()` 加入已有搜索值。`search_skus` 供 `/api/v1/skus` 与现有目录搜索调用；未改产品目录规则、API合同、权限、分页、模型或迁移。
+- `crm/tests.py` 增加 `CatalogTestCase.test_sku_search_matches_pack_type_label_and_keeps_existing_terms`：验证肥包/瘦包分别命中正确SKU，并保留商品名、商品别名、SKU别名、售卖单位命中和未知词空结果。
+- 应用与回归固定提交 `69827bb`，基于应用版 `4875173`；范围仅 `crm/catalog.py`、`crm/tests.py`。定向新测1项通过（Django system check通过）；`py_compile` 与 `git diff --check`通过；没有跑全套测试或其他回归。
+- 验证仅用本任务新建 `.local/UAT-FIX-1104-SKU-PACKTYPE-BACKEND/` PostgreSQL 17 Unix-socket隔离集群（`listen_addresses=''`，端口57626）；Django测试库已自动销毁，集群已停止。未连接QA库/真实库或写入业务数据。
+- 后端应用停写，按 `后端->测试` 与 `后端->负责人` 同步固定版本及证据，由QA在其隔离测试环境复验搜索修复；后续合并与整体验收由负责人安排。
