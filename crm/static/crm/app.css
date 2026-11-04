@@ -849,12 +849,12 @@ body.page-expanded #verify-result { min-height: 44px; }
   .customer-form .address label:nth-of-type(5) { grid-column: auto; }
   .adjustment-split-form, .adjustment-gift-form, .adjustment-count-form, .adjustment-correction-form,
   .adjustment-gift-form .gift-line, .adjustment-count-form .count-line, .adjustment-correction-form .correction-line { grid-template-columns: minmax(0, 1fr); }
-  .adjustment-split-form > label,
-  .adjustment-gift-form > label:has(#gift-reason), .adjustment-count-form > label:has(#count-reason),
+  .adjustment-split-form > label:has(#split-source-sku), .adjustment-split-form > label:has(#split-target-sku), .adjustment-split-form > label:has(#split-reason),
+  .adjustment-gift-form > label:has(#gift-reason), .adjustment-count-form > label:has(#count-reason), .adjustment-correction-form > label:has(#correction-reason),
   .adjustment-gift-form #gift-lines, .adjustment-count-form #count-lines,
   .adjustment-correction-form #correction-lines, .adjustment-correction-form #supplemental-costs,
   .adjustment-correction-form .correction-line > h4, .adjustment-correction-form .correction-line > label:has(.source-sku),
-  .adjustment-count-form .count-line > p { grid-column: 1; }
+  .adjustment-count-form .count-line > label:has(.count-sku), .adjustment-count-form .count-line > p { grid-column: 1; }
   .adjustment-gift-form .gift-line > button, .adjustment-count-form .count-line > button { justify-self: start; }
 }
 @media (min-width: 761px) and (max-width: 1024px) {
