@@ -1,8 +1,28 @@
 # 原开发／后端当前工作
 
-更新：2026-10-20；COST-COMMISSION-BYPASS-1020最小修复已固定，待QA定向复核。长期主责后端和数据库。
+更新：2026-11-06；SKU-NUMBER-HINT-1106应用已固定，待QA定向复核。长期主责后端和数据库。
 
-最近阶段交付：阶段6fd3c991及导航修复b6bc1e8已负责人验收，发布f477c07；UI-QUERY-1待提交，结果见下节。
+最近阶段交付：SKU-NUMBER-HINT-1106固定应用`6074eb72057ba7370f47e5412e19afe9f74fbdfb`；阶段6fd3c991及导航修复b6bc1e8已负责人验收，发布f477c07；历史任务结果见下节。
+
+## SKU-NUMBER-HINT-1106｜实现、自测与交接
+
+依据：负责人当前派发及`docs/project/DEVELOPMENT_PLAN.md`。应用基线`f0bb5c7`，派发前HEAD`0fbb0a4`仅含范围文档；后端是唯一应用写入者。本轮只改`crm/admin.py`、`crm/operations.py`、`crm/views.py`、`crm/static/crm/sku-number-suggestion.js`、`crm/templates/crm/catalog_product_new.html`和`crm/tests.py`，无迁移。
+
+### 实现与权限
+
+- 商品新建页切换IP时读取一次现有建议；新增/删除SKU行或手填编号时仅在本地避开已填代码，为空行生成不重复的连续建议。前缀宽度沿用服务端结果，异步旧响应丢弃；失败显示在编号旁并可显式重试。建议不预占，按钮只填入空字段；已有服务端唯一性校验不变。
+- SKU Admin新增静态提示：选商品后按商品ID读取该IP建议；后台脚本等DOM就绪，保护切换商品的旧响应，提供失败重试并保留手填值。
+- 建议API按IP查询仍要求`add_product`，按商品查询只要求`add_sku`。测试确认仅有`add_sku`的账号可看建议及SKU新建页脚本，但不能查IP级建议或通过商品创建API写商品；没有授予新写权限。
+
+### 验证与限制
+
+- 隔离PostgreSQL库上3项定向Django测试通过：SKU-only权限/前缀宽度与后台脚本、新建商品幂等和条码确认、现有编号唯一性与表单验证。系统检查无问题；Python语法编译、静态JS语法及`git diff --check`通过。
+- Node断言模拟后台head加载后DOM就绪、建议显示、HTTP 200无效JSON和网络失败后的中文提示/重试、手填保护，以及多行本地避重和四位进位后的前缀宽度，均通过。没有真实浏览器交互或视觉验收，交QA定向核验两入口。
+- 测试运行器创建并销毁`test_aluola_sku_number_hint_1106`。测试使用独立本地合成PostgreSQL集群`.local/SKU-NUMBER-HINT-1106-BACKEND`和测试库`aluola_sku_number_hint_1106`；该集群已停止，未连接开发、演示、QA共享或真实数据。没有迁移、部署或推送。
+
+### 固定与下一步
+
+应用提交：`6074eb72057ba7370f47e5412e19afe9f74fbdfb`。提交后停止应用写入。QA按固定版检查后台选商品提示、商品新建多行递增/手填避重、快速切换旧响应、失败重试和SKU-only读写权限；结果回负责人。未完成真实浏览器/多端视觉验收；独立QA通过前不推送。本轮完成交测后暂停，等待后续恢复指令。
 
 已向前端说明现有权限、同源session/CSRF、分页及订单preview/确认幂等流程；仅接口事实，不是原型批准或改业务授权。若后续需后端改动，报告负责人决定范围和前后端先后写入。不得移动公共文档、用户期初模板或停止演示服务。
 
