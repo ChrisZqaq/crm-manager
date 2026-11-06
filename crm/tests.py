@@ -410,6 +410,7 @@ class CatalogTestCase(TestCase):
         self.assertIn("简中", [row["name"] for row in languages.json()["items"]])
         suggestion = client.get("/api/v1/skus/number-suggestion", {"brand_id": self.brand.pk})
         self.assertEqual(suggestion.json()["suggested_code"], "SEA0002")
+        self.assertEqual(suggestion.json()["sku_prefix"], "SEA")
 
         before = (Product.objects.count(), SKU.objects.count(), BusinessOperation.objects.count())
         duplicate = client.post(
@@ -464,6 +465,39 @@ class CatalogTestCase(TestCase):
             data=json.dumps(sku_payload),
             content_type="application/json",
         ).json(), new_sku.json())
+
+    def test_sku_number_hint_is_scoped_to_sku_permission_and_keeps_prefix_width(self):
+        SKU.objects.create(product=self.product, code="SEA10000", unit="盒")
+        user = self.make_user()
+        user.user_permissions.add(Permission.objects.get(content_type__app_label="crm", codename="add_sku"))
+        client = Client()
+        client.force_login(user)
+
+        hint = client.get("/api/v1/skus/number-suggestion", {"product_id": self.product.pk})
+        self.assertEqual(hint.status_code, 200, hint.content)
+        self.assertEqual(hint.json()["current_max_code"], "SEA10000")
+        self.assertEqual(hint.json()["suggested_code"], "SEA10001")
+        self.assertEqual(hint.json()["sku_prefix"], "SEA")
+        self.assertFalse(user.has_perm("crm.add_product"))
+        self.assertEqual(client.get("/api/v1/skus/number-suggestion", {"brand_id": self.brand.pk}).status_code, 403)
+        user.is_staff = True
+        user.save(update_fields=("is_staff",))
+        admin_form = client.get("/admin/crm/sku/add/")
+        self.assertEqual(admin_form.status_code, 200)
+        self.assertContains(admin_form, "crm/sku-number-suggestion.js")
+        denied_create = client.post("/api/v1/products", data="{}", content_type="application/json")
+        self.assertEqual(denied_create.status_code, 403)
+        self.assertEqual(SKU.objects.count(), 2)
+
+        creator = self.make_user()
+        creator.user_permissions.set(Permission.objects.filter(
+            content_type__app_label="crm",
+            codename__in=("add_product", "add_sku"),
+        ))
+        client.force_login(creator)
+        product_form = client.get("/catalog/new/")
+        self.assertEqual(product_form.status_code, 200)
+        self.assertContains(product_form, "crm/sku-number-suggestion.js")
 
     def test_product_inventory_is_opt_in_and_requires_inventory_permission(self):
         warehouse = Warehouse.objects.create(name="测试库存仓", address="合成地址")

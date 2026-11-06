@@ -403,11 +403,17 @@ def product_languages_api(request):
 
 @require_safe
 def sku_number_suggestion_api(request):
-    error = _require_api_access(request, (("crm", "add_product"),))
+    product_id = request.GET.get("product_id")
+    permission = "add_sku" if product_id is not None else "add_product"
+    error = _require_api_access(request, (("crm", permission),))
     if error:
         return error
     try:
-        return JsonResponse(sku_number_suggestion(request.user, request.GET.get("brand_id")))
+        return JsonResponse(sku_number_suggestion(
+            request.user,
+            request.GET.get("brand_id"),
+            product_id=product_id,
+        ))
     except OperationError as exc:
         return _api_error(request, exc.status, exc.code, str(exc), exc.fields, exc.details)
 

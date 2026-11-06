@@ -110,6 +110,9 @@ class SKUAdmin(ArchiveAdmin):
     list_filter = ("product__brand", "product__type", "pack_type", "is_active")
     search_fields = ("code", "barcode", "product__name", "product__brand__name")
 
+    class Media:
+        js = ("crm/sku-number-suggestion.js",)
+
     def get_readonly_fields(self, request, obj=None):
         fields = list(super().get_readonly_fields(request, obj))
         if obj:

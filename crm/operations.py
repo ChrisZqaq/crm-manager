@@ -1483,21 +1483,35 @@ def update_catalog_image(actor, entity, record_id, image_data, image_format, ope
     return _run_write(action, actor, request_id, write)
 
 
-def sku_number_suggestion(actor, brand_id):
-    _require(actor, "add_product")
-    brand_id = identifier(brand_id, "brand_id")
-    brand = Brand.objects.filter(pk=brand_id).first()
-    if brand is None:
-        raise OperationError("IP不存在。", status=404, code="not_found", fields={"brand_id": "请选择已有IP。"})
+def sku_number_suggestion(actor, brand_id=None, *, product_id=None):
+    if product_id is not None:
+        _require(actor, "add_sku")
+        if brand_id is not None:
+            raise OperationError("请按IP或商品查询编号建议。", fields={"product_id": "不能同时指定IP。"})
+        product_id = identifier(product_id, "product_id")
+        product = Product.objects.select_related("brand").filter(pk=product_id).first()
+        if product is None:
+            raise OperationError("商品不存在。", status=404, code="not_found", fields={"product_id": "请选择已有商品。"})
+        brand = product.brand
+    else:
+        _require(actor, "add_product")
+        brand_id = identifier(brand_id, "brand_id")
+        brand = Brand.objects.filter(pk=brand_id).first()
+        if brand is None:
+            raise OperationError("IP不存在。", status=404, code="not_found", fields={"brand_id": "请选择已有IP。"})
     numeric_codes = []
     for code in SKU.objects.filter(product__brand=brand, code__startswith=brand.sku_prefix).values_list("code", flat=True):
         suffix = code[len(brand.sku_prefix):]
         if suffix.isascii() and suffix.isdigit():
             numeric_codes.append((int(suffix), suffix, code))
     if not numeric_codes:
-        return {"current_max_code": "", "suggested_code": f"{brand.sku_prefix}0001"}
+        return {"current_max_code": "", "suggested_code": f"{brand.sku_prefix}0001", "sku_prefix": brand.sku_prefix}
     maximum, suffix, code = max(numeric_codes)
-    return {"current_max_code": code, "suggested_code": f"{brand.sku_prefix}{str(maximum + 1).zfill(max(4, len(suffix)))}"}
+    return {
+        "current_max_code": code,
+        "suggested_code": f"{brand.sku_prefix}{str(maximum + 1).zfill(max(4, len(suffix)))}",
+        "sku_prefix": brand.sku_prefix,
+    }
 
 
 def update_sku_low_stock(actor, sku_id, data, operation_key, request_id=""):
