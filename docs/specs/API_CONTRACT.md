@@ -219,7 +219,7 @@ UI-LIST-FILTERS集中核对补充（待实施）：orders.filter_options另含 `
 | GET product-languages | 登录商品查看范围，返回id/name选项；普通录商品不支持新增选项。老板/超级管理员在原生管理后台维护。商品读取language仍为名称，筛选language仍接受名称，期初文字精确解析现有选项，未知值报行字段错误。 |
 | POST products | 产品共有字段含language_id，skus数组为实际SKU字段；operation_key。同事务创建产品及SKU，至少一个SKU，所有行复用现有格式、语言、单位/条码重复确认和模型校验，要求add_product及add_sku。结果product_id/sku_ids，同键重放不重建。保留输入并报告并发编号冲突。 |
 | POST skus | 为已有product_id新增SKU，沿用SKU字段、重复条码明确确认及operation_key，要求add_sku，不修改已有产品身份或编号。 |
-| GET skus/number-suggestion | brand_id；仅商品创建权限可查。按既定IP前缀数字后缀找最大号，返回current_max_code/suggested_code（无已有编号时最大为空，建议从0001开始）。只读建议，不预占、不自动分配；保存仍唯一校验。 |
+| GET skus/number-suggestion | brand_id或product_id（二选一）；按IP查询需商品创建权限，按已有商品查询需SKU创建权限。沿既定IP前缀数字后缀找最大号，返回current_max_code/suggested_code/sku_prefix（无已有编号时最大为空，建议从0001开始）。只读建议，不预占、不自动分配；保存仍唯一校验。SKU-NUMBER-HINT-1106实现与验收状态以开发计划为准。 |
 | GET/PATCH opening/control | GET返回enabled/completed/version及可执行动作；PATCH传enabled、expected_version、operation_key，version沿用control.last_sequence。manage_opening权限且老板身份，超级管理员按既有规则；普通获权限者不满足身份仍拒绝。仅未入账可关闭/重开，不要求关入口时空库存；已入账不可重开。确认/开关同锁，关闭后preview/confirm均拒绝，原入账保护保留。 |
 
 新客户建档需add_customer；更新已有客户资料需change_customer及维护范围；订单动作仍需原权限。订单提交输入与开票/新客数据一起绑定预览哈希，禁止确认时替换。新的开票资料没有完整度/税务/开具状态。共用已有错误、权限、事务和日志方案，不新增搜索服务/审计框架。
