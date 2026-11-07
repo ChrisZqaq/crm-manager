@@ -1,8 +1,8 @@
 # 部署工程师当前任务与交付状态
 
-补充状态（2026-10-21 CRM-FORMAL-OPENING-1021）：负责人已派发云端正式入账准备并授权仅建立独立新业务库；本阶段已完成，正式预览/确认、服务启动与HTTPS上游切换未执行。等待负责人结合本机候选QA结论另开数据窗口。
+补充状态（2026-11-07 CLOUD-UPDATE-1106）：固定版本`c59295e51d75ca259ec1ca0c620323791716436b`已发布至云端，登录与SKU提示相关只读页面验收通过；应用与静态旧版本保留可回退。发布后恢复点`CLOUD-UPDATE-1106/snapshot-20261107T024625Z`已完成可读及配对核验。部署侧已停止后续云端变更，服务继续正常运行；没有提交业务记录、修改账号/权限或改动入口。本次真实登录按正常认证流程产生了会话，Django也可能更新`last_login`等认证元数据。
 
-当前状态（2026-10-21）：候选库已交期初数据专员，部署侧停止候选写入并待命；企业微信暂停；无后续自动任务。
+当前状态（2026-11-07）：云端CRM服务保持active，loopback上游由既有HTTPS入口代理；业务库保持迁移0020，未导入或改动业务记录。部署阶段结束，等待负责人后续安排；企业微信接入未在本阶段实施。
 
 2026-10-08，任务DEPLOY-AUDIT-1：用户授权GPT-6 Luna通过本机 `ssh tx` 检查腾讯云服务器部署条件并向负责人报告。
 
@@ -576,3 +576,15 @@ Windows旧目录HEAD `de4d9eb6ac16bc8b3f9b952c552da7d55d5496ee` 是无父根快�
 - 新unit只监听 `127.0.0.1:18766`，active、disabled未设开机启动。dev unit和Nginx保持active，CRM HTTPS vhost两处上游仍为 `127.0.0.1:18765`，18888继续dev；未做真实Nginx→正式服务HTTPS/浏览器联调。正式库只读复核仍为目标库/普通app role/PG14.24/0017，585 Product/SKU、104余额/流水、BusinessControl seq1/已完成/入口关闭，BusinessOperation 1。
 - 重启后第一次紧接着探测时尚未出现监听、HTTP连接拒绝；自动回滚只恢复本unit的settings/env并重启原服务，dev/Nginx未受影响。按监听就绪等待后重试通过，最终配置已再次应用；配置前副本保留以便回退。服务器最新单次快照：2 vCPU、available RAM 1,233,686,528字节、swap已用106,696,704字节、根盘可用37,723,369,472字节；新unit cgroup内存57,241,600字节，无memory limit。峰值资源仍未知。
 - 私有切换/回退清单已同步更新为仅用新Django Secure Cookie、不再保留dev vhost的 `proxy_cookie_path` Secure补丁，当前SHA-256两侧均 `ce3b51204fd2e5454b3787b8945191a64acbb788f41375828e140412c75fb526`，云端600。HTTPS上游仍待真实HTTPS端到端验收、dev最终烟测交付、外部备份/员工密码及真实业务基础配置条件和负责人切换窗口；本阶段停止后续环境写入。
+
+## CLOUD-UPDATE-1106 云端固定版本更新（2026-11-07）
+
+按用户授权将云端CRM应用更新至固定版本；仅改CRM应用发布目录与静态发布链接，并重启CRM业务unit。未提交业务记录、修改账号/权限、改变业务配置或改动Nginx/DNS/防火墙/隧道/PostgreSQL；真实登录产生认证会话并可能更新`last_login`。
+
+- **版本及发布内容：**目标树SHA `c59295e51d75ca259ec1ca0c620323791716436b`，其中应用提交 `6074eb72057ba7370f47e5412e19afe9f74fbdfb`。云端原部署标记为`f0bb5c74b5bc801db605bf934f88dc5e32c79af6`。发布前逐文件核对103个托管文件：97个相同、5个目标变更文件和1个新增JS文件已部署，无额外文件或未知补丁；目标Python依赖锁与现有环境一致，因此未安装或改动依赖。SKU编号建议功能涉及`crm/admin.py`、`crm/operations.py`、`crm/views.py`、`crm/tests.py`、`crm/templates/crm/catalog_product_new.html`和新增`crm/static/crm/sku-number-suggestion.js`。
+- **发布前恢复点：**停CRM unit但保持PostgreSQL运行，创建一致配对快照`CLOUD-UPDATE-1106/snapshot-20261107T023915Z`，应用标记为旧版`f0bb5c7…`、数据库迁移0020。数据库dump 408454字节；PG14 `pg_restore --list` 483项并完整解码通过，manifest SHA匹配。整份MEDIA_ROOT含12个文件、19,976,391字节；逐文件大小和SHA核对无缺失/额外/差异。私有本机配对副本位于`.local/CLOUD-UPDATE-1106/pre-deploy-snapshot.tar.gz`，19,065,353字节，gzip、manifest、dump和12个媒体文件校验均通过。变更前应用/配置/旧静态资源私有归档SHA-256为`074a4e761dd18db5810edbcbcb1870a86fa854b8e09635109e6a9e6e80c9742d`，本机与云端副本一致；归档包含私有settings/env等配置，云端及本机文件权限600，配置秘密未复制到工作记录或报告中。
+- **应用与静态发布：**固定版本归档SHA-256 `4958f3f46582b6609d7c86f4d5922cd2dcb158184dbc64c5aa6cad67b65cdc7c`。先部署至独立release目录，并复核103个托管文件与固定源逐项完全一致，再切换应用和静态symlink；云端旧应用保留在`/opt/aluola-crm-formal-opening-20261021/releases/rollback-f0bb5c7/app`，旧静态目录保留在`/var/www/aluola-crm-wecom/static-rollback-f0bb5c7`。现有venv与锁文件一致，没有重建。有效Django设置的`STATIC_ROOT`为空，故只在`collectstatic`进程中提供目标目录覆盖，没有改settings；收集135个文件/1,665,651字节。线上新增JS可由`www-data`读取，服务响应JS SHA与目标文件一致。
+- **服务及检查：**`aluola-crm-business.service`现为active，仅监听`127.0.0.1:18766`；没有改Nginx配置，公开HTTPS vhost仍代理到该既有loopback上游。Django `check`通过；`migrate --check`无待迁移，数据库保持0020且本次未执行迁移。公网HTTPS证书验证通过；`/`为302、登录页200、管理CSS和新增JS均200且MIME正确；JS响应SHA与目标文件相同。匿名访问SKU相关受限页面按预期302至登录。只读复核商品517、SKU1099；销售单、收货单、库存余额和库存流水仍为0，未写业务记录。
+- **发布后恢复点：**发布后手动触发既有`aluola-crm-backup`服务一次，没有改动timer频率；成功生成`CLOUD-UPDATE-1106/snapshot-20261107T024625Z`，manifest记载新应用`c59295e…`、迁移0020及正确数据库身份。dump 408454字节、483项TOC，`pg_restore --list`和完整解码通过且SHA匹配。配对媒体12文件/19,976,391字节，逐文件核对无差异；产品图12、SKU图0，与当前引用相符。
+- **真实账号登录验收：**未输出凭据或散列。在负责人确认的既存正式账号清单中，管理员候选用户名不在当前云端库，停止该条尝试；另只读匹配唯一owner/staff账号，确认存在、active=true、staff=true，`check_password`对清单中原存口令匹配。首次诊断客户端未保留HTTP POST响应；Nginx日志显示其返回200、响应体2622字节，无法追溯错误类别。负责人授权后以同一owner凭据再做一次受控HTTPS POST，关闭自动重定向，响应302、Location为`/`；无CSRF/凭据错误，session cookie存在且Secure=true。使用同一CookieJar只读GET首页、`/catalog/`和`/catalog/new/`均200，新建页包含`sku-number-suggestion.js`。登录验收通过；没有修改账号/权限或业务记录。
+- **回退与未做项：**应用/静态旧release仍保留，可按symlink恢复。没有跑完整测试套件、浏览器视觉验收或业务写入流程；没有运行数据库迁移。资源仅有单次快照，无峰值容量结论。
